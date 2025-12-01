@@ -124,6 +124,23 @@ public final class FeatureSetExecutor: @unchecked Sendable {
         let resultDescriptor = ResultDescriptor(from: statement.result)
         let objectDescriptor = ObjectDescriptor(from: statement.object)
 
+        // Bind literal value if present (e.g., "Hello, World!" in the statement)
+        if let literalValue = statement.literalValue {
+            let literalName = "_literal_"
+            switch literalValue {
+            case .string(let s):
+                context.bind(literalName, value: s)
+            case .integer(let i):
+                context.bind(literalName, value: i)
+            case .float(let f):
+                context.bind(literalName, value: f)
+            case .boolean(let b):
+                context.bind(literalName, value: b)
+            case .null:
+                context.bind(literalName, value: "")
+            }
+        }
+
         // Get action implementation
         guard let action = actionRegistry.action(for: verb) else {
             throw ActionError.unknownAction(verb)

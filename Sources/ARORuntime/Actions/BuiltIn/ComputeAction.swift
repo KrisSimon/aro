@@ -313,17 +313,16 @@ public struct CreateAction: ActionImplementation {
     ) async throws -> any Sendable {
         try validatePreposition(object.preposition)
 
-        // Get creation data
-        var data: [String: any Sendable] = [:]
-        if let source: [String: String] = context.resolve(object.base) {
-            for (k, v) in source { data[k] = v }
-        } else if let source = context.resolveAny(object.base) {
-            data["value"] = source
+        // Get the source value - this is what we're creating from
+        // The source can be a literal, a variable, or structured data
+        if let sourceValue = context.resolveAny(object.base) {
+            // Return the actual value directly - this gets bound to result.base
+            // by the FeatureSetExecutor
+            return sourceValue
         }
 
-        // Create entity with type from result
-        let entityType = result.base
-        return CreatedEntity(type: entityType, data: data)
+        // If no source found, return empty string as default
+        return ""
     }
 }
 
