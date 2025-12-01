@@ -12,17 +12,17 @@
     <Return> an <OK: status> for the <startup>.
 }
 
-(GET /: Root Handler) {
-    <Create> the <response: body> with { message: "Welcome to ARO!" }.
-    <Return> an <OK: status> with <response: body>.
+(Handle Root Request: HTTP Handler) {
+    <Create> the <response: body> with "Welcome to ARO!".
+    <Return> an <OK: status> with <response>.
 }
 
-(GET /health: Health Check) {
-    <Create> the <health: status> with { status: "healthy" }.
-    <Return> an <OK: status> with <health: status>.
+(Handle Health Check: HTTP Handler) {
+    <Create> the <health: status> with "healthy".
+    <Return> an <OK: status> with <health>.
 }
 
-(POST /echo: Echo Handler) {
+(Handle Echo Request: HTTP Handler) {
     <Extract> the <body> from the <request: body>.
     <Return> an <OK: status> with <body>.
 }
