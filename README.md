@@ -145,7 +145,7 @@ swift build
 swift test
 
 # Run an example application
-swift run aro run ./Examples/HelloWorld
+aro run ./Examples/HelloWorld
 ```
 
 ## Usage

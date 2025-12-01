@@ -147,10 +147,10 @@ Run your application directly without compilation:
 
 ```bash
 # From the project root
-swift run aro run ./Examples/HelloWorldAPI
+aro run ./Examples/HelloWorldAPI
 
 # Or with keep-alive for continuous server
-swift run aro run ./Examples/HelloWorldAPI --keep-alive
+aro run ./Examples/HelloWorldAPI --keep-alive
 ```
 
 You should see:
@@ -181,7 +181,7 @@ ARO can compile your application to a native binary for production deployment.
 ### Check Syntax First
 
 ```bash
-swift run aro check ./Examples/HelloWorldAPI
+aro check ./Examples/HelloWorldAPI
 ```
 
 This validates all `.aro` files without running them.
@@ -189,7 +189,7 @@ This validates all `.aro` files without running them.
 ### Compile to Binary
 
 ```bash
-swift run aro compile ./Examples/HelloWorldAPI
+aro compile ./Examples/HelloWorldAPI
 ```
 
 This produces a compiled report showing the structure of your application.
@@ -197,7 +197,7 @@ This produces a compiled report showing the structure of your application.
 ### Build Native Binary
 
 ```bash
-swift run aro build ./Examples/HelloWorldAPI
+aro build ./Examples/HelloWorldAPI
 ```
 
 This creates a native executable in your application directory.
@@ -308,5 +308,5 @@ Examples/HelloWorldAPI/
 
 Run it with:
 ```bash
-swift run aro run ./Examples/HelloWorldAPI --keep-alive
+aro run ./Examples/HelloWorldAPI --keep-alive
 ```

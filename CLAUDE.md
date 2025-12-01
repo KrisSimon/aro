@@ -7,13 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 swift build              # Build the project
 swift test               # Run all tests
-swift run aro run ./Examples/UserService      # Run multi-file application
-swift run aro run ./Examples/HTTPServer --keep-alive  # Run server with keep-alive
-swift run aro compile ./MyApp   # Compile all .aro files in directory
-swift run aro check ./MyApp     # Syntax check all .aro files
-swift run aro build ./MyApp     # Compile to native binary (C code + object file)
-swift run aro build ./MyApp --emit-c  # Generate C code only
-swift run aro build ./MyApp --verbose --optimize  # Verbose build with optimizations
+aro run ./Examples/UserService      # Run multi-file application
+aro run ./Examples/HTTPServer --keep-alive  # Run server with keep-alive
+aro compile ./MyApp   # Compile all .aro files in directory
+aro check ./MyApp     # Syntax check all .aro files
+aro build ./MyApp     # Compile to native binary (C code + object file)
+aro build ./MyApp --emit-c  # Generate C code only
+aro build ./MyApp --verbose --optimize  # Verbose build with optimizations
 ```
 
 ## Architecture
