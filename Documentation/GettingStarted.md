@@ -146,6 +146,10 @@ WebServer/
     <Log> the <startup: message> for the <console> with "Starting web server...".
     <Start> the <http-server> on port 8080.
     <Log> the <ready: message> for the <console> with "Server running at http://localhost:8080".
+
+    (* Keep the application running to process HTTP requests *)
+    <Keepalive> the <application> for the <events>.
+
     <Return> an <OK: status> for the <startup>.
 }
 
@@ -181,8 +185,10 @@ WebServer/
 ### Run the Server
 
 ```bash
-aro run ./WebServer --keep-alive
+aro run ./WebServer
 ```
+
+Note: The server uses the `<Keepalive>` action to stay running until interrupted.
 
 Test it:
 ```bash
@@ -199,7 +205,7 @@ ARO provides several commands:
 
 ```bash
 aro run ./MyApp              # Run and exit when done
-aro run ./MyApp --keep-alive # Run until interrupted (for servers)
+# For servers, use <Keepalive> action in your code to keep running
 ```
 
 ### Compile Without Running

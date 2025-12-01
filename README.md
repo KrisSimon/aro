@@ -158,8 +158,8 @@ aro run ./Examples/HelloWorld
 # Run an ARO application
 aro run ./Examples/HTTPServer
 
-# Run and keep alive (for servers)
-aro run ./Examples/HTTPServer --keep-alive
+# Servers use the <Keepalive> action to stay running
+# No --keep-alive flag needed
 
 # Compile only (check for errors)
 aro compile ./MyApp

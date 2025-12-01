@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 swift build              # Build the project
 swift test               # Run all tests
 aro run ./Examples/UserService      # Run multi-file application
-aro run ./Examples/HTTPServer --keep-alive  # Run server with keep-alive
+aro run ./Examples/HTTPServer       # Run server (uses Keepalive action)
 aro compile ./MyApp   # Compile all .aro files in directory
 aro check ./MyApp     # Syntax check all .aro files
 aro build ./MyApp     # Compile to native binary (C code + object file)

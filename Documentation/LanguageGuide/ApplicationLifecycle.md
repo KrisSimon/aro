@@ -182,17 +182,21 @@ Available variables in Application-End handlers:
 aro run ./MyApp
 ```
 
-The application runs and exits when Application-Start completes (unless services keep it alive).
+The application runs and exits when Application-Start completes.
 
-### Keep Alive
+### Keeping Applications Alive
 
-For servers that should run indefinitely:
+For servers that should run indefinitely, use the `<Keepalive>` action:
 
-```bash
-aro run ./MyApp --keep-alive
+```aro
+(Application-Start: My Server) {
+    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status> for the <startup>.
+}
 ```
 
-The application runs until interrupted (Ctrl+C or kill signal).
+The `<Keepalive>` action blocks until interrupted (Ctrl+C or kill signal).
 
 ### Graceful Shutdown
 
@@ -220,6 +224,7 @@ When an unhandled error occurs:
 ```aro
 (Application-Start: Web Server) {
     <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
@@ -234,6 +239,7 @@ When an unhandled error occurs:
 ```aro
 (Application-Start: File Processor) {
     <Watch> the <directory: "./inbox"> as <file-watcher>.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
@@ -248,6 +254,7 @@ When an unhandled error occurs:
 ```aro
 (Application-Start: Socket Server) {
     <Listen> on port 9000 as <socket-server>.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
@@ -272,6 +279,9 @@ When an unhandled error occurs:
 
     (* Background jobs *)
     <Start> the <job-scheduler>.
+
+    (* Keep the application running *)
+    <Keepalive> the <application> for the <events>.
 
     <Return> an <OK: status> for the <startup>.
 }

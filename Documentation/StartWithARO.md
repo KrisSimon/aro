@@ -93,6 +93,9 @@ Every ARO application needs exactly ONE `Application-Start` feature set. This is
     (* Log ready message *)
     <Log> the <ready: message> for the <console> with "Server running at http://localhost:8000".
 
+    (* Keep the application running to process HTTP requests *)
+    <Keepalive> the <application> for the <events>.
+
     (* Return OK to indicate successful startup *)
     <Return> an <OK: status> for the <startup>.
 }
@@ -148,9 +151,6 @@ Run your application directly without compilation:
 ```bash
 # From the project root
 aro run ./Examples/HelloWorldAPI
-
-# Or with keep-alive for continuous server
-aro run ./Examples/HelloWorldAPI --keep-alive
 ```
 
 You should see:
@@ -308,5 +308,5 @@ Examples/HelloWorldAPI/
 
 Run it with:
 ```bash
-aro run ./Examples/HelloWorldAPI --keep-alive
+aro run ./Examples/HelloWorldAPI
 ```
