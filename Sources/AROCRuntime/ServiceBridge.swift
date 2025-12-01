@@ -6,6 +6,7 @@
 import Foundation
 import AROParser
 import ARORuntime
+import CoreServices
 
 // MARK: - HTTP Server Bridge
 
@@ -439,21 +440,71 @@ public func aro_directory_list(
     }
 }
 
-// MARK: - File Watcher Bridge
+// MARK: - File Watcher Bridge (FSEvents-based)
 
-/// File watcher handle
+/// File watcher handle using FSEvents
 final class FileWatcherHandle: @unchecked Sendable {
     var path: String
-    var callback: (@convention(c) (UnsafePointer<CChar>?, Int32) -> Void)?
+    var streamRef: FSEventStreamRef?
     var isWatching: Bool = false
+    var lastEventId: FSEventStreamEventId = FSEventStreamEventId(kFSEventStreamEventIdSinceNow)
 
     init(path: String) {
         self.path = path
+    }
+
+    deinit {
+        stop()
+    }
+
+    func stop() {
+        if let stream = streamRef {
+            FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            streamRef = nil
+        }
+        isWatching = false
     }
 }
 
 nonisolated(unsafe) private var fileWatcherHandles: [UnsafeMutableRawPointer: FileWatcherHandle] = [:]
 private let watcherLock = NSLock()
+
+/// FSEvents callback - called when file changes occur
+private func fsEventsCallback(
+    streamRef: ConstFSEventStreamRef,
+    clientCallBackInfo: UnsafeMutableRawPointer?,
+    numEvents: Int,
+    eventPaths: UnsafeMutableRawPointer,
+    eventFlags: UnsafePointer<FSEventStreamEventFlags>,
+    eventIds: UnsafePointer<FSEventStreamEventId>
+) {
+    let paths = unsafeBitCast(eventPaths, to: NSArray.self)
+
+    for i in 0..<numEvents {
+        guard let path = paths[i] as? String else { continue }
+        let flags = eventFlags[i]
+
+        // Determine event type
+        let eventType: String
+        if (flags & UInt32(kFSEventStreamEventFlagItemCreated)) != 0 {
+            eventType = "Created"
+        } else if (flags & UInt32(kFSEventStreamEventFlagItemRemoved)) != 0 {
+            eventType = "Deleted"
+        } else if (flags & UInt32(kFSEventStreamEventFlagItemModified)) != 0 ||
+                  (flags & UInt32(kFSEventStreamEventFlagItemInodeMetaMod)) != 0 {
+            eventType = "Modified"
+        } else if (flags & UInt32(kFSEventStreamEventFlagItemRenamed)) != 0 {
+            eventType = "Renamed"
+        } else {
+            continue // Skip unknown events
+        }
+
+        // Print to console (matching interpreter behavior)
+        print("[FileMonitor] \(eventType): \(path)")
+    }
+}
 
 /// Create a file watcher
 /// - Parameter path: Path to watch (C string)
@@ -462,7 +513,24 @@ private let watcherLock = NSLock()
 public func aro_file_watcher_create(_ path: UnsafePointer<CChar>?) -> UnsafeMutableRawPointer? {
     guard let pathStr = path.map({ String(cString: $0) }) else { return nil }
 
-    let handle = FileWatcherHandle(path: pathStr)
+    // Resolve relative paths
+    let resolvedPath: String
+    if pathStr == "." {
+        resolvedPath = FileManager.default.currentDirectoryPath
+    } else if !pathStr.hasPrefix("/") {
+        resolvedPath = FileManager.default.currentDirectoryPath + "/" + pathStr
+    } else {
+        resolvedPath = pathStr
+    }
+
+    // Verify path exists
+    var isDir: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: resolvedPath, isDirectory: &isDir) else {
+        print("[FileMonitor] Error: Path not found: \(resolvedPath)")
+        return nil
+    }
+
+    let handle = FileWatcherHandle(path: resolvedPath)
     let pointer = Unmanaged.passRetained(handle).toOpaque()
 
     watcherLock.lock()
@@ -472,25 +540,57 @@ public func aro_file_watcher_create(_ path: UnsafePointer<CChar>?) -> UnsafeMuta
     return UnsafeMutableRawPointer(pointer)
 }
 
-/// Start watching for file changes
-/// - Parameters:
-///   - watcherPtr: Watcher handle
-///   - callback: Callback function (path, event_type)
+/// Start watching for file changes using FSEvents
+/// - Parameter watcherPtr: Watcher handle
 /// - Returns: 0 on success
 @_cdecl("aro_file_watcher_start")
-public func aro_file_watcher_start(
-    _ watcherPtr: UnsafeMutableRawPointer?,
-    _ callback: (@convention(c) (UnsafePointer<CChar>?, Int32) -> Void)?
-) -> Int32 {
+public func aro_file_watcher_start(_ watcherPtr: UnsafeMutableRawPointer?) -> Int32 {
     guard let ptr = watcherPtr else { return -1 }
 
     let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
-    handle.callback = callback
+
+    // Already watching
+    if handle.isWatching { return 0 }
+
+    // Create FSEvents stream
+    var context = FSEventStreamContext(
+        version: 0,
+        info: ptr,
+        retain: nil,
+        release: nil,
+        copyDescription: nil
+    )
+
+    let pathsToWatch = [handle.path] as CFArray
+
+    guard let stream = FSEventStreamCreate(
+        nil,
+        fsEventsCallback,
+        &context,
+        pathsToWatch,
+        handle.lastEventId,
+        0.5, // Latency in seconds
+        FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagUseCFTypes)
+    ) else {
+        print("[FileMonitor] Error: Failed to create FSEvents stream")
+        return -1
+    }
+
+    handle.streamRef = stream
     handle.isWatching = true
 
-    // Note: Actual file watching would use FileMonitor from ARORuntime
-    // This is a simplified bridge
+    // Schedule on a background queue
+    let queue = DispatchQueue(label: "aro.filemonitor", qos: .utility)
+    FSEventStreamSetDispatchQueue(stream, queue)
 
+    // Start the stream
+    if !FSEventStreamStart(stream) {
+        print("[FileMonitor] Error: Failed to start FSEvents stream")
+        handle.stop()
+        return -1
+    }
+
+    print("[FileMonitor] Watching: \(handle.path)")
     return 0
 }
 
@@ -501,7 +601,7 @@ public func aro_file_watcher_stop(_ watcherPtr: UnsafeMutableRawPointer?) {
     guard let ptr = watcherPtr else { return }
 
     let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
-    handle.isWatching = false
+    handle.stop()
 }
 
 /// Destroy file watcher
@@ -514,6 +614,8 @@ public func aro_file_watcher_destroy(_ watcherPtr: UnsafeMutableRawPointer?) {
     fileWatcherHandles.removeValue(forKey: ptr)
     watcherLock.unlock()
 
+    let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
+    handle.stop()
     Unmanaged<FileWatcherHandle>.fromOpaque(ptr).release()
 }
 

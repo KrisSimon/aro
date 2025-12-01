@@ -840,24 +840,50 @@ struct RouteResultBridge: Sendable {
     let success: Bool
 }
 
-/// Watch action
+/// Global storage for active file watchers
+nonisolated(unsafe) private var activeWatchers: [UnsafeMutableRawPointer] = []
+private let activeWatcherLock = NSLock()
+
+/// Watch action - sets up FSEvents-based file monitoring
 @_cdecl("aro_action_watch")
 public func aro_action_watch(
     _ contextPtr: UnsafeMutableRawPointer?,
     _ resultPtr: UnsafeRawPointer?,
     _ objectPtr: UnsafeRawPointer?
 ) -> UnsafeMutableRawPointer? {
-    guard let ctxHandle = getContext(contextPtr),
-          let result = resultPtr else { return nil }
+    guard let ctxHandle = getContext(contextPtr) else { return nil }
 
-    let resultDesc = toResultDescriptor(result)
-
+    // Get path from literal value first (from "with" clause), then fallback
     let path: String
-    if let resolvedPath: String = ctxHandle.context.resolve(resultDesc.base) {
-        path = resolvedPath
+    if let literalPath: String = ctxHandle.context.resolve("_literal_") {
+        path = literalPath
+    } else if let result = resultPtr {
+        let resultDesc = toResultDescriptor(result)
+        if let resolvedPath: String = ctxHandle.context.resolve(resultDesc.base) {
+            path = resolvedPath
+        } else {
+            path = resultDesc.specifiers.first ?? "."
+        }
     } else {
-        path = resultDesc.specifiers.first ?? resultDesc.base
+        path = "."
     }
+
+    // Create and start file watcher using FSEvents
+    guard let watcher = aro_file_watcher_create(path) else {
+        print("[FileMonitor] Error: Failed to create watcher for path: \(path)")
+        return boxResult(WatchResultBridge(path: path, success: false))
+    }
+
+    let startResult = aro_file_watcher_start(watcher)
+    if startResult != 0 {
+        aro_file_watcher_destroy(watcher)
+        return boxResult(WatchResultBridge(path: path, success: false))
+    }
+
+    // Store watcher for cleanup
+    activeWatcherLock.lock()
+    activeWatchers.append(watcher)
+    activeWatcherLock.unlock()
 
     ctxHandle.context.emit(CustomRuntimeEvent(
         type: "file.watch.started",
@@ -865,6 +891,19 @@ public func aro_action_watch(
     ))
 
     return boxResult(WatchResultBridge(path: path, success: true))
+}
+
+/// Stop all active file watchers (called during shutdown)
+public func stopAllFileWatchers() {
+    activeWatcherLock.lock()
+    let watchers = activeWatchers
+    activeWatchers.removeAll()
+    activeWatcherLock.unlock()
+
+    for watcher in watchers {
+        aro_file_watcher_stop(watcher)
+        aro_file_watcher_destroy(watcher)
+    }
 }
 
 struct WatchResultBridge: Sendable {
