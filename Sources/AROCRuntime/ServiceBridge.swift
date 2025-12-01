@@ -6,7 +6,10 @@
 import Foundation
 import AROParser
 import ARORuntime
+
+#if os(macOS)
 import CoreServices
+#endif
 
 // MARK: - HTTP Server Bridge
 
@@ -440,9 +443,14 @@ public func aro_directory_list(
     }
 }
 
-// MARK: - File Watcher Bridge (FSEvents-based)
+// MARK: - File Watcher Bridge (Platform-specific)
 
-/// File watcher handle using FSEvents
+#if os(macOS)
+// ============================================================
+// macOS Implementation using FSEvents
+// ============================================================
+
+/// File watcher handle using FSEvents (macOS)
 final class FileWatcherHandle: @unchecked Sendable {
     var path: String
     var streamRef: FSEventStreamRef?
@@ -507,8 +515,6 @@ private func fsEventsCallback(
 }
 
 /// Create a file watcher
-/// - Parameter path: Path to watch (C string)
-/// - Returns: Watcher handle
 @_cdecl("aro_file_watcher_create")
 public func aro_file_watcher_create(_ path: UnsafePointer<CChar>?) -> UnsafeMutableRawPointer? {
     guard let pathStr = path.map({ String(cString: $0) }) else { return nil }
@@ -541,8 +547,6 @@ public func aro_file_watcher_create(_ path: UnsafePointer<CChar>?) -> UnsafeMuta
 }
 
 /// Start watching for file changes using FSEvents
-/// - Parameter watcherPtr: Watcher handle
-/// - Returns: 0 on success
 @_cdecl("aro_file_watcher_start")
 public func aro_file_watcher_start(_ watcherPtr: UnsafeMutableRawPointer?) -> Int32 {
     guard let ptr = watcherPtr else { return -1 }
@@ -595,7 +599,6 @@ public func aro_file_watcher_start(_ watcherPtr: UnsafeMutableRawPointer?) -> In
 }
 
 /// Stop watching
-/// - Parameter watcherPtr: Watcher handle
 @_cdecl("aro_file_watcher_stop")
 public func aro_file_watcher_stop(_ watcherPtr: UnsafeMutableRawPointer?) {
     guard let ptr = watcherPtr else { return }
@@ -605,7 +608,6 @@ public func aro_file_watcher_stop(_ watcherPtr: UnsafeMutableRawPointer?) {
 }
 
 /// Destroy file watcher
-/// - Parameter watcherPtr: Watcher handle
 @_cdecl("aro_file_watcher_destroy")
 public func aro_file_watcher_destroy(_ watcherPtr: UnsafeMutableRawPointer?) {
     guard let ptr = watcherPtr else { return }
@@ -618,6 +620,323 @@ public func aro_file_watcher_destroy(_ watcherPtr: UnsafeMutableRawPointer?) {
     handle.stop()
     Unmanaged<FileWatcherHandle>.fromOpaque(ptr).release()
 }
+
+#elseif os(Linux)
+// ============================================================
+// Linux Implementation using inotify
+// ============================================================
+
+import Glibc
+
+/// File watcher handle using inotify (Linux)
+final class FileWatcherHandle: @unchecked Sendable {
+    var path: String
+    var inotifyFd: Int32 = -1
+    var watchFd: Int32 = -1
+    var isWatching: Bool = false
+    var monitorThread: Thread?
+
+    init(path: String) {
+        self.path = path
+    }
+
+    deinit {
+        stop()
+    }
+
+    func stop() {
+        isWatching = false
+        if watchFd >= 0 {
+            inotify_rm_watch(inotifyFd, watchFd)
+            watchFd = -1
+        }
+        if inotifyFd >= 0 {
+            close(inotifyFd)
+            inotifyFd = -1
+        }
+    }
+}
+
+nonisolated(unsafe) private var fileWatcherHandles: [UnsafeMutableRawPointer: FileWatcherHandle] = [:]
+private let watcherLock = NSLock()
+
+/// Create a file watcher
+@_cdecl("aro_file_watcher_create")
+public func aro_file_watcher_create(_ path: UnsafePointer<CChar>?) -> UnsafeMutableRawPointer? {
+    guard let pathStr = path.map({ String(cString: $0) }) else { return nil }
+
+    // Resolve relative paths
+    let resolvedPath: String
+    if pathStr == "." {
+        resolvedPath = FileManager.default.currentDirectoryPath
+    } else if !pathStr.hasPrefix("/") {
+        resolvedPath = FileManager.default.currentDirectoryPath + "/" + pathStr
+    } else {
+        resolvedPath = pathStr
+    }
+
+    // Verify path exists
+    guard FileManager.default.fileExists(atPath: resolvedPath) else {
+        print("[FileMonitor] Error: Path not found: \(resolvedPath)")
+        return nil
+    }
+
+    let handle = FileWatcherHandle(path: resolvedPath)
+    let pointer = Unmanaged.passRetained(handle).toOpaque()
+
+    watcherLock.lock()
+    fileWatcherHandles[pointer] = handle
+    watcherLock.unlock()
+
+    return UnsafeMutableRawPointer(pointer)
+}
+
+/// Start watching for file changes using inotify
+@_cdecl("aro_file_watcher_start")
+public func aro_file_watcher_start(_ watcherPtr: UnsafeMutableRawPointer?) -> Int32 {
+    guard let ptr = watcherPtr else { return -1 }
+
+    let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
+
+    if handle.isWatching { return 0 }
+
+    // Initialize inotify
+    handle.inotifyFd = inotify_init1(Int32(IN_NONBLOCK))
+    if handle.inotifyFd < 0 {
+        print("[FileMonitor] Error: Failed to initialize inotify")
+        return -1
+    }
+
+    // Add watch for the directory
+    let mask: UInt32 = UInt32(IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVED_FROM | IN_MOVED_TO)
+    handle.watchFd = inotify_add_watch(handle.inotifyFd, handle.path, mask)
+    if handle.watchFd < 0 {
+        print("[FileMonitor] Error: Failed to add inotify watch")
+        close(handle.inotifyFd)
+        handle.inotifyFd = -1
+        return -1
+    }
+
+    handle.isWatching = true
+    print("[FileMonitor] Watching: \(handle.path)")
+
+    // Start monitoring thread
+    DispatchQueue.global(qos: .utility).async {
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while handle.isWatching {
+            let length = read(handle.inotifyFd, &buffer, buffer.count)
+            if length > 0 {
+                var offset = 0
+                while offset < length {
+                    buffer.withUnsafeBufferPointer { bufferPtr in
+                        let eventPtr = UnsafeRawPointer(bufferPtr.baseAddress! + offset)
+                            .assumingMemoryBound(to: inotify_event.self)
+                        let event = eventPtr.pointee
+
+                        let eventType: String
+                        if (event.mask & UInt32(IN_CREATE)) != 0 {
+                            eventType = "Created"
+                        } else if (event.mask & UInt32(IN_DELETE)) != 0 {
+                            eventType = "Deleted"
+                        } else if (event.mask & UInt32(IN_MODIFY)) != 0 {
+                            eventType = "Modified"
+                        } else if (event.mask & UInt32(IN_MOVED_FROM)) != 0 || (event.mask & UInt32(IN_MOVED_TO)) != 0 {
+                            eventType = "Renamed"
+                        } else {
+                            return
+                        }
+
+                        if event.len > 0 {
+                            let namePtr = UnsafeRawPointer(bufferPtr.baseAddress! + offset + MemoryLayout<inotify_event>.size)
+                                .assumingMemoryBound(to: CChar.self)
+                            let name = String(cString: namePtr)
+                            let fullPath = handle.path + "/" + name
+                            print("[FileMonitor] \(eventType): \(fullPath)")
+                        }
+
+                        offset += MemoryLayout<inotify_event>.size + Int(event.len)
+                    }
+                }
+            } else {
+                usleep(100000) // 100ms
+            }
+        }
+    }
+
+    return 0
+}
+
+/// Stop watching
+@_cdecl("aro_file_watcher_stop")
+public func aro_file_watcher_stop(_ watcherPtr: UnsafeMutableRawPointer?) {
+    guard let ptr = watcherPtr else { return }
+
+    let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
+    handle.stop()
+}
+
+/// Destroy file watcher
+@_cdecl("aro_file_watcher_destroy")
+public func aro_file_watcher_destroy(_ watcherPtr: UnsafeMutableRawPointer?) {
+    guard let ptr = watcherPtr else { return }
+
+    watcherLock.lock()
+    fileWatcherHandles.removeValue(forKey: ptr)
+    watcherLock.unlock()
+
+    let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
+    handle.stop()
+    Unmanaged<FileWatcherHandle>.fromOpaque(ptr).release()
+}
+
+#else
+// ============================================================
+// Fallback Implementation (polling-based)
+// ============================================================
+
+/// File watcher handle using polling (Windows and other platforms)
+final class FileWatcherHandle: @unchecked Sendable {
+    var path: String
+    var isWatching: Bool = false
+    var lastModified: [String: Date] = [:]
+
+    init(path: String) {
+        self.path = path
+    }
+
+    func stop() {
+        isWatching = false
+    }
+}
+
+nonisolated(unsafe) private var fileWatcherHandles: [UnsafeMutableRawPointer: FileWatcherHandle] = [:]
+private let watcherLock = NSLock()
+
+/// Create a file watcher
+@_cdecl("aro_file_watcher_create")
+public func aro_file_watcher_create(_ path: UnsafePointer<CChar>?) -> UnsafeMutableRawPointer? {
+    guard let pathStr = path.map({ String(cString: $0) }) else { return nil }
+
+    // Resolve relative paths
+    let resolvedPath: String
+    if pathStr == "." {
+        resolvedPath = FileManager.default.currentDirectoryPath
+    } else {
+        resolvedPath = pathStr
+    }
+
+    // Verify path exists
+    guard FileManager.default.fileExists(atPath: resolvedPath) else {
+        print("[FileMonitor] Error: Path not found: \(resolvedPath)")
+        return nil
+    }
+
+    let handle = FileWatcherHandle(path: resolvedPath)
+    let pointer = Unmanaged.passRetained(handle).toOpaque()
+
+    watcherLock.lock()
+    fileWatcherHandles[pointer] = handle
+    watcherLock.unlock()
+
+    return UnsafeMutableRawPointer(pointer)
+}
+
+/// Start watching for file changes using polling
+@_cdecl("aro_file_watcher_start")
+public func aro_file_watcher_start(_ watcherPtr: UnsafeMutableRawPointer?) -> Int32 {
+    guard let ptr = watcherPtr else { return -1 }
+
+    let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
+
+    if handle.isWatching { return 0 }
+    handle.isWatching = true
+
+    print("[FileMonitor] Watching: \(handle.path) (polling mode)")
+
+    // Start polling thread
+    DispatchQueue.global(qos: .utility).async {
+        // Get initial file list
+        var knownFiles: Set<String> = []
+        if let contents = try? FileManager.default.contentsOfDirectory(atPath: handle.path) {
+            knownFiles = Set(contents)
+            for file in contents {
+                let fullPath = handle.path + "/" + file
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: fullPath),
+                   let modDate = attrs[.modificationDate] as? Date {
+                    handle.lastModified[file] = modDate
+                }
+            }
+        }
+
+        while handle.isWatching {
+            Thread.sleep(forTimeInterval: 1.0) // Poll every second
+
+            guard let contents = try? FileManager.default.contentsOfDirectory(atPath: handle.path) else {
+                continue
+            }
+
+            let currentFiles = Set(contents)
+
+            // Check for new files
+            for file in currentFiles.subtracting(knownFiles) {
+                let fullPath = handle.path + "/" + file
+                print("[FileMonitor] Created: \(fullPath)")
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: fullPath),
+                   let modDate = attrs[.modificationDate] as? Date {
+                    handle.lastModified[file] = modDate
+                }
+            }
+
+            // Check for deleted files
+            for file in knownFiles.subtracting(currentFiles) {
+                let fullPath = handle.path + "/" + file
+                print("[FileMonitor] Deleted: \(fullPath)")
+                handle.lastModified.removeValue(forKey: file)
+            }
+
+            // Check for modified files
+            for file in currentFiles.intersection(knownFiles) {
+                let fullPath = handle.path + "/" + file
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: fullPath),
+                   let modDate = attrs[.modificationDate] as? Date {
+                    if let lastMod = handle.lastModified[file], modDate > lastMod {
+                        print("[FileMonitor] Modified: \(fullPath)")
+                    }
+                    handle.lastModified[file] = modDate
+                }
+            }
+
+            knownFiles = currentFiles
+        }
+    }
+
+    return 0
+}
+
+/// Stop watching
+@_cdecl("aro_file_watcher_stop")
+public func aro_file_watcher_stop(_ watcherPtr: UnsafeMutableRawPointer?) {
+    guard let ptr = watcherPtr else { return }
+
+    let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
+    handle.stop()
+}
+
+/// Destroy file watcher
+@_cdecl("aro_file_watcher_destroy")
+public func aro_file_watcher_destroy(_ watcherPtr: UnsafeMutableRawPointer?) {
+    guard let ptr = watcherPtr else { return }
+
+    watcherLock.lock()
+    fileWatcherHandles.removeValue(forKey: ptr)
+    watcherLock.unlock()
+
+    let handle = Unmanaged<FileWatcherHandle>.fromOpaque(ptr).takeUnretainedValue()
+    handle.stop()
+    Unmanaged<FileWatcherHandle>.fromOpaque(ptr).release()
+}
+
+#endif
 
 // MARK: - Socket Bridge
 
