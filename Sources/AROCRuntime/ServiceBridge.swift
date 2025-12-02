@@ -14,6 +14,8 @@ import ARORuntime
 import CoreServices
 #endif
 
+#if !os(Windows)
+
 // MARK: - HTTP Server Bridge
 
 /// HTTP server handle for C interop
@@ -1074,3 +1076,5 @@ public func aro_socket_destroy(_ socketPtr: UnsafeMutableRawPointer?) {
     guard let ptr = socketPtr else { return }
     Unmanaged<SocketHandle>.fromOpaque(ptr).release()
 }
+
+#endif  // !os(Windows)
