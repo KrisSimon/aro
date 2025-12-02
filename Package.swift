@@ -53,9 +53,10 @@ let package = Package(
             name: "ARORuntime",
             dependencies: [
                 "AROParser",
-                .product(name: "NIO", package: "swift-nio"),
-                .product(name: "NIOHTTP1", package: "swift-nio"),
-                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+                // swift-nio has Windows compatibility issues with Swift 6
+                .product(name: "NIO", package: "swift-nio", condition: .when(platforms: [.macOS, .iOS, .linux])),
+                .product(name: "NIOHTTP1", package: "swift-nio", condition: .when(platforms: [.macOS, .iOS, .linux])),
+                .product(name: "NIOFoundationCompat", package: "swift-nio", condition: .when(platforms: [.macOS, .iOS, .linux])),
                 .product(name: "AsyncHTTPClient", package: "async-http-client", condition: .when(platforms: [.macOS, .iOS, .linux])),
                 .product(name: "FileMonitor", package: "FileMonitor", condition: .when(platforms: [.macOS, .iOS, .linux])),
                 .product(name: "Yams", package: "Yams"),
