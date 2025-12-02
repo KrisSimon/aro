@@ -42,9 +42,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: linux-swift-${{ env.SWIFT_VERSION }}-${{ hashFiles('Package.resolved') }}
+          key: linux-swift-${{ env.SWIFT_VERSION }}-v2-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            linux-swift-${{ env.SWIFT_VERSION }}-
+            linux-swift-${{ env.SWIFT_VERSION }}-v2-
 
       - name: Build
         run: swift build -c debug
@@ -87,9 +87,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: macos-swift-${{ env.SWIFT_VERSION }}-${{ hashFiles('Package.resolved') }}
+          key: macos-swift-${{ env.SWIFT_VERSION }}-v2-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            macos-swift-${{ env.SWIFT_VERSION }}-
+            macos-swift-${{ env.SWIFT_VERSION }}-v2-
 
       - name: Build
         run: swift build -c debug
