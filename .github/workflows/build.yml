@@ -72,7 +72,8 @@ jobs:
   macos:
     name: macOS
     runs-on: macos-14
-    continue-on-error: true  # Swift 6.2 + macOS Dispatch Sendable issues
+    env:
+      MACOS_SWIFT_VERSION: '6.1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -80,13 +81,13 @@ jobs:
       - name: Setup Swift
         uses: swift-actions/setup-swift@v3
         with:
-          swift-version: "6.2.1"
+          swift-version: ${{ env.MACOS_SWIFT_VERSION }}
 
       - name: Cache Swift packages
         uses: actions/cache@v4
         with:
           path: .build
-          key: macos-swift-${{ env.SWIFT_VERSION }}-v3-${{ hashFiles('Package.resolved') }}
+          key: macos-swift-${{ env.MACOS_SWIFT_VERSION }}-v1-${{ hashFiles('Package.resolved') }}
 
       - name: Build
         run: swift build -c debug
