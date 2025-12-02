@@ -108,6 +108,5 @@ let package = Package(
             dependencies: ["AROCompiler", "AROParser"],
             path: "Tests/AROCompilerTests"
         )
-    ],
-    swiftLanguageModes: [.v6]
+    ]
 )
