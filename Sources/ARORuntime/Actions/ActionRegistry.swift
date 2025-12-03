@@ -93,6 +93,11 @@ public final class ActionRegistry: @unchecked Sendable {
         register(WhenAction.self)
         register(ThenAction.self)
         register(AssertAction.self)
+
+        // Data pipeline actions (ARO-0018)
+        register(MapAction.self)
+        register(ReduceAction.self)
+        register(PredicateFilterAction.self)
     }
 
     /// Register a custom action

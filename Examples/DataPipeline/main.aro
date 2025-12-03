@@ -1,0 +1,86 @@
+(* ============================================================
+   Data Pipeline Example
+
+   Demonstrates ARO data pipeline operations (ARO-0018):
+   - Fetch: Retrieve and filter data
+   - Filter: Filter existing collections
+   - Map: Transform to different types
+   - Reduce: Aggregate to single values
+   ============================================================ *)
+
+(* --- Application Entry Point --- *)
+
+(Application-Start: Data Pipeline Demo) {
+    <Log> the <message> for the <console> with "Data Pipeline Demo starting...".
+
+    (* Create sample data *)
+    <Create> the <orders> with [
+        { id: "001", customer-name: "Alice", amount: 150.00, status: "delivered", region: "North" },
+        { id: "002", customer-name: "Bob", amount: 2500.00, status: "pending", region: "South" },
+        { id: "003", customer-name: "Carol", amount: 75.00, status: "shipped", region: "North" },
+        { id: "004", customer-name: "David", amount: 1200.00, status: "pending", region: "East" },
+        { id: "005", customer-name: "Eve", amount: 890.00, status: "delivered", region: "West" },
+        { id: "006", customer-name: "Frank", amount: 3200.00, status: "processing", region: "South" },
+        { id: "007", customer-name: "Grace", amount: 450.00, status: "delivered", region: "North" },
+        { id: "008", customer-name: "Henry", amount: 1800.00, status: "pending", region: "East" }
+    ].
+
+    <Log> the <message> for the <console> with "Created sample orders".
+
+    (* === REDUCE: Calculate totals === *)
+    <Reduce> the <total-revenue: Float> from the <orders>
+        with sum(<amount>).
+
+    <Reduce> the <order-count: Integer> from the <orders>
+        with count().
+
+    <Reduce> the <avg-order: Float> from the <orders>
+        with avg(<amount>).
+
+    <Log> the <message> for the <console> with "Total Revenue: $".
+    <Log> the <message> for the <console> with <total-revenue>.
+    <Log> the <message> for the <console> with "Order Count: ".
+    <Log> the <message> for the <console> with <order-count>.
+    <Log> the <message> for the <console> with "Average Order: $".
+    <Log> the <message> for the <console> with <avg-order>.
+
+    (* === FILTER: Get pending orders === *)
+    <Filter> the <pending-orders: List<Order>> from the <orders>
+        where <status> is "pending".
+
+    <Reduce> the <pending-count: Integer> from the <pending-orders>
+        with count().
+
+    <Log> the <message> for the <console> with "Pending Orders: ".
+    <Log> the <message> for the <console> with <pending-count>.
+
+    (* === FILTER: High-value orders === *)
+    <Filter> the <high-value: List<Order>> from the <orders>
+        where <amount> > 1000.
+
+    <Reduce> the <high-value-count: Integer> from the <high-value>
+        with count().
+
+    <Reduce> the <high-value-total: Float> from the <high-value>
+        with sum(<amount>).
+
+    <Log> the <message> for the <console> with "High-value orders (>$1000): ".
+    <Log> the <message> for the <console> with <high-value-count>.
+    <Log> the <message> for the <console> with "High-value total: $".
+    <Log> the <message> for the <console> with <high-value-total>.
+
+    (* === MAP: Transform to summaries === *)
+    <Map> the <summaries: List<OrderSummary>> from the <orders>.
+
+    <Log> the <message> for the <console> with "Mapped orders to summaries".
+
+    <Log> the <message> for the <console> with "Data Pipeline Demo complete!".
+    <Return> an <OK: status> for the <startup>.
+}
+
+(* --- Graceful Shutdown --- *)
+
+(Application-End: Success) {
+    <Log> the <message> for the <console> with "Data Pipeline Demo shutting down...".
+    <Return> an <OK: status> for the <shutdown>.
+}

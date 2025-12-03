@@ -1,604 +1,344 @@
-# ARO-0018: Query Language
+# ARO-0018: Data Pipelines
 
 * Proposal: ARO-0018
 * Author: ARO Language Team
-* Status: **Draft**
+* Status: **Implemented**
 * Requires: ARO-0001, ARO-0002, ARO-0006
 
 ## Abstract
 
-This proposal introduces a built-in query language for filtering, transforming, and aggregating data in ARO.
+This proposal defines ARO's data pipeline operations for filtering, transforming, and aggregating collections using a map/reduce style approach. All results are typed via OpenAPI schemas.
 
 ## Motivation
 
 Data manipulation is central to business logic:
 
 1. **Filtering**: Select subset of data
-2. **Transformation**: Reshape data
-3. **Aggregation**: Compute summaries
-4. **Joining**: Combine data sources
+2. **Transformation**: Map to different types
+3. **Aggregation**: Compute summaries (sum, avg, count)
+4. **Sorting**: Order results
+
+## Design Principles
+
+1. **Type-First**: All results typed via OpenAPI schemas (`<users: List<User>>`)
+2. **Pipeline Style**: Chain operations: `fetch → filter → map → reduce`
+3. **No SQL Complexity**: No JOINs, subqueries, or CTEs
+4. **Simple & Fast**: Elegant implementation, predictable performance
 
 ---
 
-### 1. Query Expression
+## 1. Pipeline Operations
 
-#### 1.1 Basic Syntax
+### 1.1 Fetch
 
-```ebnf
-query_expression = "query" , source , { query_clause } ;
+Retrieves and filters data into a typed collection.
 
-query_clause = where_clause 
-             | select_clause 
-             | order_clause 
-             | group_clause 
-             | limit_clause
-             | join_clause ;
-```
-
-**Example:**
-```
-<Set> the <active-users> to 
-    query <users>
+```aro
+<Fetch> the <active-users: List<User>> from the <users>
     where <status> is "active"
-    select { id, email, name }
-    order by <created-at> desc
+    order by <name> asc
     limit 100.
 ```
 
+**Syntax:**
+```ebnf
+fetch_statement = "<Fetch>" , "the" , typed_result , "from" , "the" , source ,
+                  [ where_clause ] , [ order_clause ] , [ limit_clause ] , "." ;
+```
+
+### 1.2 Filter
+
+Filters an existing collection with a predicate.
+
+```aro
+<Filter> the <premium-users: List<User>> from the <users>
+    where <tier> is "premium".
+```
+
+**Syntax:**
+```ebnf
+filter_statement = "<Filter>" , "the" , typed_result , "from" , "the" , source ,
+                   "where" , predicate , "." ;
+```
+
+### 1.3 Map
+
+Transforms a collection to a different OpenAPI-defined type. The runtime automatically maps matching field names.
+
+```aro
+(* Map List<User> to List<UserSummary> *)
+<Map> the <summaries: List<UserSummary>> from the <users>.
+```
+
+**Requirements:**
+- Target type must be defined in `openapi.yaml` components/schemas
+- Runtime maps fields with matching names from source to target
+- Missing fields in target are omitted (if optional) or error (if required)
+
+**Syntax:**
+```ebnf
+map_statement = "<Map>" , "the" , typed_result , "from" , "the" , source , "." ;
+```
+
+### 1.4 Reduce
+
+Aggregates a collection to a single value.
+
+```aro
+<Reduce> the <total: Float> from the <orders>
+    with sum(<amount>).
+
+<Reduce> the <order-count: Integer> from the <orders>
+    with count().
+
+<Reduce> the <avg-price: Float> from the <products>
+    where <category> is "electronics"
+    with avg(<price>).
+```
+
+**Syntax:**
+```ebnf
+reduce_statement = "<Reduce>" , "the" , typed_result , "from" , "the" , source ,
+                   [ where_clause ] , "with" , aggregate_function , "." ;
+```
+
 ---
 
-### 2. Where Clause (Filtering)
+## 2. Where Clause (Filtering)
 
-#### 2.1 Basic Conditions
-
-```
-query <users>
-where <age> >= 18
-
-query <orders>
-where <status> is "pending" and <total> > 100
-
-query <products>
-where <category> in ["electronics", "computers"]
-      and <price> between 100 and 500
-      and <name> contains "laptop"
-```
-
-#### 2.2 Operators
+### 2.1 Comparison Operators
 
 | Operator | Description | Example |
 |----------|-------------|---------|
-| `==`, `is` | Equality | `<status> is "active"` |
-| `!=`, `is not` | Inequality | `<role> is not "guest"` |
+| `is`, `==` | Equality | `<status> is "active"` |
+| `is not`, `!=` | Inequality | `<role> is not "guest"` |
 | `<`, `<=`, `>`, `>=` | Comparison | `<age> >= 18` |
 | `in` | Set membership | `<status> in ["a", "b"]` |
-| `not in` | Not in set | `<status> not in ["x"]` |
 | `between` | Range | `<price> between 10 and 100` |
 | `contains` | Substring | `<name> contains "test"` |
 | `starts with` | Prefix | `<email> starts with "admin"` |
 | `ends with` | Suffix | `<file> ends with ".pdf"` |
-| `matches` | Regex | `<phone> matches "\\d{10}"` |
-| `exists` | Not null | `<email> exists` |
-| `is null` | Is null | `<deleted-at> is null` |
-| `is empty` | Empty collection | `<items> is empty` |
 
-#### 2.3 Logical Operators
+### 2.2 Logical Operators
 
-```
-query <users>
-where (<role> is "admin" or <role> is "moderator")
-      and <active> is true
-      and not (<banned> is true)
+```aro
+<Fetch> the <users: List<User>> from the <all-users>
+    where (<role> is "admin" or <role> is "moderator")
+          and <active> is true.
 ```
 
 ---
 
-### 3. Select Clause (Projection)
+## 3. Order Clause (Sorting)
 
-#### 3.1 Field Selection
+```aro
+(* Single field *)
+<Fetch> the <users: List<User>> from the <all-users>
+    order by <name> asc.
 
-```
-// Select specific fields
-query <users>
-select { id, email, name }
-
-// Select all
-query <users>
-select *
-
-// Exclude fields
-query <users>
-select * except { password-hash, internal-notes }
+(* Multiple fields *)
+<Fetch> the <products: List<Product>> from the <all-products>
+    order by <category> asc, <price> desc.
 ```
 
-#### 3.2 Computed Fields
-
-```
-query <orders>
-select {
-    id,
-    customer-name: <customer>.name,
-    total,
-    tax: <total> * 0.08,
-    grand-total: <total> * 1.08,
-    item-count: <items>.count()
-}
-```
-
-#### 3.3 Nested Selection
-
-```
-query <orders>
-select {
-    id,
-    customer: {
-        name: <customer>.name,
-        email: <customer>.email
-    },
-    items: <items>.map(<i> => {
-        product: <i>.product-name,
-        quantity: <i>.quantity
-    })
-}
+**Syntax:**
+```ebnf
+order_clause = "order" , "by" , order_item , { "," , order_item } ;
+order_item = field_reference , [ "asc" | "desc" ] ;
 ```
 
 ---
 
-### 4. Order Clause (Sorting)
+## 4. Limit and Offset
 
-```
-// Single field
-query <users>
-order by <name> asc
+```aro
+(* Limit results *)
+<Fetch> the <top-users: List<User>> from the <users>
+    order by <score> desc
+    limit 10.
 
-// Multiple fields
-query <products>
-order by <category> asc, <price> desc
-
-// Null handling
-query <users>
-order by <last-login> desc nulls last
-
-// Custom ordering
-query <tasks>
-order by case <priority> {
-    "high" => 1,
-    "medium" => 2,
-    "low" => 3
-}
+(* Pagination with offset *)
+<Fetch> the <page: List<User>> from the <users>
+    order by <created-at> desc
+    limit 20
+    offset 40.
 ```
 
 ---
 
-### 5. Group Clause (Aggregation)
+## 5. Aggregation Functions
 
-#### 5.1 Basic Grouping
-
-```
-query <orders>
-group by <customer-id>
-select {
-    customer-id,
-    order-count: count(),
-    total-spent: sum(<total>)
-}
-```
-
-#### 5.2 Aggregate Functions
-
-| Function | Description |
-|----------|-------------|
-| `count()` | Number of items |
-| `sum(field)` | Sum of values |
-| `avg(field)` | Average |
-| `min(field)` | Minimum |
-| `max(field)` | Maximum |
-| `first(field)` | First value |
-| `last(field)` | Last value |
-| `collect(field)` | Collect into list |
-| `distinct(field)` | Unique values |
-
-#### 5.3 Having Clause
-
-```
-query <orders>
-group by <customer-id>
-having count() > 10
-select {
-    customer-id,
-    order-count: count()
-}
-```
+| Function | Description | Example |
+|----------|-------------|---------|
+| `count()` | Number of items | `with count()` |
+| `sum(field)` | Sum of numeric field | `with sum(<amount>)` |
+| `avg(field)` | Average of numeric field | `with avg(<price>)` |
+| `min(field)` | Minimum value | `with min(<date>)` |
+| `max(field)` | Maximum value | `with max(<score>)` |
+| `first()` | First element | `with first()` |
+| `last()` | Last element | `with last()` |
 
 ---
 
-### 6. Limit and Offset
+## 6. Window Functions
 
+Basic window functions for ranking and running totals.
+
+```aro
+(* Rank within partition *)
+<Compute> the <ranked: List<SalesRank>> from the <sales>
+    with rank() over (partition by <region> order by <amount> desc).
+
+(* Running total *)
+<Compute> the <running: List<RunningTotal>> from the <transactions>
+    with sum(<amount>) over (order by <date>).
 ```
-// Limit
-query <users>
-limit 10
 
-// Offset (pagination)
-query <users>
-order by <created-at> desc
-limit 20
-offset 40
-
-// Or with skip/take
-query <users>
-skip 40
-take 20
-```
+**Supported Window Functions:**
+- `rank()` - Rank within partition
+- `row_number()` - Sequential number
+- `sum(field) over (...)` - Running sum
+- `avg(field) over (...)` - Running average
 
 ---
 
-### 7. Joins
-
-#### 7.1 Join Types
-
-```
-// Inner join
-query <orders>
-join <customers> on <orders>.customer-id == <customers>.id
-select {
-    order-id: <orders>.id,
-    customer-name: <customers>.name,
-    total: <orders>.total
-}
-
-// Left join
-query <users>
-left join <orders> on <users>.id == <orders>.user-id
-select {
-    user: <users>.name,
-    order-count: count(<orders>.id)
-}
-group by <users>.id
-
-// Multiple joins
-query <order-items>
-join <orders> on <order-items>.order-id == <orders>.id
-join <products> on <order-items>.product-id == <products>.id
-join <customers> on <orders>.customer-id == <customers>.id
-select {
-    customer: <customers>.name,
-    product: <products>.name,
-    quantity: <order-items>.quantity
-}
-```
-
----
-
-### 8. Subqueries
-
-```
-// In where clause
-query <users>
-where <id> in (
-    query <orders>
-    where <total> > 1000
-    select <customer-id>
-)
-
-// In select clause
-query <customers>
-select {
-    id,
-    name,
-    total-orders: (
-        query <orders>
-        where <customer-id> == <customers>.id
-        select count()
-    )
-}
-
-// In from clause
-query (
-    query <orders>
-    group by <customer-id>
-    select {
-        customer-id,
-        order-count: count()
-    }
-) as <order-stats>
-where <order-count> > 5
-```
-
----
-
-### 9. Set Operations
-
-```
-// Union
-query <active-users>
-union
-query <premium-users>
-
-// Intersect
-query <users-with-orders>
-intersect
-query <users-with-reviews>
-
-// Except (difference)
-query <all-users>
-except
-query <banned-users>
-```
-
----
-
-### 10. Window Functions
-
-```
-query <sales>
-select {
-    date,
-    amount,
-    running-total: sum(<amount>) over (order by <date>),
-    rank: rank() over (partition by <region> order by <amount> desc),
-    moving-avg: avg(<amount>) over (
-        order by <date>
-        rows between 6 preceding and current row
-    )
-}
-```
-
----
-
-### 11. Common Table Expressions (CTE)
-
-```
-with <high-value-customers> as (
-    query <customers>
-    where <lifetime-value> > 10000
-),
-<recent-orders> as (
-    query <orders>
-    where <created-at> > now().minus(30.days)
-)
-query <recent-orders>
-join <high-value-customers> on <customer-id> == <high-value-customers>.id
-select {
-    customer: <high-value-customers>.name,
-    order-count: count()
-}
-group by <high-value-customers>.id
-```
-
----
-
-### 12. Query Composition
-
-```
-// Define reusable query parts
-let <active-users> = query <users> where <status> is "active";
-
-let <recent> = <q> => query <q> where <created-at> > now().minus(7.days);
-
-// Compose
-<Set> the <results> to
-    query <active-users>
-    |> recent
-    |> (q => query <q> order by <name>)
-    |> (q => query <q> limit 10).
-```
-
----
-
-### 13. Inline Queries in Statements
-
-```
-(Report Generation: Analytics) {
-    // Direct query in retrieval
-    <Retrieve> the <top-customers> from 
-        query <customers>
-        join <orders> on <customers>.id == <orders>.customer-id
-        group by <customers>.id
-        select {
-            customer: <customers>,
-            total-spent: sum(<orders>.total)
-        }
-        order by <total-spent> desc
-        limit 10.
-    
-    // Query in condition
-    if (query <pending-orders> select count()) > 100 then {
-        <Alert> the <operations-team>.
-    }
-    
-    // Query in loop
-    for each <segment> in 
-        (query <customers> 
-         group by <region> 
-         select { region, customers: collect(<id>) }) {
-        <Process> the <segment>.
-    }
-}
-```
-
----
-
-### 14. Complete Grammar Extension
+## 7. Grammar
 
 ```ebnf
-(* Query Language Grammar *)
+(* Data Pipeline Grammar *)
 
-query_expression = "query" , query_source , { query_clause } ;
+(* Fetch *)
+fetch_statement = "<Fetch>" , "the" , typed_result , "from" , "the" , source ,
+                  [ where_clause ] , [ order_clause ] , [ limit_clause ] , "." ;
 
-query_source = variable_reference 
-             | "(" , query_expression , ")" , [ "as" , identifier ] ;
+(* Filter *)
+filter_statement = "<Filter>" , "the" , typed_result , "from" , "the" , source ,
+                   where_clause , "." ;
 
-query_clause = where_clause
-             | select_clause
-             | order_clause
-             | group_clause
-             | having_clause
-             | limit_clause
-             | offset_clause
-             | join_clause ;
+(* Map *)
+map_statement = "<Map>" , "the" , typed_result , "from" , "the" , source , "." ;
 
-(* Where *)
+(* Reduce *)
+reduce_statement = "<Reduce>" , "the" , typed_result , "from" , "the" , source ,
+                   [ where_clause ] , "with" , aggregate_function , "." ;
+
+(* Clauses *)
 where_clause = "where" , predicate ;
+order_clause = "order" , "by" , order_item , { "," , order_item } ;
+limit_clause = "limit" , integer , [ "offset" , integer ] ;
 
+(* Predicate *)
 predicate = predicate_or ;
 predicate_or = predicate_and , { "or" , predicate_and } ;
-predicate_and = predicate_not , { "and" , predicate_not } ;
-predicate_not = [ "not" ] , predicate_atom ;
-predicate_atom = comparison | membership | existence | "(" , predicate , ")" ;
+predicate_and = predicate_atom , { "and" , predicate_atom } ;
+predicate_atom = comparison | "(" , predicate , ")" ;
 
-comparison = expression , comp_op , expression ;
-comp_op = "==" | "!=" | "is" | "is" , "not" 
-        | "<" | "<=" | ">" | ">=" 
-        | "between" , expression , "and"
-        | "contains" | "starts" , "with" | "ends" , "with" | "matches" ;
-
-membership = expression , [ "not" ] , "in" , ( list_literal | subquery ) ;
-existence = expression , ( "exists" | "is" , "null" | "is" , "empty" ) ;
-
-(* Select *)
-select_clause = "select" , ( "*" | select_list | select_except ) ;
-select_list = "{" , select_item , { "," , select_item } , "}" ;
-select_item = [ identifier , ":" ] , expression ;
-select_except = "*" , "except" , "{" , identifier_list , "}" ;
+comparison = field_reference , operator , value ;
+operator = "is" | "is" , "not" | "==" | "!="
+         | "<" | "<=" | ">" | ">="
+         | "in" | "between" | "contains" | "starts" , "with" | "ends" , "with" ;
 
 (* Order *)
-order_clause = "order" , "by" , order_item , { "," , order_item } ;
-order_item = expression , [ "asc" | "desc" ] , [ "nulls" , ( "first" | "last" ) ] ;
-
-(* Group *)
-group_clause = "group" , "by" , expression_list ;
-having_clause = "having" , predicate ;
-
-(* Limit/Offset *)
-limit_clause = "limit" , expression ;
-offset_clause = "offset" , expression | "skip" , expression ;
-
-(* Join *)
-join_clause = [ join_type ] , "join" , query_source , 
-              "on" , predicate ;
-join_type = "left" | "right" | "inner" | "outer" | "cross" ;
+order_item = field_reference , [ "asc" | "desc" ] ;
 
 (* Aggregates *)
-aggregate_func = ( "count" | "sum" | "avg" | "min" | "max" 
-                 | "first" | "last" | "collect" | "distinct" ) ,
-                 "(" , [ expression ] , ")" ;
+aggregate_function = ( "count" | "sum" | "avg" | "min" | "max" | "first" | "last" ) ,
+                     "(" , [ field_reference ] , ")" ;
 
 (* Window *)
-window_func = aggregate_func , "over" , "(" , window_spec , ")" ;
-window_spec = [ "partition" , "by" , expression_list ] ,
-              [ "order" , "by" , order_item , { "," , order_item } ] ,
-              [ frame_clause ] ;
-frame_clause = ( "rows" | "range" ) , "between" , frame_bound , 
-               "and" , frame_bound ;
-frame_bound = "unbounded" , ( "preceding" | "following" )
-            | "current" , "row"
-            | expression , ( "preceding" | "following" ) ;
+window_function = aggregate_function , "over" , "(" , window_spec , ")" ;
+window_spec = [ "partition" , "by" , field_list ] , [ "order" , "by" , order_item ] ;
 
-(* CTE *)
-with_clause = "with" , cte_def , { "," , cte_def } ;
-cte_def = identifier , "as" , "(" , query_expression , ")" ;
-
-(* Set Operations *)
-set_operation = query_expression , set_op , query_expression ;
-set_op = "union" , [ "all" ] | "intersect" | "except" ;
-
-(* Subquery *)
-subquery = "(" , query_expression , ")" ;
+(* Types *)
+typed_result = "<" , identifier , ":" , type_annotation , ">" ;
 ```
 
 ---
 
-### 15. Complete Example
+## 8. Complete Example
 
+### openapi.yaml
+
+```yaml
+openapi: 3.0.3
+info:
+  title: Sales Analytics
+  version: 1.0.0
+
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        customer-name:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+        region:
+          type: string
+        created-at:
+          type: string
+          format: date-time
+      required: [id, customer-name, amount, status]
+
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        customer-name:
+          type: string
+        amount:
+          type: number
+      required: [id, customer-name, amount]
+
+    RegionStats:
+      type: object
+      properties:
+        region:
+          type: string
+        total:
+          type: number
+        count:
+          type: integer
+      required: [region, total, count]
 ```
-(Sales Analytics: Reporting) {
-    // Complex analytical query
-    with <customer-metrics> as (
-        query <orders>
-        join <customers> on <orders>.customer-id == <customers>.id
-        where <orders>.created-at > now().minus(365.days)
-        group by <customers>.id
-        select {
-            customer-id: <customers>.id,
-            customer-name: <customers>.name,
-            region: <customers>.region,
-            order-count: count(),
-            total-revenue: sum(<orders>.total),
-            avg-order-value: avg(<orders>.total),
-            first-order: min(<orders>.created-at),
-            last-order: max(<orders>.created-at)
-        }
-    ),
-    <product-performance> as (
-        query <order-items>
-        join <products> on <order-items>.product-id == <products>.id
-        group by <products>.id
-        select {
-            product-id: <products>.id,
-            product-name: <products>.name,
-            category: <products>.category,
-            units-sold: sum(<order-items>.quantity),
-            revenue: sum(<order-items>.quantity * <order-items>.unit-price)
-        }
-    )
-    
-    // Top customers by region
-    <Compute> the <top-customers-by-region> from
-        query <customer-metrics>
-        select {
-            region,
-            customer-name,
-            total-revenue,
-            rank: rank() over (
-                partition by <region> 
-                order by <total-revenue> desc
-            )
-        }
-        where <rank> <= 5.
-    
-    // Monthly trends
-    <Compute> the <monthly-trends> from
-        query <orders>
-        where <created-at> > now().minus(12.months)
-        group by month(<created-at>)
-        select {
-            month: month(<created-at>),
-            orders: count(),
-            revenue: sum(<total>),
-            running-revenue: sum(sum(<total>)) over (order by month(<created-at>))
-        }
-        order by <month>.
-    
-    // Cohort analysis
-    <Compute> the <cohort-retention> from
-        query <customers>
-        join <orders> on <customers>.id == <orders>.customer-id
-        select {
-            cohort-month: month(<customers>.created-at),
-            order-month: month(<orders>.created-at),
-            months-since-signup: months-between(
-                <customers>.created-at, 
-                <orders>.created-at
-            ),
-            customer-count: count(distinct <customers>.id)
-        }
-        group by <cohort-month>, <order-month>.
-    
-    // Generate report
-    <Create> the <report: SalesReport> with {
-        generated-at: now(),
-        top-customers: <top-customers-by-region>,
-        trends: <monthly-trends>,
-        cohort: <cohort-retention>,
-        top-products: (
-            query <product-performance>
-            order by <revenue> desc
-            limit 20
-        )
+
+### analytics.aro
+
+```aro
+(Sales Report: Analytics) {
+    (* Fetch recent orders *)
+    <Fetch> the <recent-orders: List<Order>> from the <orders>
+        where <created-at> > now().minus(30.days)
+        order by <created-at> desc.
+
+    (* Get total revenue *)
+    <Reduce> the <total-revenue: Float> from the <recent-orders>
+        with sum(<amount>).
+
+    (* Count pending orders *)
+    <Reduce> the <pending-count: Integer> from the <recent-orders>
+        where <status> is "pending"
+        with count().
+
+    (* Map to summaries *)
+    <Map> the <summaries: List<OrderSummary>> from the <recent-orders>.
+
+    (* Filter high-value orders *)
+    <Filter> the <high-value: List<Order>> from the <recent-orders>
+        where <amount> > 1000.
+
+    <Return> an <OK: status> with {
+        orders: <summaries>,
+        total: <total-revenue>,
+        pending: <pending-count>,
+        high-value-count: <high-value>.count()
     }.
-    
-    <Return> the <report>.
 }
 ```
 
@@ -608,4 +348,5 @@ subquery = "(" , query_expression , ")" ;
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2024-01 | Initial specification |
+| 1.0 | 2024-01 | Initial specification (SQL-like) |
+| 2.0 | 2025-12 | Simplified to map/reduce style. Removed JOINs, subqueries, CTEs, set operations. Results typed via OpenAPI. |

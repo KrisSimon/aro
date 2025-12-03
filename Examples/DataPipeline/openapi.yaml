@@ -1,0 +1,133 @@
+openapi: 3.0.3
+info:
+  title: Data Pipeline Example
+  description: Demonstrates ARO data pipeline operations (ARO-0018)
+  version: 1.0.0
+
+# No HTTP paths - this is a data processing example
+paths: {}
+
+components:
+  schemas:
+    # Full order with all fields
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        customer-id:
+          type: string
+        customer-name:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, processing, shipped, delivered, cancelled]
+        region:
+          type: string
+        created-at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - customer-id
+        - customer-name
+        - amount
+        - status
+
+    # Simplified order for API responses (excludes internal fields)
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        customer-name:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+      required:
+        - id
+        - customer-name
+        - amount
+
+    # User with full details
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, user, guest]
+        tier:
+          type: string
+          enum: [free, premium, enterprise]
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        total-purchases:
+          type: number
+        created-at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+
+    # User summary for listings
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - id
+        - name
+        - email
+
+    # Product catalog item
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+        stock:
+          type: integer
+      required:
+        - id
+        - name
+        - price
+
+    # Analytics report
+    AnalyticsReport:
+      type: object
+      properties:
+        total-revenue:
+          type: number
+        order-count:
+          type: integer
+        avg-order-value:
+          type: number
+        pending-count:
+          type: integer
+      required:
+        - total-revenue
+        - order-count
