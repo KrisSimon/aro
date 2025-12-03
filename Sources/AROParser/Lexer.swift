@@ -209,6 +209,8 @@ public final class Lexer: @unchecked Sendable {
 
     private func scanString(quote: Character, start: SourceLocation) throws {
         var value = ""
+        var hasInterpolation = false
+        var segments: [(String, SourceLocation)] = []  // For interpolated strings
 
         while !isAtEnd && peek() != quote {
             let char = peek()
@@ -229,9 +231,28 @@ public final class Lexer: @unchecked Sendable {
                 case "\"": value.append("\"")
                 case "'": value.append("'")
                 case "0": value.append("\0")
+                case "$": value.append("$")  // Escape dollar sign
+                case "u":
+                    // Unicode escape: \u{XXXX}
+                    let unicodeChar = try scanUnicodeEscape(start: start)
+                    value.append(unicodeChar)
                 default:
                     throw LexerError.invalidEscapeSequence(escaped, at: location)
                 }
+            } else if char == "$" && peekNext() == "{" {
+                // String interpolation: ${...}
+                hasInterpolation = true
+                let segmentStart = location
+                if !value.isEmpty {
+                    segments.append((value, segmentStart))
+                    value = ""
+                }
+                _ = advance() // $
+                _ = advance() // {
+                // Mark interpolation start position for later scanning
+                segments.append(("${", location))
+                // Scan until matching }
+                try scanInterpolationContent(quote: quote, start: start, segments: &segments)
             } else {
                 value.append(advance())
             }
@@ -242,7 +263,132 @@ public final class Lexer: @unchecked Sendable {
         }
 
         _ = advance() // Closing quote
-        addToken(.stringLiteral(value), start: start)
+
+        if hasInterpolation {
+            // Add final segment if any
+            if !value.isEmpty {
+                segments.append((value, location))
+            }
+            // Emit interpolation tokens
+            emitInterpolationTokens(segments: segments, start: start)
+        } else {
+            addToken(.stringLiteral(value), start: start)
+        }
+    }
+
+    /// Scans a unicode escape sequence: \u{XXXX}
+    private func scanUnicodeEscape(start: SourceLocation) throws -> Character {
+        guard peek() == "{" else {
+            throw LexerError.invalidEscapeSequence("u", at: location)
+        }
+        _ = advance() // consume {
+
+        var hexStr = ""
+        while !isAtEnd && peek() != "}" {
+            let c = advance()
+            guard c.isHexDigit else {
+                throw LexerError.invalidUnicodeEscape(hexStr + String(c), at: location)
+            }
+            hexStr.append(c)
+        }
+
+        guard !isAtEnd && peek() == "}" else {
+            throw LexerError.invalidUnicodeEscape(hexStr, at: location)
+        }
+        _ = advance() // consume }
+
+        guard !hexStr.isEmpty,
+              let codePoint = UInt32(hexStr, radix: 16),
+              let scalar = Unicode.Scalar(codePoint) else {
+            throw LexerError.invalidUnicodeEscape(hexStr, at: location)
+        }
+
+        return Character(scalar)
+    }
+
+    /// Scans content inside ${...} interpolation, handling nested braces
+    private func scanInterpolationContent(
+        quote: Character,
+        start: SourceLocation,
+        segments: inout [(String, SourceLocation)]
+    ) throws {
+        var braceDepth = 1
+        var content = ""
+        let contentStart = location
+
+        while !isAtEnd && braceDepth > 0 {
+            let char = peek()
+            if char == "\n" {
+                throw LexerError.unterminatedString(at: start)
+            }
+            if char == "{" {
+                braceDepth += 1
+                content.append(advance())
+            } else if char == "}" {
+                braceDepth -= 1
+                if braceDepth > 0 {
+                    content.append(advance())
+                } else {
+                    _ = advance() // consume closing }
+                }
+            } else if char == quote {
+                // String ended before interpolation closed
+                throw LexerError.unterminatedString(at: start)
+            } else {
+                content.append(advance())
+            }
+        }
+
+        if braceDepth > 0 {
+            throw LexerError.unterminatedString(at: start)
+        }
+
+        // Store the interpolation content
+        segments.append((content, contentStart))
+        segments.append(("}", location))
+    }
+
+    /// Emits tokens for an interpolated string
+    private func emitInterpolationTokens(segments: [(String, SourceLocation)], start: SourceLocation) {
+        var i = 0
+        while i < segments.count {
+            let (content, loc) = segments[i]
+            let span = SourceSpan(start: loc, end: loc)
+
+            if content == "${" {
+                addToken(.interpolationStart, start: loc)
+                i += 1
+                // Next segment is the expression content
+                if i < segments.count {
+                    let (exprContent, _) = segments[i]
+                    if exprContent != "}" {
+                        // Re-lex the expression content to get real tokens
+                        if let exprTokens = try? Lexer.tokenize(exprContent) {
+                            // Add all tokens except EOF
+                            for token in exprTokens where token.kind != .eof {
+                                tokens.append(token)
+                            }
+                        }
+                        i += 1
+                    }
+                }
+                // Next should be }
+                if i < segments.count && segments[i].0 == "}" {
+                    addToken(.interpolationEnd, start: segments[i].1)
+                    i += 1
+                }
+            } else if content != "}" {
+                // Regular string segment
+                tokens.append(Token(
+                    kind: .stringSegment(content),
+                    span: span,
+                    lexeme: content
+                ))
+                i += 1
+            } else {
+                i += 1
+            }
+        }
     }
 
     // MARK: - Number Scanning

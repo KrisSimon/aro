@@ -273,7 +273,12 @@ struct AROStatementParsingTests {
         let program = try Parser.parse(source)
         let statement = program.featureSets[0].statements[0] as! AROStatement
 
-        #expect(statement.literalValue == .string("Hello World"))
+        // Literals are now stored as expressions (ARO-0002)
+        if let expr = statement.expression as? LiteralExpression {
+            #expect(expr.value == .string("Hello World"))
+        } else {
+            Issue.record("Expected LiteralExpression")
+        }
     }
 
     @Test("Parses ARO statement with integer literal")
@@ -286,7 +291,12 @@ struct AROStatementParsingTests {
         let program = try Parser.parse(source)
         let statement = program.featureSets[0].statements[0] as! AROStatement
 
-        #expect(statement.literalValue == .integer(8080))
+        // Literals are now stored as expressions (ARO-0002)
+        if let expr = statement.expression as? LiteralExpression {
+            #expect(expr.value == .integer(8080))
+        } else {
+            Issue.record("Expected LiteralExpression")
+        }
     }
 
     @Test("Parses ARO statement with float literal")
@@ -299,7 +309,12 @@ struct AROStatementParsingTests {
         let program = try Parser.parse(source)
         let statement = program.featureSets[0].statements[0] as! AROStatement
 
-        #expect(statement.literalValue == .float(3.14))
+        // Literals are now stored as expressions (ARO-0002)
+        if let expr = statement.expression as? LiteralExpression {
+            #expect(expr.value == .float(3.14))
+        } else {
+            Issue.record("Expected LiteralExpression")
+        }
     }
 
     @Test("Parses ARO statement with boolean literal")
@@ -312,7 +327,12 @@ struct AROStatementParsingTests {
         let program = try Parser.parse(source)
         let statement = program.featureSets[0].statements[0] as! AROStatement
 
-        #expect(statement.literalValue == .boolean(true))
+        // Literals are now stored as expressions (ARO-0002)
+        if let expr = statement.expression as? LiteralExpression {
+            #expect(expr.value == .boolean(true))
+        } else {
+            Issue.record("Expected LiteralExpression")
+        }
     }
 
     @Test("Parses ARO statement with 'for' preposition")

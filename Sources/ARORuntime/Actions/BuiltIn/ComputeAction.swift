@@ -417,3 +417,221 @@ extension CreatedEntity: Equatable {
         lhs.type == rhs.type
     }
 }
+
+// MARK: - Additional OWN Actions (ARO-0001)
+
+/// Filters a collection to select a subset
+public struct FilterAction: ActionImplementation {
+    public static let role: ActionRole = .own
+    public static let verbs: Set<String> = ["filter", "select", "where"]
+    public static let validPrepositions: Set<Preposition> = [.from, .with, .for]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
+        // Get collection to filter
+        guard let collection = context.resolveAny(object.base) else {
+            throw ActionError.undefinedVariable(object.base)
+        }
+
+        // Filter predicate from result specifiers
+        let predicate = result.specifiers.first ?? "all"
+
+        // Handle array filtering
+        if let array = collection as? [any Sendable] {
+            switch predicate.lowercased() {
+            case "all":
+                return array
+            case "first":
+                if let first = array.first {
+                    return first
+                }
+                return [] as [any Sendable]
+            case "last":
+                if let last = array.last {
+                    return last
+                }
+                return [] as [any Sendable]
+            case "empty":
+                return array.filter { item in
+                    if let str = item as? String { return str.isEmpty }
+                    return false
+                }
+            case "nonempty":
+                return array.filter { item in
+                    if let str = item as? String { return !str.isEmpty }
+                    return true
+                }
+            default:
+                return array
+            }
+        }
+
+        // Return original if not filterable
+        return collection
+    }
+}
+
+/// Sorts a collection
+public struct SortAction: ActionImplementation {
+    public static let role: ActionRole = .own
+    public static let verbs: Set<String> = ["sort", "order", "arrange"]
+    public static let validPrepositions: Set<Preposition> = [.for, .with]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
+        // Get collection to sort
+        guard let collection = context.resolveAny(object.base) else {
+            throw ActionError.undefinedVariable(object.base)
+        }
+
+        // Sort order from result specifiers
+        let order = result.specifiers.first ?? "ascending"
+        let ascending = order.lowercased() != "descending"
+
+        // Handle string array sorting
+        if let array = collection as? [String] {
+            return ascending ? array.sorted() : array.sorted().reversed()
+        }
+
+        // Handle int array sorting
+        if let array = collection as? [Int] {
+            return ascending ? array.sorted() : array.sorted().reversed()
+        }
+
+        // Handle double array sorting
+        if let array = collection as? [Double] {
+            return ascending ? array.sorted() : array.sorted().reversed()
+        }
+
+        // Return original if not sortable
+        return collection
+    }
+}
+
+/// Merges two or more values
+public struct MergeAction: ActionImplementation {
+    public static let role: ActionRole = .own
+    public static let verbs: Set<String> = ["merge", "combine", "join", "concat"]
+    public static let validPrepositions: Set<Preposition> = [.with, .into]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
+        // Get the base value to merge into
+        guard let target = context.resolveAny(result.base) else {
+            throw ActionError.undefinedVariable(result.base)
+        }
+
+        // Get the value to merge from
+        guard let source = context.resolveAny(object.base) else {
+            throw ActionError.undefinedVariable(object.base)
+        }
+
+        // Merge dictionaries
+        if var targetDict = target as? [String: any Sendable],
+           let sourceDict = source as? [String: any Sendable] {
+            for (key, value) in sourceDict {
+                targetDict[key] = value
+            }
+            return targetDict
+        }
+
+        // Merge arrays
+        if var targetArray = target as? [any Sendable],
+           let sourceArray = source as? [any Sendable] {
+            targetArray.append(contentsOf: sourceArray)
+            return targetArray
+        }
+
+        // Merge strings
+        if let targetStr = target as? String,
+           let sourceStr = source as? String {
+            return targetStr + sourceStr
+        }
+
+        // Return target if types don't match
+        return target
+    }
+}
+
+/// Deletes an entity or value
+public struct DeleteAction: ActionImplementation {
+    public static let role: ActionRole = .own
+    public static let verbs: Set<String> = ["delete", "remove", "destroy", "clear"]
+    public static let validPrepositions: Set<Preposition> = [.from, .for]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
+        // Get the source containing the item to delete
+        guard let source = context.resolveAny(object.base) else {
+            throw ActionError.undefinedVariable(object.base)
+        }
+
+        // Key to delete from result specifiers
+        let keyToDelete = result.specifiers.first ?? result.base
+
+        // Delete from dictionary
+        if var dict = source as? [String: any Sendable] {
+            dict.removeValue(forKey: keyToDelete)
+            return dict
+        }
+
+        // Delete from array by index
+        if var array = source as? [any Sendable], let index = Int(keyToDelete), index >= 0, index < array.count {
+            array.remove(at: index)
+            return array
+        }
+
+        // Emit delete event
+        context.emit(DataDeletedEvent(target: result.base, source: object.base))
+
+        return DeleteResult(target: result.base, success: true)
+    }
+}
+
+/// Result of a delete operation
+public struct DeleteResult: Sendable, Equatable {
+    public let target: String
+    public let success: Bool
+}
+
+/// Event emitted when data is deleted
+public struct DataDeletedEvent: RuntimeEvent {
+    public static var eventType: String { "data.deleted" }
+    public let timestamp: Date
+    public let target: String
+    public let source: String
+
+    public init(target: String, source: String) {
+        self.timestamp = Date()
+        self.target = target
+        self.source = source
+    }
+}

@@ -43,28 +43,33 @@ public final class ActionRegistry: @unchecked Sendable {
 
     /// Register built-in actions
     private func registerBuiltIns() {
-        // REQUEST actions
+        // REQUEST actions (External → Internal)
         register(ExtractAction.self)
         register(RetrieveAction.self)
         register(ReceiveAction.self)
         register(FetchAction.self)
         register(ReadAction.self)
 
-        // OWN actions
+        // OWN actions (Internal → Internal)
         register(ComputeAction.self)
         register(ValidateAction.self)
         register(CompareAction.self)
         register(TransformAction.self)
         register(CreateAction.self)
         register(UpdateAction.self)
+        register(FilterAction.self)
+        register(SortAction.self)
+        register(MergeAction.self)
+        register(DeleteAction.self)
 
-        // RESPONSE actions
+        // RESPONSE actions (Internal → External)
         register(ReturnAction.self)
         register(ThrowAction.self)
         register(SendAction.self)
         register(LogAction.self)
         register(StoreAction.self)
         register(WriteAction.self)
+        register(NotifyAction.self)
 
         // EXPORT actions
         register(PublishAction.self)

@@ -106,22 +106,23 @@ public final class Parser {
     }
     
     /// Parses: "<" action ">" [article] "<" result ">" preposition [article] "<" object ">" "."
+    /// ARO-0002: Also supports expressions after prepositions like `from <x> * <y>` or `to 30`
     private func parseAROStatement(startToken: Token) throws -> AROStatement {
         // Parse action verb
         let actionToken = try expectIdentifier(message: "action verb")
         let action = Action(verb: actionToken.lexeme, span: actionToken.span)
         try expect(.rightAngle, message: "'>'")
-        
+
         // Skip optional article before result
         if case .article = peek().kind {
             advance()
         }
-        
+
         // Parse result
         try expect(.leftAngle, message: "'<'")
         let result = try parseQualifiedNoun()
         try expect(.rightAngle, message: "'>'")
-        
+
         // Parse preposition
         // Note: "for" is lexed as .for keyword (for iteration) but also used as a preposition
         let prep: Preposition
@@ -137,17 +138,21 @@ public final class Parser {
         }
 
         // After preposition, we can have:
-        // 1. [article] <object> [with literal] - standard syntax
-        // 2. literal - when preposition is 'with', the literal IS the object
+        // 1. [article] <object> [with literal/expression] - standard syntax
+        // 2. expression - for computed values like `from <x> * <y>` or `to 30`
         var objectNoun: QualifiedNoun
         var literalValue: LiteralValue? = nil
+        var expression: (any Expression)? = nil
 
-        // Check if the next token is a literal (for `with "literal"` syntax)
-        if prep == .with && isLiteralToken(peek()) {
-            // `with "literal"` - literal is the object
-            literalValue = try parseLiteralValue()
-            // Create a placeholder object noun for the literal
-            objectNoun = QualifiedNoun(base: "_literal_", specifiers: [], span: previous().span)
+        // Check if we should parse an expression after the preposition
+        // This happens for: `to <expr>`, `from <expr>`, `with <expr>`, `for <expr>` when followed by expression-starting token
+        let shouldParseExpression = (prep == .to || prep == .from || prep == .with || prep == .for) && isExpressionStart(peek())
+
+        if shouldParseExpression && !isArticleFollowedByAngle() {
+            // Parse expression (ARO-0002)
+            expression = try parseExpression()
+            // Create a placeholder object noun for the expression
+            objectNoun = QualifiedNoun(base: "_expression_", specifiers: [], span: previous().span)
         } else {
             // Standard syntax: [article] <object>
             // Skip optional article before object
@@ -160,10 +165,13 @@ public final class Parser {
             objectNoun = try parseQualifiedNoun()
             try expect(.rightAngle, message: "'>'")
 
-            // Parse optional literal value: `with "string"` or `with 42`
+            // Parse optional value after object: `with "string"` or `with <expr>`
             if case .preposition(.with) = peek().kind {
                 advance() // consume 'with'
-                literalValue = try parseLiteralValue()
+                if isExpressionStart(peek()) {
+                    // Try to parse as expression first
+                    expression = try parseExpression()
+                }
             }
         }
 
@@ -174,8 +182,37 @@ public final class Parser {
             result: result,
             object: ObjectClause(preposition: prep, noun: objectNoun),
             literalValue: literalValue,
+            expression: expression,
             span: startToken.span.merged(with: endToken.span)
         )
+    }
+
+    /// Check if the token could start an expression
+    private func isExpressionStart(_ token: Token) -> Bool {
+        switch token.kind {
+        case .stringLiteral, .intLiteral, .floatLiteral, .true, .false, .nil, .null:
+            return true
+        case .leftAngle, .leftBracket, .leftBrace, .leftParen:
+            return true
+        case .hyphen, .minus, .not:
+            return true
+        case .stringSegment, .interpolationStart:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Check if current position is article followed by angle bracket (standard object syntax)
+    private func isArticleFollowedByAngle() -> Bool {
+        if case .article = peek().kind {
+            // Look ahead to see if it's followed by <
+            let nextIndex = current + 1
+            if nextIndex < tokens.count && tokens[nextIndex].kind == .leftAngle {
+                return true
+            }
+        }
+        return false
     }
 
     /// Check if the token is a literal value
@@ -304,11 +341,17 @@ public final class Parser {
     // MARK: - Token Access
     
     private func peek() -> Token {
-        tokens[current]
+        guard current < tokens.count else {
+            return tokens[tokens.count - 1] // Return EOF
+        }
+        return tokens[current]
     }
-    
+
     private func previous() -> Token {
-        tokens[current - 1]
+        guard current > 0 else {
+            return tokens[0]
+        }
+        return tokens[current - 1]
     }
     
     @discardableResult
@@ -385,6 +428,383 @@ public final class Parser {
             
             advance()
         }
+    }
+}
+
+// MARK: - Expression Parsing (ARO-0002)
+
+/// Operator precedence levels for Pratt parsing
+private enum Precedence: Int, Comparable {
+    case none = 0
+    case or = 1           // or
+    case and = 2          // and
+    case equality = 3     // == != is is_not
+    case comparison = 4   // < > <= >=
+    case term = 5         // + - ++
+    case factor = 6       // * / %
+    case unary = 7        // - not
+    case postfix = 8      // . []
+
+    static func < (lhs: Precedence, rhs: Precedence) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
+extension Parser {
+    // MARK: - Expression Entry Point
+
+    /// Parses a full expression
+    public func parseExpression() throws -> any Expression {
+        try parsePrecedence(.none)
+    }
+
+    /// Pratt parser core - parses expressions at or above the given precedence
+    private func parsePrecedence(_ minPrecedence: Precedence) throws -> any Expression {
+        // Parse prefix (primary or unary)
+        var left = try parsePrefix()
+
+        // Parse infix operators at or above minPrecedence
+        while let prec = infixPrecedence(peek()), prec > minPrecedence {
+            left = try parseInfix(left: left, precedence: prec)
+        }
+
+        // Handle postfix existence check: <expr> exists
+        if check(.exists) {
+            advance()
+            let span = (left as? any Locatable)?.span ?? SourceSpan.unknown
+            left = ExistenceExpression(expression: left, span: span)
+        }
+
+        return left
+    }
+
+    // MARK: - Prefix Parsing
+
+    /// Parses prefix expressions (literals, unary, grouping, variable refs, collections)
+    private func parsePrefix() throws -> any Expression {
+        let token = peek()
+
+        switch token.kind {
+        // Literals
+        case .stringLiteral(let s):
+            advance()
+            return LiteralExpression(value: .string(s), span: token.span)
+
+        case .intLiteral(let i):
+            advance()
+            return LiteralExpression(value: .integer(i), span: token.span)
+
+        case .floatLiteral(let f):
+            advance()
+            return LiteralExpression(value: .float(f), span: token.span)
+
+        case .true:
+            advance()
+            return LiteralExpression(value: .boolean(true), span: token.span)
+
+        case .false:
+            advance()
+            return LiteralExpression(value: .boolean(false), span: token.span)
+
+        case .nil, .null:
+            advance()
+            return LiteralExpression(value: .null, span: token.span)
+
+        // Variable reference: <name>
+        case .leftAngle:
+            return try parseVariableRefExpression()
+
+        // Array literal: [...]
+        case .leftBracket:
+            return try parseArrayLiteral()
+
+        // Map literal: {...}
+        case .leftBrace:
+            return try parseMapLiteral()
+
+        // Grouped expression: (...)
+        case .leftParen:
+            return try parseGroupedExpression()
+
+        // Unary minus: -expr
+        case .hyphen, .minus:
+            advance()
+            let operand = try parsePrecedence(.unary)
+            let span = token.span.merged(with: (operand as? any Locatable)?.span ?? token.span)
+            return UnaryExpression(op: .negate, operand: operand, span: span)
+
+        // Unary not: not expr
+        case .not:
+            advance()
+            let operand = try parsePrecedence(.unary)
+            let span = token.span.merged(with: (operand as? any Locatable)?.span ?? token.span)
+            return UnaryExpression(op: .not, operand: operand, span: span)
+
+        // String interpolation tokens
+        case .stringSegment(let s):
+            return try parseInterpolatedString(firstSegment: s, startSpan: token.span)
+
+        case .interpolationStart:
+            return try parseInterpolatedString(firstSegment: nil, startSpan: token.span)
+
+        default:
+            throw ParserError.unexpectedToken(expected: "expression", got: token)
+        }
+    }
+
+    // MARK: - Infix Parsing
+
+    /// Gets the precedence of an infix operator
+    private func infixPrecedence(_ token: Token) -> Precedence? {
+        switch token.kind {
+        case .or: return .or
+        case .and: return .and
+        case .equalEqual, .bangEqual, .is, .contains, .matches: return .equality
+        case .lessThan, .greaterThan, .lessEqual, .greaterEqual: return .comparison
+        // Handle < and > as comparison operators in expression context
+        // They will only reach here if not part of a <variable> reference
+        case .leftAngle, .rightAngle:
+            // Only treat as comparison if not followed by identifier (which would start a variable ref)
+            let nextIndex = current + 1
+            if nextIndex < tokens.count {
+                if case .identifier = tokens[nextIndex].kind {
+                    // This could be starting a variable ref, don't treat as comparison
+                    return nil
+                }
+            }
+            return .comparison
+        case .plus, .minus, .plusPlus: return .term
+        case .star, .slash, .percent: return .factor
+        case .leftBracket: return .postfix
+        case .dot:
+            // Only treat . as member access if followed by identifier
+            // This prevents statement-ending . from being parsed as member access
+            let nextIndex = current + 1
+            if nextIndex < tokens.count {
+                if case .identifier = tokens[nextIndex].kind {
+                    return .postfix
+                }
+            }
+            return nil
+        default: return nil
+        }
+    }
+
+    /// Parses infix expressions (binary operators, member access)
+    private func parseInfix(left: any Expression, precedence: Precedence) throws -> any Expression {
+        let token = peek()
+
+        switch token.kind {
+        // Member access: .name
+        case .dot:
+            advance()
+            let memberToken = try expectIdentifier(message: "member name")
+            let span = (left as? any Locatable)?.span.merged(with: memberToken.span) ?? memberToken.span
+            return MemberAccessExpression(base: left, member: memberToken.lexeme, span: span)
+
+        // Subscript: [index]
+        case .leftBracket:
+            advance()
+            let index = try parseExpression()
+            let endToken = try expect(.rightBracket, message: "']'")
+            let span = (left as? any Locatable)?.span.merged(with: endToken.span) ?? endToken.span
+            return SubscriptExpression(base: left, index: index, span: span)
+
+        // Binary operators
+        default:
+            advance()
+            guard let op = binaryOperator(from: token.kind) else {
+                throw ParserError.unexpectedToken(expected: "binary operator", got: token)
+            }
+
+            // Handle "is not" as two tokens
+            var actualOp = op
+            if op == .is && check(.not) {
+                advance()
+                actualOp = .isNot
+            }
+
+            // Handle type check: <expr> is [a/an] TypeName
+            if actualOp == .is || actualOp == .isNot {
+                // Skip optional article
+                var hasArticle = false
+                if case .article = peek().kind {
+                    advance()
+                    hasArticle = true
+                }
+
+                // Parse type name
+                let typeToken = try expectIdentifier(message: "type name")
+                let span = (left as? any Locatable)?.span.merged(with: typeToken.span) ?? typeToken.span
+
+                if actualOp == .isNot {
+                    // "is not" followed by type is a negated type check
+                    let typeCheck = TypeCheckExpression(expression: left, typeName: typeToken.lexeme, hasArticle: hasArticle, span: span)
+                    return UnaryExpression(op: .not, operand: typeCheck, span: span)
+                }
+
+                return TypeCheckExpression(expression: left, typeName: typeToken.lexeme, hasArticle: hasArticle, span: span)
+            }
+
+            // Parse right operand with higher precedence (left-associative)
+            let right = try parsePrecedence(precedence)
+            let span = (left as? any Locatable)?.span.merged(with: (right as? any Locatable)?.span ?? token.span) ?? token.span
+
+            return BinaryExpression(left: left, op: actualOp, right: right, span: span)
+        }
+    }
+
+    /// Maps token kind to binary operator
+    private func binaryOperator(from kind: TokenKind) -> BinaryOperator? {
+        switch kind {
+        case .plus: return .add
+        case .minus: return .subtract
+        case .star: return .multiply
+        case .slash: return .divide
+        case .percent: return .modulo
+        case .plusPlus: return .concat
+        case .equalEqual: return .equal
+        case .bangEqual: return .notEqual
+        case .lessThan, .leftAngle: return .lessThan
+        case .greaterThan, .rightAngle: return .greaterThan
+        case .lessEqual: return .lessEqual
+        case .greaterEqual: return .greaterEqual
+        case .is: return .is
+        case .and: return .and
+        case .or: return .or
+        case .contains: return .contains
+        case .matches: return .matches
+        default: return nil
+        }
+    }
+
+    // MARK: - Specific Expression Parsers
+
+    /// Parses a variable reference: <name> or <name: specifier>
+    private func parseVariableRefExpression() throws -> VariableRefExpression {
+        let startToken = try expect(.leftAngle, message: "'<'")
+        let noun = try parseQualifiedNoun()
+        let endToken = try expect(.rightAngle, message: "'>'")
+        return VariableRefExpression(noun: noun, span: startToken.span.merged(with: endToken.span))
+    }
+
+    /// Parses an array literal: [elem1, elem2, ...]
+    private func parseArrayLiteral() throws -> ArrayLiteralExpression {
+        let startToken = try expect(.leftBracket, message: "'['")
+        var elements: [any Expression] = []
+
+        if !check(.rightBracket) {
+            elements.append(try parseExpression())
+            while check(.comma) {
+                advance()
+                if check(.rightBracket) { break } // Allow trailing comma
+                elements.append(try parseExpression())
+            }
+        }
+
+        let endToken = try expect(.rightBracket, message: "']'")
+        return ArrayLiteralExpression(elements: elements, span: startToken.span.merged(with: endToken.span))
+    }
+
+    /// Parses a map literal: { key: value, ... }
+    private func parseMapLiteral() throws -> MapLiteralExpression {
+        let startToken = try expect(.leftBrace, message: "'{'")
+        var entries: [MapEntry] = []
+
+        if !check(.rightBrace) {
+            entries.append(try parseMapEntry())
+            while check(.comma) {
+                advance()
+                if check(.rightBrace) { break } // Allow trailing comma
+                entries.append(try parseMapEntry())
+            }
+        }
+
+        let endToken = try expect(.rightBrace, message: "'}'")
+        return MapLiteralExpression(entries: entries, span: startToken.span.merged(with: endToken.span))
+    }
+
+    /// Parses a single map entry: key: value
+    private func parseMapEntry() throws -> MapEntry {
+        let keyToken = peek()
+        let key: String
+
+        // Key can be identifier or string literal
+        switch keyToken.kind {
+        case .identifier(let s):
+            advance()
+            key = s
+        case .stringLiteral(let s):
+            advance()
+            key = s
+        default:
+            // Also accept compound identifiers
+            key = try parseCompoundIdentifier()
+        }
+
+        try expect(.colon, message: "':'")
+        let value = try parseExpression()
+
+        return MapEntry(key: key, value: value, span: keyToken.span.merged(with: (value as? any Locatable)?.span ?? keyToken.span))
+    }
+
+    /// Parses a grouped (parenthesized) expression: (expr)
+    private func parseGroupedExpression() throws -> GroupedExpression {
+        let startToken = try expect(.leftParen, message: "'('")
+        let expr = try parseExpression()
+        let endToken = try expect(.rightParen, message: "')'")
+        return GroupedExpression(expression: expr, span: startToken.span.merged(with: endToken.span))
+    }
+
+    /// Parses an interpolated string from its tokens
+    private func parseInterpolatedString(firstSegment: String?, startSpan: SourceSpan) throws -> InterpolatedStringExpression {
+        var parts: [StringPart] = []
+
+        // Add first segment if provided
+        if let seg = firstSegment {
+            advance() // consume the stringSegment token
+            parts.append(.literal(seg))
+        }
+
+        // Parse remaining segments and interpolations
+        while !isAtEnd {
+            switch peek().kind {
+            case .stringSegment(let s):
+                advance()
+                parts.append(.literal(s))
+
+            case .interpolationStart:
+                advance()
+                // The next token should be the expression content as a stringSegment
+                // We need to re-lex and parse this content
+                if case .stringSegment(let exprStr) = peek().kind {
+                    advance()
+                    // Parse the expression string
+                    let exprTokens = try Lexer.tokenize(exprStr)
+                    let exprParser = Parser(tokens: exprTokens, diagnostics: diagnostics)
+                    let expr = try exprParser.parseExpression()
+                    parts.append(.interpolation(expr))
+                }
+                // Consume interpolationEnd
+                if check(.interpolationEnd) {
+                    advance()
+                }
+
+            case .interpolationEnd:
+                advance()
+
+            default:
+                // End of interpolated string
+                break
+            }
+
+            // Break if we're not seeing more string parts
+            if case .stringSegment = peek().kind { continue }
+            if case .interpolationStart = peek().kind { continue }
+            break
+        }
+
+        return InterpolatedStringExpression(parts: parts, span: startSpan.merged(with: previous().span))
     }
 }
 

@@ -103,6 +103,11 @@ public enum TokenKind: Sendable, Equatable, CustomStringConvertible {
     case `false`            // false
     case `nil`              // nil/null/none
 
+    // String Interpolation (ARO-0002)
+    case stringSegment(String)    // A segment of an interpolated string
+    case interpolationStart       // ${
+    case interpolationEnd         // } (closing interpolation)
+
     // Articles and Prepositions
     case article(Article)
     case preposition(Preposition)
@@ -190,6 +195,9 @@ public enum TokenKind: Sendable, Equatable, CustomStringConvertible {
         case .true: return "true"
         case .false: return "false"
         case .nil: return "nil"
+        case .stringSegment(let value): return "stringSegment(\"\(value)\")"
+        case .interpolationStart: return "${"
+        case .interpolationEnd: return "}"
         case .article(let art): return "article(\(art))"
         case .preposition(let prep): return "preposition(\(prep))"
         case .eof: return "EOF"

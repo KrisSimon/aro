@@ -16,6 +16,7 @@ public final class FeatureSetExecutor: @unchecked Sendable {
     private let actionRegistry: ActionRegistry
     private let eventBus: EventBus
     private let globalSymbols: GlobalSymbolStorage
+    private let expressionEvaluator: ExpressionEvaluator
 
     // MARK: - Initialization
 
@@ -27,6 +28,7 @@ public final class FeatureSetExecutor: @unchecked Sendable {
         self.actionRegistry = actionRegistry
         self.eventBus = eventBus
         self.globalSymbols = globalSymbols
+        self.expressionEvaluator = ExpressionEvaluator()
     }
 
     // MARK: - Execution
@@ -123,6 +125,32 @@ public final class FeatureSetExecutor: @unchecked Sendable {
         let verb = statement.action.verb
         let resultDescriptor = ResultDescriptor(from: statement.result)
         let objectDescriptor = ObjectDescriptor(from: statement.object)
+
+        // ARO-0002: Evaluate expression if present
+        if let expression = statement.expression {
+            let expressionValue = try await expressionEvaluator.evaluate(expression, context: context)
+            context.bind("_expression_", value: expressionValue)
+
+            // For expressions, directly bind the result to the expression value
+            // This handles cases like: <Set> the <x> to 30 * 2.
+            // or: <Compute> the <total> from <price> * <quantity>.
+            if statement.object.noun.base == "_expression_" {
+                context.bind(resultDescriptor.base, value: expressionValue)
+
+                // Still need to get the action for side effects (like Return, Log, etc.)
+                if let action = actionRegistry.action(for: verb) {
+                    // For response actions, execute them with the expression result
+                    if statement.action.semanticRole == .response {
+                        _ = try await action.execute(
+                            result: resultDescriptor,
+                            object: objectDescriptor,
+                            context: context
+                        )
+                    }
+                }
+                return
+            }
+        }
 
         // Bind literal value if present (e.g., "Hello, World!" in the statement)
         if let literalValue = statement.literalValue {

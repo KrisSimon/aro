@@ -169,27 +169,45 @@ public final class SemanticAnalyzer {
         builder: SymbolTableBuilder,
         definedSymbols: inout Set<String>
     ) -> (DataFlowInfo, Set<String>) {
-        
+
         var inputs: Set<String> = []
         var outputs: Set<String> = []
         var sideEffects: [String] = []
         var dependencies: Set<String> = []
-        
+
         let resultName = statement.result.base
         let objectName = statement.object.noun.base
-        
+
+        // ARO-0002: Extract variables from expression if present
+        if let expr = statement.expression {
+            let exprVars = extractVariables(from: expr)
+            for varName in exprVars {
+                if !definedSymbols.contains(varName) && !isKnownExternal(varName) {
+                    dependencies.insert(varName)
+                }
+                inputs.insert(varName)
+            }
+        }
+
         // Determine data flow based on action semantic role
         switch statement.action.semanticRole {
         case .request:
             // REQUEST: external -> internal
             // Creates a new variable from external source
-            if !definedSymbols.contains(objectName) {
+            if !isKnownExternal(objectName) && !definedSymbols.contains(objectName) {
                 dependencies.insert(objectName)
             }
             inputs.insert(objectName)
             outputs.insert(resultName)
-            
-            let dataType = DataType.infer(from: statement.result.specifiers)
+
+            // ARO-0002: Infer type from expression if present
+            let dataType: DataType
+            if let expr = statement.expression {
+                dataType = inferExpressionType(expr)
+            } else {
+                dataType = DataType.infer(from: statement.result.specifiers) ?? .custom("Any")
+            }
+
             builder.define(
                 name: resultName,
                 definedAt: statement.span,
@@ -198,11 +216,11 @@ public final class SemanticAnalyzer {
                 dataType: dataType
             )
             definedSymbols.insert(resultName)
-            
+
         case .own:
             // OWN: internal computation
             // Uses existing variables, may create new one
-            if !definedSymbols.contains(objectName) && !dependencies.contains(objectName) && !isKnownExternal(objectName) {
+            if !isKnownExternal(objectName) && !definedSymbols.contains(objectName) && !dependencies.contains(objectName) {
                 diagnostics.warning(
                     "Variable '\(objectName)' used before definition",
                     at: statement.object.noun.span.start
@@ -210,8 +228,15 @@ public final class SemanticAnalyzer {
             }
             inputs.insert(objectName)
             outputs.insert(resultName)
-            
-            let dataType = DataType.infer(from: statement.result.specifiers)
+
+            // ARO-0002: Infer type from expression if present
+            let dataType: DataType
+            if let expr = statement.expression {
+                dataType = inferExpressionType(expr)
+            } else {
+                dataType = DataType.infer(from: statement.result.specifiers) ?? .custom("Any")
+            }
+
             builder.define(
                 name: resultName,
                 definedAt: statement.span,
@@ -220,11 +245,11 @@ public final class SemanticAnalyzer {
                 dataType: dataType
             )
             definedSymbols.insert(resultName)
-            
+
         case .response:
             // RESPONSE: internal -> external
             // Side effect, uses existing variable
-            if !definedSymbols.contains(objectName) && !isKnownExternal(objectName) {
+            if !isKnownExternal(objectName) && !definedSymbols.contains(objectName) {
                 diagnostics.warning(
                     "Variable '\(objectName)' used before definition",
                     at: statement.object.noun.span.start
@@ -232,12 +257,12 @@ public final class SemanticAnalyzer {
             }
             inputs.insert(objectName)
             sideEffects.append("\(statement.action.verb):\(resultName)")
-            
+
         case .export:
             // Handled by PublishStatement
             break
         }
-        
+
         return (
             DataFlowInfo(inputs: inputs, outputs: outputs, sideEffects: sideEffects),
             dependencies
@@ -303,9 +328,118 @@ public final class SemanticAnalyzer {
             // Service targets
             "port", "host", "directory", "file", "events",
             // Literals (internal representation)
-            "_literal_"
+            "_literal_",
+            // Expression placeholders (ARO-0002)
+            "_expression_"
         ]
         return knownExternals.contains(name.lowercased())
+    }
+
+    // MARK: - Expression Analysis (ARO-0002)
+
+    /// Extracts variable names referenced in an expression
+    private func extractVariables(from expression: any Expression) -> Set<String> {
+        var variables: Set<String> = []
+        collectVariables(expression, into: &variables)
+        return variables
+    }
+
+    private func collectVariables(_ expr: any Expression, into variables: inout Set<String>) {
+        switch expr {
+        case let varRef as VariableRefExpression:
+            variables.insert(varRef.noun.base)
+
+        case let binary as BinaryExpression:
+            collectVariables(binary.left, into: &variables)
+            collectVariables(binary.right, into: &variables)
+
+        case let unary as UnaryExpression:
+            collectVariables(unary.operand, into: &variables)
+
+        case let member as MemberAccessExpression:
+            collectVariables(member.base, into: &variables)
+
+        case let subscript_ as SubscriptExpression:
+            collectVariables(subscript_.base, into: &variables)
+            collectVariables(subscript_.index, into: &variables)
+
+        case let grouped as GroupedExpression:
+            collectVariables(grouped.expression, into: &variables)
+
+        case let existence as ExistenceExpression:
+            collectVariables(existence.expression, into: &variables)
+
+        case let typeCheck as TypeCheckExpression:
+            collectVariables(typeCheck.expression, into: &variables)
+
+        case let array as ArrayLiteralExpression:
+            for element in array.elements {
+                collectVariables(element, into: &variables)
+            }
+
+        case let map as MapLiteralExpression:
+            for entry in map.entries {
+                collectVariables(entry.value, into: &variables)
+            }
+
+        case let interp as InterpolatedStringExpression:
+            for part in interp.parts {
+                if case .interpolation(let expr) = part {
+                    collectVariables(expr, into: &variables)
+                }
+            }
+
+        default:
+            // Literals don't have variables
+            break
+        }
+    }
+
+    /// Infers the type of an expression
+    private func inferExpressionType(_ expr: any Expression) -> DataType {
+        switch expr {
+        case let literal as LiteralExpression:
+            switch literal.value {
+            case .string: return .string
+            case .integer: return .custom("Integer")
+            case .float: return .custom("Float")
+            case .boolean: return .boolean
+            case .null: return .custom("Null")
+            }
+
+        case is ArrayLiteralExpression:
+            return .custom("List")
+
+        case is MapLiteralExpression:
+            return .custom("Map")
+
+        case let binary as BinaryExpression:
+            // Infer type based on operator
+            switch binary.op {
+            case .add, .subtract, .multiply, .divide, .modulo:
+                return .custom("Number")
+            case .concat:
+                return .string
+            case .equal, .notEqual, .lessThan, .greaterThan, .lessEqual, .greaterEqual,
+                 .and, .or, .contains, .matches, .is, .isNot:
+                return .boolean
+            }
+
+        case is UnaryExpression:
+            return .custom("Any")
+
+        case is VariableRefExpression:
+            return .custom("Any")
+
+        case is TypeCheckExpression, is ExistenceExpression:
+            return .boolean
+
+        case is InterpolatedStringExpression:
+            return .string
+
+        default:
+            return .custom("Any")
+        }
     }
 }
 

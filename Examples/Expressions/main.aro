@@ -1,0 +1,43 @@
+(*
+ * ARO-0002 Expressions Example
+ * Demonstrates literals, expressions, and operators
+ *)
+
+(Application-Start: Expression Demo) {
+    (* Numeric literals and arithmetic *)
+    <Create> the <price> with 25.
+    <Create> the <quantity> with 4.
+    <Compute> the <subtotal> from <price> * <quantity>.
+    <Compute> the <tax> from <subtotal> * 0.08.
+    <Compute> the <total> from <subtotal> + <tax>.
+
+    (* String concatenation *)
+    <Create> the <first-name> with "John".
+    <Create> the <last-name> with "Doe".
+    <Compute> the <full-name> from <first-name> ++ " " ++ <last-name>.
+
+    (* Collection literals *)
+    <Create> the <numbers> with [1, 2, 3, 4, 5].
+    <Create> the <config> with {
+        name: "Demo App",
+        version: 1,
+        debug: true
+    }.
+
+    (* Logging results *)
+    <Log> the <message> for the <console> with "Expression Demo".
+    <Log> the <subtotal-msg> for the <console> with <subtotal>.
+    <Log> the <tax-msg> for the <console> with <tax>.
+    <Log> the <total-msg> for the <console> with <total>.
+    <Log> the <name-msg> for the <console> with <full-name>.
+
+    (* Comparison expressions using == *)
+    <Validate> the <qty-check> for <quantity> == 4.
+    <Validate> the <name-check> for <first-name> == "John".
+
+    (* Boolean expressions *)
+    <Validate> the <both-valid> for true and true.
+    <Validate> the <either-valid> for true or false.
+
+    <Return> an <OK: status> for the <application>.
+}

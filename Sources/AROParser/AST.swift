@@ -69,15 +69,25 @@ public struct AROStatement: Statement {
     public let action: Action
     public let result: QualifiedNoun
     public let object: ObjectClause
-    /// Optional literal value (e.g., `with "string"`, `with 42`)
+    /// Optional literal value (e.g., `with "string"`, `with 42`) - legacy support
     public let literalValue: LiteralValue?
+    /// Optional expression value (ARO-0002) - for computed values like `from <x> * <y>`
+    public let expression: (any Expression)?
     public let span: SourceSpan
 
-    public init(action: Action, result: QualifiedNoun, object: ObjectClause, literalValue: LiteralValue? = nil, span: SourceSpan) {
+    public init(
+        action: Action,
+        result: QualifiedNoun,
+        object: ObjectClause,
+        literalValue: LiteralValue? = nil,
+        expression: (any Expression)? = nil,
+        span: SourceSpan
+    ) {
         self.action = action
         self.result = result
         self.object = object
         self.literalValue = literalValue
+        self.expression = expression
         self.span = span
     }
 
@@ -86,9 +96,12 @@ public struct AROStatement: Statement {
         if let literal = literalValue {
             desc += " with \(literal)"
         }
+        if let expr = expression {
+            desc += " = \(expr)"
+        }
         return desc + "."
     }
-    
+
     public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
         try visitor.visit(self)
     }
@@ -227,16 +240,357 @@ public struct ObjectClause: Sendable, Equatable, CustomStringConvertible {
     }
 }
 
+// MARK: - Expressions (ARO-0002)
+
+/// Base protocol for all expression nodes
+public protocol Expression: ASTNode {}
+
+// MARK: - Literal Expressions
+
+/// A literal value expression
+public struct LiteralExpression: Expression {
+    public let value: LiteralValue
+    public let span: SourceSpan
+
+    public init(value: LiteralValue, span: SourceSpan) {
+        self.value = value
+        self.span = span
+    }
+
+    public var description: String {
+        value.description
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+/// An array literal expression: [1, 2, 3]
+public struct ArrayLiteralExpression: Expression {
+    public let elements: [any Expression]
+    public let span: SourceSpan
+
+    public init(elements: [any Expression], span: SourceSpan) {
+        self.elements = elements
+        self.span = span
+    }
+
+    public var description: String {
+        "[\(elements.map { $0.description }.joined(separator: ", "))]"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+/// A map literal expression: { name: "John", age: 30 }
+public struct MapLiteralExpression: Expression {
+    public let entries: [MapEntry]
+    public let span: SourceSpan
+
+    public init(entries: [MapEntry], span: SourceSpan) {
+        self.entries = entries
+        self.span = span
+    }
+
+    public var description: String {
+        "{ \(entries.map { $0.description }.joined(separator: ", ")) }"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+/// A single map entry
+public struct MapEntry: Sendable, CustomStringConvertible {
+    public let key: String
+    public let value: any Expression
+    public let span: SourceSpan
+
+    public init(key: String, value: any Expression, span: SourceSpan) {
+        self.key = key
+        self.value = value
+        self.span = span
+    }
+
+    public var description: String {
+        "\(key): \(value.description)"
+    }
+}
+
+// MARK: - Reference Expressions
+
+/// A variable reference expression: <user> or <user: name>
+public struct VariableRefExpression: Expression {
+    public let noun: QualifiedNoun
+    public let span: SourceSpan
+
+    public init(noun: QualifiedNoun, span: SourceSpan) {
+        self.noun = noun
+        self.span = span
+    }
+
+    public var description: String {
+        "<\(noun.fullName)>"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+// MARK: - Operator Expressions
+
+/// Binary operators
+public enum BinaryOperator: String, Sendable, CaseIterable {
+    // Arithmetic
+    case add = "+"
+    case subtract = "-"
+    case multiply = "*"
+    case divide = "/"
+    case modulo = "%"
+    case concat = "++"
+
+    // Comparison
+    case equal = "=="
+    case notEqual = "!="
+    case lessThan = "<"
+    case greaterThan = ">"
+    case lessEqual = "<="
+    case greaterEqual = ">="
+    case `is` = "is"
+    case isNot = "is not"
+
+    // Logical
+    case and = "and"
+    case or = "or"
+
+    // Collection
+    case contains = "contains"
+    case matches = "matches"
+}
+
+/// Unary operators
+public enum UnaryOperator: String, Sendable, CaseIterable {
+    case negate = "-"
+    case not = "not"
+}
+
+/// A binary expression: a + b, x == y, etc.
+public struct BinaryExpression: Expression {
+    public let left: any Expression
+    public let op: BinaryOperator
+    public let right: any Expression
+    public let span: SourceSpan
+
+    public init(left: any Expression, op: BinaryOperator, right: any Expression, span: SourceSpan) {
+        self.left = left
+        self.op = op
+        self.right = right
+        self.span = span
+    }
+
+    public var description: String {
+        "(\(left.description) \(op.rawValue) \(right.description))"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+/// A unary expression: -x, not x
+public struct UnaryExpression: Expression {
+    public let op: UnaryOperator
+    public let operand: any Expression
+    public let span: SourceSpan
+
+    public init(op: UnaryOperator, operand: any Expression, span: SourceSpan) {
+        self.op = op
+        self.operand = operand
+        self.span = span
+    }
+
+    public var description: String {
+        "(\(op.rawValue)\(operand.description))"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+// MARK: - Access Expressions
+
+/// Member access expression: <user>.name
+public struct MemberAccessExpression: Expression {
+    public let base: any Expression
+    public let member: String
+    public let span: SourceSpan
+
+    public init(base: any Expression, member: String, span: SourceSpan) {
+        self.base = base
+        self.member = member
+        self.span = span
+    }
+
+    public var description: String {
+        "\(base.description).\(member)"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+/// Subscript expression: <items>[0]
+public struct SubscriptExpression: Expression {
+    public let base: any Expression
+    public let index: any Expression
+    public let span: SourceSpan
+
+    public init(base: any Expression, index: any Expression, span: SourceSpan) {
+        self.base = base
+        self.index = index
+        self.span = span
+    }
+
+    public var description: String {
+        "\(base.description)[\(index.description)]"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+// MARK: - Special Expressions
+
+/// Grouped (parenthesized) expression: (expr)
+public struct GroupedExpression: Expression {
+    public let expression: any Expression
+    public let span: SourceSpan
+
+    public init(expression: any Expression, span: SourceSpan) {
+        self.expression = expression
+        self.span = span
+    }
+
+    public var description: String {
+        "(\(expression.description))"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+/// Existence check expression: <x> exists
+public struct ExistenceExpression: Expression {
+    public let expression: any Expression
+    public let span: SourceSpan
+
+    public init(expression: any Expression, span: SourceSpan) {
+        self.expression = expression
+        self.span = span
+    }
+
+    public var description: String {
+        "\(expression.description) exists"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+/// Type check expression: <x> is a Number
+public struct TypeCheckExpression: Expression {
+    public let expression: any Expression
+    public let typeName: String
+    public let hasArticle: Bool
+    public let span: SourceSpan
+
+    public init(expression: any Expression, typeName: String, hasArticle: Bool, span: SourceSpan) {
+        self.expression = expression
+        self.typeName = typeName
+        self.hasArticle = hasArticle
+        self.span = span
+    }
+
+    public var description: String {
+        if hasArticle {
+            return "\(expression.description) is a \(typeName)"
+        }
+        return "\(expression.description) is \(typeName)"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+// MARK: - String Interpolation
+
+/// Part of an interpolated string
+public enum StringPart: Sendable, CustomStringConvertible {
+    case literal(String)
+    case interpolation(any Expression)
+
+    public var description: String {
+        switch self {
+        case .literal(let s): return s
+        case .interpolation(let expr): return "${\(expr.description)}"
+        }
+    }
+}
+
+/// Interpolated string expression: "Hello ${<name>}!"
+public struct InterpolatedStringExpression: Expression {
+    public let parts: [StringPart]
+    public let span: SourceSpan
+
+    public init(parts: [StringPart], span: SourceSpan) {
+        self.parts = parts
+        self.span = span
+    }
+
+    public var description: String {
+        "\"\(parts.map { $0.description }.joined())\""
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
 // MARK: - AST Visitor Protocol
 
 /// Visitor pattern for AST traversal
 public protocol ASTVisitor {
     associatedtype Result
-    
+
     func visit(_ node: Program) throws -> Result
     func visit(_ node: FeatureSet) throws -> Result
     func visit(_ node: AROStatement) throws -> Result
     func visit(_ node: PublishStatement) throws -> Result
+
+    // Expression visitors (ARO-0002)
+    func visit(_ node: LiteralExpression) throws -> Result
+    func visit(_ node: ArrayLiteralExpression) throws -> Result
+    func visit(_ node: MapLiteralExpression) throws -> Result
+    func visit(_ node: VariableRefExpression) throws -> Result
+    func visit(_ node: BinaryExpression) throws -> Result
+    func visit(_ node: UnaryExpression) throws -> Result
+    func visit(_ node: MemberAccessExpression) throws -> Result
+    func visit(_ node: SubscriptExpression) throws -> Result
+    func visit(_ node: GroupedExpression) throws -> Result
+    func visit(_ node: ExistenceExpression) throws -> Result
+    func visit(_ node: TypeCheckExpression) throws -> Result
+    func visit(_ node: InterpolatedStringExpression) throws -> Result
 }
 
 /// Default implementations that traverse children
@@ -246,15 +600,59 @@ public extension ASTVisitor where Result == Void {
             try featureSet.accept(self)
         }
     }
-    
+
     func visit(_ node: FeatureSet) throws {
         for statement in node.statements {
             try statement.accept(self)
         }
     }
-    
+
     func visit(_ node: AROStatement) throws {}
     func visit(_ node: PublishStatement) throws {}
+
+    // Expression default implementations
+    func visit(_ node: LiteralExpression) throws {}
+    func visit(_ node: ArrayLiteralExpression) throws {
+        for element in node.elements {
+            try element.accept(self)
+        }
+    }
+    func visit(_ node: MapLiteralExpression) throws {
+        for entry in node.entries {
+            try entry.value.accept(self)
+        }
+    }
+    func visit(_ node: VariableRefExpression) throws {}
+    func visit(_ node: BinaryExpression) throws {
+        try node.left.accept(self)
+        try node.right.accept(self)
+    }
+    func visit(_ node: UnaryExpression) throws {
+        try node.operand.accept(self)
+    }
+    func visit(_ node: MemberAccessExpression) throws {
+        try node.base.accept(self)
+    }
+    func visit(_ node: SubscriptExpression) throws {
+        try node.base.accept(self)
+        try node.index.accept(self)
+    }
+    func visit(_ node: GroupedExpression) throws {
+        try node.expression.accept(self)
+    }
+    func visit(_ node: ExistenceExpression) throws {
+        try node.expression.accept(self)
+    }
+    func visit(_ node: TypeCheckExpression) throws {
+        try node.expression.accept(self)
+    }
+    func visit(_ node: InterpolatedStringExpression) throws {
+        for part in node.parts {
+            if case .interpolation(let expr) = part {
+                try expr.accept(self)
+            }
+        }
+    }
 }
 
 // MARK: - AST Pretty Printer
@@ -305,6 +703,119 @@ public struct ASTPrinter: ASTVisitor {
         var result = "\(indentation())PublishStatement\n"
         result += "\(indentation())  External: \(node.externalName)\n"
         result += "\(indentation())  Internal: \(node.internalVariable)\n"
+        return result
+    }
+
+    // Expression visitors
+    public func visit(_ node: LiteralExpression) -> String {
+        "\(indentation())Literal: \(node.value)\n"
+    }
+
+    public func visit(_ node: ArrayLiteralExpression) -> String {
+        var result = "\(indentation())Array[\(node.elements.count)]\n"
+        var printer = self
+        printer.indent += 1
+        for element in node.elements {
+            result += try! element.accept(printer)
+        }
+        return result
+    }
+
+    public func visit(_ node: MapLiteralExpression) -> String {
+        var result = "\(indentation())Map{\(node.entries.count)}\n"
+        var printer = self
+        printer.indent += 1
+        for entry in node.entries {
+            result += "\(printer.indentation())\(entry.key):\n"
+            printer.indent += 1
+            result += try! entry.value.accept(printer)
+            printer.indent -= 1
+        }
+        return result
+    }
+
+    public func visit(_ node: VariableRefExpression) -> String {
+        "\(indentation())VarRef: <\(node.noun.fullName)>\n"
+    }
+
+    public func visit(_ node: BinaryExpression) -> String {
+        var result = "\(indentation())Binary: \(node.op.rawValue)\n"
+        var printer = self
+        printer.indent += 1
+        result += try! node.left.accept(printer)
+        result += try! node.right.accept(printer)
+        return result
+    }
+
+    public func visit(_ node: UnaryExpression) -> String {
+        var result = "\(indentation())Unary: \(node.op.rawValue)\n"
+        var printer = self
+        printer.indent += 1
+        result += try! node.operand.accept(printer)
+        return result
+    }
+
+    public func visit(_ node: MemberAccessExpression) -> String {
+        var result = "\(indentation())MemberAccess: .\(node.member)\n"
+        var printer = self
+        printer.indent += 1
+        result += try! node.base.accept(printer)
+        return result
+    }
+
+    public func visit(_ node: SubscriptExpression) -> String {
+        var result = "\(indentation())Subscript\n"
+        var printer = self
+        printer.indent += 1
+        result += "\(printer.indentation())base:\n"
+        printer.indent += 1
+        result += try! node.base.accept(printer)
+        printer.indent -= 1
+        result += "\(printer.indentation())index:\n"
+        printer.indent += 1
+        result += try! node.index.accept(printer)
+        return result
+    }
+
+    public func visit(_ node: GroupedExpression) -> String {
+        var result = "\(indentation())Grouped\n"
+        var printer = self
+        printer.indent += 1
+        result += try! node.expression.accept(printer)
+        return result
+    }
+
+    public func visit(_ node: ExistenceExpression) -> String {
+        var result = "\(indentation())Exists\n"
+        var printer = self
+        printer.indent += 1
+        result += try! node.expression.accept(printer)
+        return result
+    }
+
+    public func visit(_ node: TypeCheckExpression) -> String {
+        var result = "\(indentation())TypeCheck: \(node.typeName)\n"
+        var printer = self
+        printer.indent += 1
+        result += try! node.expression.accept(printer)
+        return result
+    }
+
+    public func visit(_ node: InterpolatedStringExpression) -> String {
+        var result = "\(indentation())InterpolatedString[\(node.parts.count) parts]\n"
+        var printer = self
+        printer.indent += 1
+        for part in node.parts {
+            switch part {
+            case .literal(let s):
+                result += "\(printer.indentation())literal: \"\(s)\"\n"
+            case .interpolation(let expr):
+                result += "\(printer.indentation())interpolation:\n"
+                printer.indent += 1
+                result += try! expr.accept(printer)
+                printer.indent -= 1
+            }
+        }
         return result
     }
 }

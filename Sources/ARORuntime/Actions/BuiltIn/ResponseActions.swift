@@ -388,3 +388,72 @@ public struct VariablePublishedEvent: RuntimeEvent {
         self.featureSet = featureSet
     }
 }
+
+// MARK: - Additional RESPONSE Actions (ARO-0001)
+
+/// Notifies a user or system
+public struct NotifyAction: ActionImplementation {
+    public static let role: ActionRole = .response
+    public static let verbs: Set<String> = ["notify", "alert", "signal"]
+    public static let validPrepositions: Set<Preposition> = [.to, .for, .with]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
+        // Get notification message
+        let message: String
+        if let value: String = context.resolve(result.base) {
+            message = value
+        } else if let value = context.resolveAny(result.base) {
+            message = String(describing: value)
+        } else {
+            message = result.fullName
+        }
+
+        // Get notification target (e.g., user, system, channel)
+        let target = object.base
+
+        // Try notification service
+        if let notificationService = context.service(NotificationService.self) {
+            try await notificationService.notify(message: message, target: target)
+            return NotifyResult(message: message, target: target, success: true)
+        }
+
+        // Emit notification event
+        context.emit(NotificationSentEvent(message: message, target: target))
+
+        return NotifyResult(message: message, target: target, success: true)
+    }
+}
+
+/// Notification service protocol
+public protocol NotificationService: Sendable {
+    func notify(message: String, target: String) async throws
+}
+
+/// Result of a notify operation
+public struct NotifyResult: Sendable, Equatable {
+    public let message: String
+    public let target: String
+    public let success: Bool
+}
+
+/// Event emitted when a notification is sent
+public struct NotificationSentEvent: RuntimeEvent {
+    public static var eventType: String { "notification.sent" }
+    public let timestamp: Date
+    public let message: String
+    public let target: String
+
+    public init(message: String, target: String) {
+        self.timestamp = Date()
+        self.message = message
+        self.target = target
+    }
+}

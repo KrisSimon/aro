@@ -58,6 +58,11 @@ public struct SourceSpan: Sendable, Equatable, CustomStringConvertible {
         let newEnd = end.offset > other.end.offset ? end : other.end
         return SourceSpan(start: newStart, end: newEnd)
     }
+
+    /// An unknown/placeholder span
+    public static var unknown: SourceSpan {
+        SourceSpan(at: SourceLocation())
+    }
 }
 
 /// Protocol for AST nodes that have a source location

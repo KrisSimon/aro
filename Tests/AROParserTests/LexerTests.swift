@@ -686,6 +686,107 @@ struct LexerErrorTests {
     }
 }
 
+// MARK: - Unicode Escape Tests (ARO-0002)
+
+@Suite("Unicode Escape Tests")
+struct UnicodeEscapeTests {
+
+    @Test("Tokenizes basic unicode escape")
+    func testBasicUnicodeEscape() throws {
+        let tokens = try Lexer.tokenize("\"\\u{0041}\"")
+        #expect(tokens[0].kind == .stringLiteral("A"))
+    }
+
+    @Test("Tokenizes multiple unicode escapes")
+    func testMultipleUnicodeEscapes() throws {
+        let tokens = try Lexer.tokenize("\"\\u{0048}\\u{0065}\\u{006C}\\u{006C}\\u{006F}\"")
+        #expect(tokens[0].kind == .stringLiteral("Hello"))
+    }
+
+    @Test("Tokenizes unicode with mixed content")
+    func testMixedUnicode() throws {
+        let tokens = try Lexer.tokenize("\"Hello \\u{1F600}!\"")
+        #expect(tokens[0].kind == .stringLiteral("Hello 😀!"))
+    }
+
+    @Test("Tokenizes unicode heart emoji")
+    func testUnicodeHeart() throws {
+        let tokens = try Lexer.tokenize("\"\\u{2764}\"")
+        #expect(tokens[0].kind == .stringLiteral("❤"))
+    }
+
+    @Test("Reports invalid unicode escape - empty braces")
+    func testInvalidUnicodeEmpty() throws {
+        #expect(throws: LexerError.self) {
+            _ = try Lexer.tokenize("\"\\u{}\"")
+        }
+    }
+
+    @Test("Reports invalid unicode escape - invalid scalar")
+    func testInvalidUnicodeScalar() throws {
+        #expect(throws: LexerError.self) {
+            _ = try Lexer.tokenize("\"\\u{FFFFFF}\"")
+        }
+    }
+}
+
+// MARK: - String Interpolation Tests (ARO-0002)
+
+@Suite("String Interpolation Tests")
+struct StringInterpolationTests {
+
+    @Test("Tokenizes simple interpolation")
+    func testSimpleInterpolation() throws {
+        let tokens = try Lexer.tokenize("\"Hello, ${<name>}!\"")
+
+        #expect(tokens[0].kind == .stringSegment("Hello, "))
+        #expect(tokens[1].kind == .interpolationStart)
+        #expect(tokens[2].kind == .leftAngle)
+        #expect(tokens[3].kind == .identifier("name"))
+        #expect(tokens[4].kind == .rightAngle)
+        #expect(tokens[5].kind == .interpolationEnd)
+        #expect(tokens[6].kind == .stringSegment("!"))
+    }
+
+    @Test("Tokenizes multiple interpolations")
+    func testMultipleInterpolations() throws {
+        let tokens = try Lexer.tokenize("\"${<first>} ${<second>}\"")
+
+        // Check that we have interpolation starts
+        let interpolationStarts = tokens.filter { $0.kind == .interpolationStart }
+        #expect(interpolationStarts.count == 2)
+
+        // Check that we have the variable identifiers
+        let hasFirst = tokens.contains { $0.kind == .identifier("first") }
+        let hasSecond = tokens.contains { $0.kind == .identifier("second") }
+        #expect(hasFirst)
+        #expect(hasSecond)
+
+        // Check that we have interpolation ends
+        let interpolationEnds = tokens.filter { $0.kind == .interpolationEnd }
+        #expect(interpolationEnds.count == 2)
+    }
+
+    @Test("Tokenizes interpolation with expression")
+    func testInterpolationWithExpression() throws {
+        let tokens = try Lexer.tokenize("\"Total: ${<price> * <qty>}\"")
+
+        #expect(tokens[0].kind == .stringSegment("Total: "))
+        #expect(tokens[1].kind == .interpolationStart)
+        // Contains <price> * <qty>
+        let hasMultiply = tokens.contains { $0.kind == .star }
+        #expect(hasMultiply)
+    }
+
+    @Test("Tokenizes plain string without interpolation")
+    func testNoInterpolation() throws {
+        let tokens = try Lexer.tokenize("\"Hello World\"")
+
+        // Without interpolation, it's a simple string literal
+        #expect(tokens[0].kind == .stringLiteral("Hello World"))
+    }
+}
+
 // MARK: - Lexer Feature Set Tests
 
 @Suite("Lexer Feature Set Tests")

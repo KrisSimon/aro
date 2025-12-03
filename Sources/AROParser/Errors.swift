@@ -30,6 +30,7 @@ public enum LexerError: CompilerError {
     case unterminatedString(at: SourceLocation)
     case invalidEscapeSequence(Character, at: SourceLocation)
     case invalidNumber(String, at: SourceLocation)
+    case invalidUnicodeEscape(String, at: SourceLocation)
 
     public var location: SourceLocation? {
         switch self {
@@ -37,6 +38,7 @@ public enum LexerError: CompilerError {
         case .unterminatedString(let loc): return loc
         case .invalidEscapeSequence(_, let loc): return loc
         case .invalidNumber(_, let loc): return loc
+        case .invalidUnicodeEscape(_, let loc): return loc
         }
     }
 
@@ -50,6 +52,8 @@ public enum LexerError: CompilerError {
             return "Invalid escape sequence '\\(\(char))'"
         case .invalidNumber(let num, _):
             return "Invalid number literal '\(num)'"
+        case .invalidUnicodeEscape(let hex, _):
+            return "Invalid unicode escape sequence '\\u{\(hex)}'"
         }
     }
 }

@@ -2,7 +2,7 @@
 
 * Proposal: ARO-0002
 * Author: ARO Language Team
-* Status: **Draft**
+* Status: **Accepted**
 * Requires: ARO-0001
 
 ## Abstract
@@ -439,4 +439,4 @@ The semantic analyzer should infer types:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2024-01 | Initial specification |
+| 1.0 | 2025-12 | Initial specification |

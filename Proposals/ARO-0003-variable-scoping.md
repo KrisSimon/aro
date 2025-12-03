@@ -31,10 +31,6 @@ ARO has three scope levels:
 │  ┌───────────────────────────────────────────────────────┐ │
 │  │                  Feature Set Scope                     │ │
 │  │  (Variables defined in the feature set)               │ │
-│  │  ┌─────────────────────────────────────────────────┐  │ │
-│  │  │              Block Scope                         │  │ │
-│  │  │  (Variables in if/match/loop blocks)            │  │ │
-│  │  └─────────────────────────────────────────────────┘  │ │
 │  └───────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -98,7 +94,7 @@ In nested scopes, redefinition **do not shadow** the outer variable:
     <Set> the <count> to 10.
     
     if <condition> is true then {
-        <Set> the <count> to 20.    // Shadows outer count
+        <Set> the <count> to 20.    // use outer count
         // count == 20 here
     }
     // count == 20 here (outer variable changed)

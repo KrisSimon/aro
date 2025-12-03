@@ -471,4 +471,4 @@ This proposal establishes the foundation. The following proposals extend the lan
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2024-01 | Initial specification |
+| 1.0 | 2025-12 | Initial specification |
