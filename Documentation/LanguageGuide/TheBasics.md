@@ -13,7 +13,45 @@ MyApp/
 └── events.aro
 ```
 
-All files in the directory are automatically compiled together. No import statements are needed.
+All files in the directory are automatically compiled together. No import statements are needed within an application.
+
+## Importing Other Applications
+
+To use feature sets and types from another ARO application, use `import`:
+
+```aro
+import ../user-service
+import ../payment-gateway
+```
+
+After importing, all feature sets, types, and published variables from the imported application become accessible.
+
+```
+workspace/
+├── user-service/           # Can import ../payment-service
+│   ├── main.aro
+│   └── users.aro
+├── payment-service/        # Can import ../user-service
+│   └── main.aro
+└── api-gateway/            # Can import both
+    └── main.aro
+```
+
+**api-gateway/main.aro:**
+```aro
+import ../user-service
+import ../payment-service
+
+(Application-Start: API Gateway) {
+    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status> for the <startup>.
+}
+```
+
+### No Visibility Modifiers
+
+ARO has no `public`, `private`, or `internal` keywords. Everything is accessible after import. This reflects trust-based composition: if you import an application, you trust it.
 
 ## Comments
 

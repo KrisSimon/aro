@@ -32,7 +32,10 @@ Detailed documentation of ARO language features:
 | [Feature Sets](LanguageGuide/FeatureSets.md) | Defining and organizing feature sets |
 | [Actions](LanguageGuide/Actions.md) | Built-in actions and the ARO statement pattern |
 | [Variables and Data Flow](LanguageGuide/Variables.md) | Variable binding, scoping, and publishing |
+| [Type System](LanguageGuide/TypeSystem.md) | Primitives, collections, and OpenAPI types |
 | [Control Flow](LanguageGuide/ControlFlow.md) | Conditionals, guards, and branching |
+| [Error Handling](LanguageGuide/ErrorHandling.md) | The "Code Is The Error Message" philosophy |
+| [Concurrency](LanguageGuide/Concurrency.md) | Async feature sets, sync statements |
 | [Events](LanguageGuide/Events.md) | Event-driven programming and handlers |
 | [Application Lifecycle](LanguageGuide/ApplicationLifecycle.md) | Start, run, and shutdown |
 | [HTTP Services](LanguageGuide/HTTPServices.md) | HTTP server and client operations |
