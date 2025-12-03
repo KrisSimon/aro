@@ -92,9 +92,14 @@ public final class Parser {
     }
     
     // MARK: - Statement Parsing
-    
-    /// Parses a statement (ARO, Publish, or Require)
+
+    /// Parses a statement (ARO, Publish, Require, or Match)
     private func parseStatement() throws -> Statement {
+        // Check for match statement (ARO-0004) - starts with 'match' keyword
+        if check(.match) {
+            return try parseMatchStatement()
+        }
+
         let startToken = try expect(.leftAngle, message: "'<'")
 
         // Check if this is a publish statement
@@ -110,8 +115,9 @@ public final class Parser {
         return try parseAROStatement(startToken: startToken)
     }
     
-    /// Parses: "<" action ">" [article] "<" result ">" preposition [article] "<" object ">" "."
+    /// Parses: "<" action ">" [article] "<" result ">" preposition [article] "<" object ">" ["when" condition] "."
     /// ARO-0002: Also supports expressions after prepositions like `from <x> * <y>` or `to 30`
+    /// ARO-0004: Also supports guarded statements with `when` clause
     private func parseAROStatement(startToken: Token) throws -> AROStatement {
         // Parse action verb
         let actionToken = try expectIdentifier(message: "action verb")
@@ -180,6 +186,13 @@ public final class Parser {
             }
         }
 
+        // Parse optional when clause (ARO-0004): `when <condition>`
+        var whenCondition: (any Expression)?
+        if check(.when) {
+            advance() // consume 'when'
+            whenCondition = try parseExpression()
+        }
+
         let endToken = try expect(.dot, message: "'.'")
 
         return AROStatement(
@@ -188,6 +201,7 @@ public final class Parser {
             object: ObjectClause(preposition: prep, noun: objectNoun),
             literalValue: literalValue,
             expression: expression,
+            whenCondition: whenCondition,
             span: startToken.span.merged(with: endToken.span)
         )
     }
@@ -328,6 +342,116 @@ public final class Parser {
             source: source,
             span: startToken.span.merged(with: endToken.span)
         )
+    }
+
+    // MARK: - Match Statement Parsing (ARO-0004)
+
+    /// Parses: "match" "<" subject ">" "{" { case_clause } [ otherwise_clause ] "}"
+    private func parseMatchStatement() throws -> MatchStatement {
+        let startToken = try expect(.match, message: "'match'")
+
+        // Parse subject: <variable>
+        try expect(.leftAngle, message: "'<'")
+        let subject = try parseQualifiedNoun()
+        try expect(.rightAngle, message: "'>'")
+
+        try expect(.leftBrace, message: "'{'")
+
+        // Parse case clauses
+        var cases: [CaseClause] = []
+        var otherwise: [Statement]?
+
+        while !check(.rightBrace) && !isAtEnd {
+            if check(.case) {
+                cases.append(try parseCaseClause())
+            } else if check(.otherwise) {
+                otherwise = try parseOtherwiseClause()
+                // otherwise must be last
+                break
+            } else {
+                throw ParserError.unexpectedToken(expected: "'case' or 'otherwise'", got: peek())
+            }
+        }
+
+        let endToken = try expect(.rightBrace, message: "'}'")
+
+        return MatchStatement(
+            subject: subject,
+            cases: cases,
+            otherwise: otherwise,
+            span: startToken.span.merged(with: endToken.span)
+        )
+    }
+
+    /// Parses: "case" pattern [ "where" condition ] "{" { statement } "}"
+    private func parseCaseClause() throws -> CaseClause {
+        let startToken = try expect(.case, message: "'case'")
+
+        // Parse pattern
+        let pattern = try parsePattern()
+
+        // Parse optional guard condition: where <condition>
+        var guardCondition: (any Expression)?
+        if check(.where) {
+            advance()
+            guardCondition = try parseExpression()
+        }
+
+        try expect(.leftBrace, message: "'{'")
+
+        // Parse body statements
+        var body: [Statement] = []
+        while !check(.rightBrace) && !isAtEnd {
+            body.append(try parseStatement())
+        }
+
+        let endToken = try expect(.rightBrace, message: "'}'")
+
+        return CaseClause(
+            pattern: pattern,
+            guardCondition: guardCondition,
+            body: body,
+            span: startToken.span.merged(with: endToken.span)
+        )
+    }
+
+    /// Parses: "otherwise" "{" { statement } "}"
+    private func parseOtherwiseClause() throws -> [Statement] {
+        try expect(.otherwise, message: "'otherwise'")
+        try expect(.leftBrace, message: "'{'")
+
+        var statements: [Statement] = []
+        while !check(.rightBrace) && !isAtEnd {
+            statements.append(try parseStatement())
+        }
+
+        try expect(.rightBrace, message: "'}'")
+        return statements
+    }
+
+    /// Parses a pattern: literal | <variable> | _
+    private func parsePattern() throws -> Pattern {
+        // Check for wildcard
+        if case .identifier("_") = peek().kind {
+            advance()
+            return .wildcard
+        }
+
+        // Check for literal
+        if isLiteralToken(peek()) {
+            let literal = try parseLiteralValue()
+            return .literal(literal)
+        }
+
+        // Check for variable reference
+        if check(.leftAngle) {
+            advance()
+            let noun = try parseQualifiedNoun()
+            try expect(.rightAngle, message: "'>'")
+            return .variable(noun)
+        }
+
+        throw ParserError.unexpectedToken(expected: "pattern (literal, <variable>, or _)", got: peek())
     }
 
     // MARK: - Qualified Noun Parsing

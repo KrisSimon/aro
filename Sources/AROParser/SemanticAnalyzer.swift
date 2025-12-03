@@ -193,6 +193,11 @@ public final class SemanticAnalyzer {
             return analyzeRequireStatement(require, builder: builder)
         }
 
+        // ARO-0004: Match statement
+        if let match = statement as? MatchStatement {
+            return analyzeMatchStatement(match, builder: builder, definedSymbols: &definedSymbols)
+        }
+
         return (DataFlowInfo(), [])
     }
     
@@ -214,6 +219,17 @@ public final class SemanticAnalyzer {
         if let expr = statement.expression {
             let exprVars = extractVariables(from: expr)
             for varName in exprVars {
+                if !definedSymbols.contains(varName) && !isKnownExternal(varName) {
+                    dependencies.insert(varName)
+                }
+                inputs.insert(varName)
+            }
+        }
+
+        // ARO-0004: Extract variables from when condition if present
+        if let whenExpr = statement.whenCondition {
+            let condVars = extractVariables(from: whenExpr)
+            for varName in condVars {
                 if !definedSymbols.contains(varName) && !isKnownExternal(varName) {
                     dependencies.insert(varName)
                 }
@@ -348,6 +364,84 @@ public final class SemanticAnalyzer {
         return (
             DataFlowInfo(inputs: [], outputs: [statement.variableName]),
             [statement.variableName]
+        )
+    }
+
+    // ARO-0004: Analyze match statement
+    private func analyzeMatchStatement(
+        _ statement: MatchStatement,
+        builder: SymbolTableBuilder,
+        definedSymbols: inout Set<String>
+    ) -> (DataFlowInfo, Set<String>) {
+        var inputs: Set<String> = []
+        var outputs: Set<String> = []
+        var sideEffects: [String] = []
+        var dependencies: Set<String> = []
+
+        // The subject variable must be defined
+        let subjectName = statement.subject.base
+        if !definedSymbols.contains(subjectName) && !isKnownExternal(subjectName) {
+            diagnostics.warning(
+                "Variable '\(subjectName)' used in match before definition",
+                at: statement.subject.span.start
+            )
+        }
+        inputs.insert(subjectName)
+
+        // Analyze each case clause
+        for caseClause in statement.cases {
+            // Extract variables from guard condition if present
+            if let guard_ = caseClause.guardCondition {
+                let guardVars = extractVariables(from: guard_)
+                for varName in guardVars {
+                    if !definedSymbols.contains(varName) && !isKnownExternal(varName) {
+                        dependencies.insert(varName)
+                    }
+                    inputs.insert(varName)
+                }
+            }
+
+            // Extract variables from pattern if it's a variable pattern
+            if case .variable(let noun) = caseClause.pattern {
+                // Variable patterns can reference existing variables for comparison
+                let patternName = noun.base
+                if definedSymbols.contains(patternName) {
+                    inputs.insert(patternName)
+                }
+            }
+
+            // Analyze body statements
+            for bodyStatement in caseClause.body {
+                let (flow, newDeps) = analyzeStatement(
+                    bodyStatement,
+                    builder: builder,
+                    definedSymbols: &definedSymbols
+                )
+                inputs.formUnion(flow.inputs)
+                outputs.formUnion(flow.outputs)
+                sideEffects.append(contentsOf: flow.sideEffects)
+                dependencies.formUnion(newDeps)
+            }
+        }
+
+        // Analyze otherwise clause if present
+        if let otherwise = statement.otherwise {
+            for bodyStatement in otherwise {
+                let (flow, newDeps) = analyzeStatement(
+                    bodyStatement,
+                    builder: builder,
+                    definedSymbols: &definedSymbols
+                )
+                inputs.formUnion(flow.inputs)
+                outputs.formUnion(flow.outputs)
+                sideEffects.append(contentsOf: flow.sideEffects)
+                dependencies.formUnion(newDeps)
+            }
+        }
+
+        return (
+            DataFlowInfo(inputs: inputs, outputs: outputs, sideEffects: sideEffects),
+            dependencies
         )
     }
 

@@ -1,0 +1,53 @@
+(*
+ * ARO-0004 Conditional Branching Example
+ * Demonstrates guarded statements (when) and match expressions
+ *)
+
+(Application-Start: Conditionals Demo) {
+    <Require> the <console> from the <framework>.
+
+    (* Create test variables *)
+    <Create> the <method> with "POST".
+    <Create> the <user-role> with "admin".
+    <Create> the <status-code> with 200.
+
+    (* Guarded statement with when clause *)
+    <Log> the <admin-message> for the <console> with "Admin access detected!" when <user-role> == "admin".
+
+    (* Match expression for HTTP method routing *)
+    match <method> {
+        case "GET" {
+            <Log> the <get-message> for the <console> with "Handling GET request".
+        }
+        case "POST" {
+            <Log> the <post-message> for the <console> with "Handling POST request".
+        }
+        case "PUT" {
+            <Log> the <put-message> for the <console> with "Handling PUT request".
+        }
+        case "DELETE" {
+            <Log> the <delete-message> for the <console> with "Handling DELETE request".
+        }
+        otherwise {
+            <Log> the <unknown-message> for the <console> with "Unknown HTTP method".
+        }
+    }
+
+    (* Match expression for status code handling *)
+    match <status-code> {
+        case 200 {
+            <Log> the <success-message> for the <console> with "Request successful".
+        }
+        case 404 {
+            <Log> the <notfound-message> for the <console> with "Resource not found".
+        }
+        case 500 {
+            <Log> the <server-issue-message> for the <console> with "Server error".
+        }
+        otherwise {
+            <Log> the <status-message> for the <console> with "Other status code".
+        }
+    }
+
+    <Return> an <OK: status> for the <demo>.
+}

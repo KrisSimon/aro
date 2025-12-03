@@ -73,6 +73,8 @@ public struct AROStatement: Statement {
     public let literalValue: LiteralValue?
     /// Optional expression value (ARO-0002) - for computed values like `from <x> * <y>`
     public let expression: (any Expression)?
+    /// Optional when condition (ARO-0004) - for guarded statements
+    public let whenCondition: (any Expression)?
     public let span: SourceSpan
 
     public init(
@@ -81,6 +83,7 @@ public struct AROStatement: Statement {
         object: ObjectClause,
         literalValue: LiteralValue? = nil,
         expression: (any Expression)? = nil,
+        whenCondition: (any Expression)? = nil,
         span: SourceSpan
     ) {
         self.action = action
@@ -88,6 +91,7 @@ public struct AROStatement: Statement {
         self.object = object
         self.literalValue = literalValue
         self.expression = expression
+        self.whenCondition = whenCondition
         self.span = span
     }
 
@@ -98,6 +102,9 @@ public struct AROStatement: Statement {
         }
         if let expr = expression {
             desc += " = \(expr)"
+        }
+        if let when = whenCondition {
+            desc += " when \(when)"
         }
         return desc + "."
     }
@@ -159,6 +166,75 @@ public struct RequireStatement: Statement {
 
     public var description: String {
         "<Require> the <\(variableName)> from the <\(source)>."
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
+// MARK: - Match Statement (ARO-0004)
+
+/// Pattern for case matching
+public enum Pattern: Sendable, CustomStringConvertible {
+    case literal(LiteralValue)
+    case variable(QualifiedNoun)
+    case wildcard
+
+    public var description: String {
+        switch self {
+        case .literal(let value): return value.description
+        case .variable(let noun): return "<\(noun.fullName)>"
+        case .wildcard: return "_"
+        }
+    }
+}
+
+/// A single case clause in a match expression
+public struct CaseClause: Sendable, CustomStringConvertible {
+    public let pattern: Pattern
+    public let guardCondition: (any Expression)?
+    public let body: [Statement]
+    public let span: SourceSpan
+
+    public init(pattern: Pattern, guardCondition: (any Expression)?, body: [Statement], span: SourceSpan) {
+        self.pattern = pattern
+        self.guardCondition = guardCondition
+        self.body = body
+        self.span = span
+    }
+
+    public var description: String {
+        var desc = "case \(pattern)"
+        if let guard_ = guardCondition {
+            desc += " where \(guard_)"
+        }
+        desc += " { ... }"
+        return desc
+    }
+}
+
+/// Match expression statement: match <subject> { case ... otherwise ... }
+public struct MatchStatement: Statement {
+    public let subject: QualifiedNoun
+    public let cases: [CaseClause]
+    public let otherwise: [Statement]?
+    public let span: SourceSpan
+
+    public init(subject: QualifiedNoun, cases: [CaseClause], otherwise: [Statement]?, span: SourceSpan) {
+        self.subject = subject
+        self.cases = cases
+        self.otherwise = otherwise
+        self.span = span
+    }
+
+    public var description: String {
+        var desc = "match <\(subject.fullName)> { \(cases.count) cases"
+        if otherwise != nil {
+            desc += ", otherwise"
+        }
+        desc += " }"
+        return desc
     }
 
     public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
@@ -616,6 +692,7 @@ public protocol ASTVisitor {
     func visit(_ node: AROStatement) throws -> Result
     func visit(_ node: PublishStatement) throws -> Result
     func visit(_ node: RequireStatement) throws -> Result
+    func visit(_ node: MatchStatement) throws -> Result
 
     // Expression visitors (ARO-0002)
     func visit(_ node: LiteralExpression) throws -> Result
@@ -649,6 +726,18 @@ public extension ASTVisitor where Result == Void {
     func visit(_ node: AROStatement) throws {}
     func visit(_ node: PublishStatement) throws {}
     func visit(_ node: RequireStatement) throws {}
+    func visit(_ node: MatchStatement) throws {
+        for caseClause in node.cases {
+            for statement in caseClause.body {
+                try statement.accept(self)
+            }
+        }
+        if let otherwise = node.otherwise {
+            for statement in otherwise {
+                try statement.accept(self)
+            }
+        }
+    }
 
     // Expression default implementations
     func visit(_ node: LiteralExpression) throws {}
@@ -750,6 +839,33 @@ public struct ASTPrinter: ASTVisitor {
         var result = "\(indentation())RequireStatement\n"
         result += "\(indentation())  Variable: \(node.variableName)\n"
         result += "\(indentation())  Source: \(node.source)\n"
+        return result
+    }
+
+    public func visit(_ node: MatchStatement) -> String {
+        var result = "\(indentation())MatchStatement\n"
+        result += "\(indentation())  Subject: <\(node.subject.fullName)>\n"
+        var printer = self
+        printer.indent += 1
+        for caseClause in node.cases {
+            result += "\(printer.indentation())Case: \(caseClause.pattern)\n"
+            if let guard_ = caseClause.guardCondition {
+                result += "\(printer.indentation())  Guard: \(guard_)\n"
+            }
+            var bodyPrinter = printer
+            bodyPrinter.indent += 1
+            for statement in caseClause.body {
+                result += try! statement.accept(bodyPrinter)
+            }
+        }
+        if let otherwise = node.otherwise {
+            result += "\(printer.indentation())Otherwise:\n"
+            var otherwisePrinter = printer
+            otherwisePrinter.indent += 1
+            for statement in otherwise {
+                result += try! statement.accept(otherwisePrinter)
+            }
+        }
         return result
     }
 
