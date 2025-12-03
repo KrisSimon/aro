@@ -155,21 +155,60 @@ FileChanged (config.json)   ──────────►  Execution Context
 
 ## Blocking Operations
 
-All I/O operations block within their feature set:
+From the programmer's perspective, I/O operations appear to block:
 
 ```aro
 (Fetch Data: API) {
-    (* This blocks until the HTTP call completes *)
     <Fetch> the <data> from the <external-api>.
-
-    (* This doesn't start until fetch is done *)
     <Transform> the <result> from <data>.
-
     <Return> an <OK: status> with <result>.
 }
 ```
 
-The runtime handles the async nature of I/O. The programmer writes sequential code.
+The programmer writes sequential code. The runtime handles the rest.
+
+---
+
+## Runtime Optimization (Under the Hood)
+
+While the programmer writes synchronous-looking code, the ARO runtime executes operations **asynchronously** based on data dependencies. This is transparent to the user.
+
+### How It Works
+
+The runtime performs **data-flow driven execution**:
+
+1. **Eager Start**: I/O operations begin immediately (non-blocking)
+2. **Dependency Tracking**: The runtime tracks which variables each statement needs
+3. **Lazy Synchronization**: Only wait for data when it's actually used
+4. **Preserved Semantics**: Results appear in statement order
+
+### Example
+
+```aro
+(Process Config: File Handler) {
+    <Open> the <config-file> from the <path>.        (* 1. Starts file load *)
+    <Compute> the <hash> for the <request>.          (* 2. Runs immediately *)
+    <Log> the <status> for the <request>.            (* 3. Runs immediately *)
+    <Parse> the <config> from the <config-file>.     (* 4. Waits for file *)
+    <Return> an <OK: status> with <config>.
+}
+```
+
+**What happens:**
+- Statement 1 kicks off file loading (async, returns immediately)
+- Statements 2 and 3 execute while the file loads in background
+- Statement 4 waits only if the file isn't ready yet
+- User sees: synchronous execution
+- Runtime does: parallel I/O with sequential semantics
+
+### Why This Matters
+
+The programmer never writes `async`/`await`. The runtime automatically:
+- Overlaps I/O operations where possible
+- Respects data dependencies
+- Delivers results in the order written
+
+This is the ARO philosophy: **write synchronous code, get async performance**.
 
 ---
 
@@ -294,10 +333,11 @@ Each execution runs its statements serially.
 ARO's concurrency model is radically simple:
 
 1. **Feature sets run async** - Triggered by events, run concurrently
-2. **Statements run sync** - Execute serially within a feature set
-3. **No concurrency primitives** - The runtime handles all of it
+2. **Statements appear sync** - Execute serially from programmer's view
+3. **Runtime optimizes** - Async execution under the hood based on data flow
+4. **No concurrency primitives** - The runtime handles all of it
 
-This isn't enterprise-grade concurrency control. It's concurrency for humans who want to write sequential code that responds to events.
+Write synchronous code. Get async performance. No callbacks, no promises, no await.
 
 ---
 
@@ -307,3 +347,4 @@ This isn't enterprise-grade concurrency control. It's concurrency for humans who
 |---------|------|---------|
 | 1.0 | 2024-01 | Initial specification with full concurrency primitives |
 | 2.0 | 2024-12 | Complete rewrite: event-driven async, serial sync execution |
+| 2.1 | 2025-12 | Document async runtime optimization with sync semantics |
