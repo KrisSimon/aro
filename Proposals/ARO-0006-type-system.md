@@ -3,27 +3,27 @@
 * Proposal: ARO-0006
 * Author: ARO Language Team
 * Status: **Accepted**
-* Requires: ARO-0001, ARO-0002
+* Requires: ARO-0001, ARO-0002, ARO-0027
 
 ## Abstract
 
-This proposal introduces a simple, non-nullable type system to ARO. All values are either defined or the runtime throws an error - there are no optionals.
+This proposal defines ARO's type system: simple primitives built into the language, with all complex types defined externally in `openapi.yaml` components.
 
 ## Motivation
 
 ARO's type system follows the "Code Is The Error Message" philosophy:
 
 1. **No Null Checks**: Values exist or operations fail with descriptive errors
-2. **Simple Types**: Four primitives cover most business logic needs
-3. **Clarity**: Types document data shapes without complexity
-4. **Safety**: Catch type errors at compile time
+2. **Simple Primitives**: Four built-in types cover basic needs
+3. **External Complex Types**: All records/enums defined in OpenAPI components
+4. **Single Source of Truth**: OpenAPI defines both HTTP routes AND data types
 
 ## Design Principles
 
-1. **No Optionals**: Every variable has a value. If a retrieval fails, the runtime throws an error like `"Cannot retrieve the user from the user-repository where id = 123"`
-2. **No Null**: The `null` keyword exists only for comparison in external data, not as a valid ARO value
-3. **Simple Primitives**: String, Integer, Float, Boolean
-4. **Structural Types**: Records and Enums for complex data
+1. **No Optionals**: Every variable has a value. If retrieval fails, the runtime throws an error like `"Cannot retrieve the user from the user-repository where id = 123"`
+2. **No Internal Type Definitions**: No `type` or `enum` keywords in ARO - all complex types come from OpenAPI
+3. **OpenAPI as Type Source**: `openapi.yaml` components/schemas define all complex types
+4. **Contract-First**: Types are designed before implementation
 
 ---
 
@@ -47,9 +47,82 @@ ARO's type system follows the "Code Is The Error Message" philosophy:
 
 ---
 
-### 3. Type Annotations
+### 3. Complex Types from OpenAPI
 
-#### 3.1 Syntax
+All complex types (records, enums) are defined in `openapi.yaml` components/schemas. This applies even if your application has no HTTP routes.
+
+#### 3.1 OpenAPI Schema Definition
+
+```yaml
+# openapi.yaml
+openapi: 3.0.3
+info:
+  title: My Application
+  version: 1.0.0
+
+# paths: {} - Optional! No routes = no HTTP server
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        status:
+          $ref: '#/components/schemas/UserStatus'
+      required:
+        - id
+        - name
+        - email
+
+    UserStatus:
+      type: string
+      enum:
+        - active
+        - inactive
+        - suspended
+
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+          default: "Germany"
+      required:
+        - street
+        - city
+```
+
+#### 3.2 Using OpenAPI Types in ARO
+
+```aro
+(Create User: User Management) {
+    <Extract> the <data> from the <request: body>.
+
+    (* User type comes from openapi.yaml components/schemas/User *)
+    <Create> the <user: User> with <data>.
+
+    (* Access fields defined in the schema *)
+    <Log> the <message> for the <console> with <user: name>.
+
+    <Return> a <Created: status> with <user>.
+}
+```
+
+---
+
+### 4. Type Annotations
+
+#### 4.1 Syntax
 
 ```ebnf
 typed_variable = "<" , identifier , ":" , type_annotation , ">" ;
@@ -59,96 +132,25 @@ type_annotation = type_name ;
 type_name = "String" | "Integer" | "Float" | "Boolean"
           | "List" , "<" , type_name , ">"
           | "Map" , "<" , type_name , "," , type_name , ">"
-          | custom_type ;
+          | openapi_schema_name ;
 
-custom_type = identifier ;
+openapi_schema_name = identifier ;  (* References components/schemas *)
 ```
 
-#### 3.2 Examples
+#### 4.2 Examples
 
 ```aro
-<name: String>                    // String
-<count: Integer>                  // Integer
-<price: Float>                    // Float
-<active: Boolean>                 // Boolean
-<items: List<String>>             // List of strings
-<scores: Map<String, Integer>>    // Map with string keys
-<user: User>                      // Custom type
+<name: String>                    // Primitive
+<count: Integer>                  // Primitive
+<items: List<String>>             // Collection of primitives
+<user: User>                      // OpenAPI schema reference
+<users: List<User>>               // Collection of OpenAPI types
+<config: Map<String, Integer>>    // Map with primitives
 ```
 
 ---
 
-### 4. Record Types
-
-Define structured data:
-
-```ebnf
-type_definition = "type" , type_name , "{" ,
-                  { field_definition } ,
-                  "}" ;
-
-field_definition = field_name , ":" , type_annotation ,
-                   [ "=" , default_value ] ;
-```
-
-**Example:**
-
-```aro
-type User {
-    id: String
-    email: String
-    name: String
-    age: Integer = 0
-    roles: List<String> = []
-}
-
-type Address {
-    street: String
-    city: String
-    country: String = "Germany"
-}
-```
-
----
-
-### 5. Enum Types
-
-Define finite sets of values:
-
-```ebnf
-enum_definition = "enum" , type_name , "{" ,
-                  enum_case , { "," , enum_case } ,
-                  "}" ;
-
-enum_case = case_name , [ "(" , field_list , ")" ] ;
-```
-
-**Example:**
-
-```aro
-enum Status {
-    Active,
-    Inactive,
-    Pending
-}
-
-enum PaymentMethod {
-    CreditCard(number: String, expiry: String),
-    BankTransfer(iban: String),
-    Cash
-}
-
-enum HttpMethod {
-    GET,
-    POST,
-    PUT,
-    DELETE
-}
-```
-
----
-
-### 6. Type Inference
+### 5. Type Inference
 
 Types are inferred from literals and expressions:
 
@@ -158,12 +160,11 @@ Types are inferred from literals and expressions:
 <Create> the <active> with true.           // active: Boolean
 <Create> the <price> with 19.99.           // price: Float
 <Create> the <items> with [1, 2, 3].       // items: List<Integer>
-<Create> the <user> with { name: "Alice", age: 30 }.  // user: Map<String, Any>
 ```
 
 ---
 
-### 7. No Optionals - Error Handling
+### 6. No Optionals - Error Handling
 
 ARO has no optional types. When a value cannot be retrieved, the runtime throws a descriptive error.
 
@@ -183,7 +184,7 @@ console.log(user.name);
 ```aro
 (Get User: API) {
     <Extract> the <id> from the <pathParameters: id>.
-    <Retrieve> the <user> from the <user-repository> where id = <id>.
+    <Retrieve> the <user: User> from the <user-repository> where id = <id>.
     (* If user doesn't exist, runtime throws: *)
     (* "Cannot retrieve the user from the user-repository where id = 123" *)
 
@@ -195,9 +196,9 @@ The runtime error message IS the error handling. No null checks needed.
 
 ---
 
-### 8. Type Checking Rules
+### 7. Type Checking Rules
 
-#### 8.1 Assignment Compatibility
+#### 7.1 Assignment Compatibility
 
 | From | To | Allowed |
 |------|-----|---------|
@@ -205,14 +206,27 @@ The runtime error message IS the error handling. No null checks needed.
 | `Integer` | `Float` | Yes (widening) |
 | `Float` | `Integer` | Warning (narrowing) |
 | `List<T>` | `List<T>` | Yes |
+| OpenAPI Schema | Same Schema | Yes |
 
-#### 8.2 Type Errors
+#### 7.2 Type Errors
 
 | Error | Message |
 |-------|---------|
 | Type mismatch | `Expected 'String', got 'Integer'` |
-| Undefined type | `Type 'Foo' is not defined` |
-| Missing field | `Type 'User' has no field 'age'` |
+| Unknown schema | `Schema 'Foo' not found in openapi.yaml` |
+| Missing field | `Schema 'User' has no field 'age'` |
+
+---
+
+### 8. OpenAPI Behavior
+
+| openapi.yaml | paths | components | HTTP Server | Types Available |
+|--------------|-------|------------|-------------|-----------------|
+| Missing | - | - | No | Primitives only |
+| Present | Empty/None | Has schemas | No | Primitives + Schemas |
+| Present | Has routes | Has schemas | Yes | Primitives + Schemas |
+
+**Key Point**: Even without HTTP routes, `openapi.yaml` can define types for your application.
 
 ---
 
@@ -221,70 +235,132 @@ The runtime error message IS the error handling. No null checks needed.
 ```ebnf
 (* Type System Grammar *)
 
-(* Type Definitions - appear before feature sets *)
-type_definition = record_type | enum_type ;
-
-record_type = "type" , type_name , "{" , { field_def } , "}" ;
-
-enum_type = "enum" , type_name , "{" , enum_case , { "," , enum_case } , "}" ;
-
-(* Field Definition *)
-field_def = identifier , ":" , type_expr , [ "=" , expression ] ;
-
-(* Enum Cases *)
-enum_case = identifier , [ "(" , field_list , ")" ] ;
-field_list = field_def , { "," , field_def } ;
+(* Type Annotations in Variables *)
+typed_qualified_noun = identifier , ":" , type_expr , [ specifier_list ] ;
 
 (* Type Expressions *)
 type_expr = primitive_type
           | collection_type
-          | custom_type ;
+          | openapi_type ;
 
 primitive_type = "String" | "Integer" | "Float" | "Boolean" ;
 
 collection_type = "List" , "<" , type_expr , ">"
                 | "Map" , "<" , type_expr , "," , type_expr , ">" ;
 
-custom_type = identifier ;
+openapi_type = identifier ;  (* References openapi.yaml components/schemas *)
 
-(* Type Annotation in Variables *)
-typed_qualified_noun = identifier , ":" , type_expr , [ specifier_list ] ;
+(* No type or enum definitions in ARO grammar *)
+(* All complex types come from openapi.yaml *)
 ```
 
 ---
 
 ### 10. Complete Example
 
+#### openapi.yaml
+
+```yaml
+openapi: 3.0.3
+info:
+  title: E-Commerce Types
+  version: 1.0.0
+
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/UserStatus'
+      required:
+        - id
+        - email
+        - name
+
+    UserStatus:
+      type: string
+      enum:
+        - active
+        - inactive
+        - suspended
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        total:
+          type: number
+      required:
+        - id
+        - userId
+        - items
+        - total
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+      required:
+        - productId
+        - quantity
+        - price
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+      required:
+        - userId
+        - items
+```
+
+#### orders.aro
+
 ```aro
-(* Type definitions *)
-type User {
-    id: String
-    email: String
-    name: String
-    status: UserStatus
-}
+(* Feature set named after operationId *)
 
-enum UserStatus {
-    Active,
-    Inactive,
-    Suspended
-}
-
-type Order {
-    id: String
-    userId: String
-    items: List<OrderItem>
-    total: Float
-}
-
-type OrderItem {
-    productId: String
-    quantity: Integer
-    price: Float
-}
-
-(* Feature Set with typed variables *)
-(Create Order: E-Commerce) {
+(createOrder: E-Commerce) {
     <Require> the <user-repository> from the <framework>.
     <Require> the <order-repository> from the <framework>.
 
@@ -296,7 +372,7 @@ type OrderItem {
 
     (* Only active users can create orders *)
     match <user: status> {
-        case Active {
+        case "active" {
             <Compute> the <total: Float> from <items>.
             <Create> the <order: Order> with {
                 id: <generated-id>,
@@ -307,61 +383,13 @@ type OrderItem {
             <Store> the <order> in the <order-repository>.
             <Return> a <Created: status> with <order>.
         }
-        case Inactive {
+        case "inactive" {
             <Return> a <Forbidden: status> with "User is inactive".
         }
-        case Suspended {
+        case "suspended" {
             <Return> a <Forbidden: status> with "User is suspended".
         }
     }
-}
-```
-
----
-
-## Implementation Notes
-
-### AST Nodes
-
-```swift
-public struct TypeDefinition: Statement {
-    let name: String
-    let kind: TypeKind
-    let span: SourceSpan
-}
-
-public enum TypeKind {
-    case record(fields: [FieldDefinition])
-    case enumeration(cases: [EnumCase])
-}
-
-public struct FieldDefinition {
-    let name: String
-    let typeAnnotation: TypeAnnotation
-    let defaultValue: (any Expression)?
-}
-
-public struct EnumCase {
-    let name: String
-    let associatedFields: [FieldDefinition]
-}
-
-public struct TypeAnnotation {
-    let name: String
-    let genericArgs: [TypeAnnotation]
-}
-```
-
-### Type Registry
-
-```swift
-public struct TypeRegistry {
-    var primitives: Set<String> = ["String", "Integer", "Float", "Boolean"]
-    var collections: Set<String> = ["List", "Map"]
-    var userDefined: [String: TypeDefinition] = [:]
-
-    func lookup(_ name: String) -> TypeInfo?
-    func register(_ definition: TypeDefinition)
 }
 ```
 
@@ -372,4 +400,5 @@ public struct TypeRegistry {
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2024-01 | Initial specification |
-| 2.0 | 2025-12 | Simplified: removed optionals, Null, Never, Void, protocols, function types, generics constraints. Renamed Int to Integer. |
+| 2.0 | 2025-12 | Simplified: removed optionals, Null, Never, Void, protocols, function types. |
+| 3.0 | 2025-12 | Removed internal type/enum definitions. All complex types from OpenAPI. |
