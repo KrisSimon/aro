@@ -114,6 +114,20 @@ struct RunCommand: AsyncParsableCommand {
             print()
         }
 
+        // Load plugins from plugins/ directory
+        do {
+            try PluginLoader.shared.loadPlugins(from: appConfig.rootPath)
+            if verbose {
+                let services = ExternalServiceRegistry.shared.registeredServices
+                if services.count > 1 { // More than just built-in http
+                    print("Registered services: \(services.joined(separator: ", "))")
+                    print()
+                }
+            }
+        } catch {
+            print("Warning: Failed to load plugins: \(error)")
+        }
+
         // Create and run application
         let application = Application(
             programs: compiledPrograms,

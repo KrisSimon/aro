@@ -1,0 +1,26 @@
+(* CustomPlugin - Demonstrates creating and using a custom service plugin *)
+
+(Application-Start: Custom Plugin Demo) {
+    <Log> the <message> for the <console> with "Testing custom greeting plugin...".
+
+    (* Call the custom greeting service *)
+    <Call> the <greeting> from the <greeting: hello> with {
+        name: "ARO Developer"
+    }.
+
+    <Log> the <message> for the <console> with <greeting>.
+
+    (* Call another method on the same service *)
+    <Call> the <farewell> from the <greeting: goodbye> with {
+        name: "ARO Developer"
+    }.
+
+    <Log> the <message> for the <console> with <farewell>.
+
+    <Return> an <OK: status> for the <startup>.
+}
+
+(Application-End: Success) {
+    <Log> the <message> for the <console> with "Custom plugin demo completed.".
+    <Return> an <OK: status> for the <shutdown>.
+}

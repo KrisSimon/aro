@@ -120,7 +120,8 @@ public final class LLVMCodeGenerator {
             "extract", "fetch", "retrieve", "parse", "read",
             "compute", "validate", "compare", "transform", "create", "update",
             "return", "throw", "emit", "send", "log", "store", "write", "publish",
-            "start", "listen", "route", "watch", "stop", "keepalive"
+            "start", "listen", "route", "watch", "stop", "keepalive",
+            "call"
         ]
         for action in actions {
             emit("declare ptr @aro_action_\(action)(ptr, ptr, ptr)")

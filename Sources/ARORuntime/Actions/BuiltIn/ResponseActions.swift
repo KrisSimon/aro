@@ -173,12 +173,22 @@ public struct LogAction: ActionImplementation {
         try validatePreposition(object.preposition)
 
         // Get message to log
+        // Priority: 1. with clause literal, 2. result variable, 3. result fullName
         let message: String
-        if let value: String = context.resolve(result.base) {
+        if let literal = context.resolveAny("_literal_") {
+            // Message from "with" clause (string literal)
+            message = String(describing: literal)
+        } else if let expr = context.resolveAny("_expression_") {
+            // Message from "with" clause (expression)
+            message = String(describing: expr)
+        } else if let value: String = context.resolve(result.base) {
+            // Message from variable
             message = value
         } else if let value = context.resolveAny(result.base) {
+            // Message from any variable type
             message = String(describing: value)
         } else {
+            // Fallback to result name
             message = result.fullName
         }
 

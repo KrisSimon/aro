@@ -98,6 +98,9 @@ public final class ActionRegistry: @unchecked Sendable {
         register(MapAction.self)
         register(ReduceAction.self)
         register(PredicateFilterAction.self)
+
+        // External service actions (ARO-0016)
+        register(CallAction.self)
     }
 
     /// Register a custom action

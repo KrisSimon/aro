@@ -63,7 +63,7 @@ The `<Wait>` action:
 (* Wait with a timeout (future extension) *)
 <Wait> for <events> with 30000.  (* 30 seconds *)
 
-(* Wait for a specific condition (future extension) *)
+(* Wait for a specific condition *)
 <Wait> for <shutdown-signal>.
 ```
 

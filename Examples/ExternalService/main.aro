@@ -1,0 +1,23 @@
+(* ExternalService - Demonstrates calling external HTTP APIs *)
+
+(Application-Start: External Service Demo) {
+    <Log> the <message> for the <console> with "Fetching weather data from Open-Meteo API...".
+
+    (* Call the HTTP service to fetch weather data *)
+    <Call> the <response> from the <http: get> with {
+        url: "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true"
+    }.
+
+    (* Extract the body from the response *)
+    <Extract> the <weather> from the <response: body>.
+
+    <Log> the <message> for the <console> with "Weather data received:".
+    <Log> the <message> for the <console> with <weather>.
+
+    <Return> an <OK: status> for the <startup>.
+}
+
+(Application-End: Success) {
+    <Log> the <message> for the <console> with "External service demo completed.".
+    <Return> an <OK: status> for the <shutdown>.
+}

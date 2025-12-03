@@ -2,613 +2,349 @@
 
 * Proposal: ARO-0016
 * Author: ARO Language Team
-* Status: **Draft**
-* Requires: ARO-0001, ARO-0006, ARO-0007
+* Status: **Implemented**
+* Requires: ARO-0001, ARO-0006
 
 ## Abstract
 
-This proposal defines how ARO interoperates with external systems, including Swift code, REST APIs, databases, and other languages.
+This proposal defines how ARO interoperates with external libraries and services. ARO uses a **Swift Package-based Service** architecture where external functionality is wrapped in services and invoked via the `<Call>` action.
 
 ## Motivation
 
-Real-world applications require:
+Real-world applications require integration with:
 
-1. **Swift Integration**: Call Swift libraries, use Swift types
-2. **External APIs**: Consume REST/GraphQL services
-3. **Databases**: Query SQL/NoSQL stores
-4. **FFI**: Interface with C/C++ libraries
+1. **HTTP APIs**: REST, GraphQL endpoints
+2. **Databases**: PostgreSQL, MongoDB, Redis
+3. **Media Processing**: FFmpeg, ImageMagick
+4. **System Libraries**: Encryption, compression
+
+ARO provides a simple, unified approach: **external libraries become Services**.
 
 ---
 
-### 1. Swift Interoperability
+## Design Principle
 
-#### 1.1 Import Swift Modules
+> **One Action, Many Services**
 
-```ebnf
-swift_import = "import" , "swift" , module_path , 
-               [ "{" , import_list , "}" ] , ";" ;
+All external integrations use the same pattern:
+
+```aro
+<Call> the <result> from the <service: method> with { args }.
 ```
 
-**Example:**
-```
-import swift Foundation;
-import swift Vapor.{ Request, Response };
-import swift MyApp.Services.{ UserService, PaymentService };
+---
+
+## The Call Action
+
+### Syntax
+
+```aro
+<Call> the <result> from the <service: method> with { key: value, ... }.
 ```
 
-#### 1.2 Use Swift Types
+### Components
 
+| Component | Description |
+|-----------|-------------|
+| `result` | Variable to store the result |
+| `service` | Service name (e.g., `http`, `postgres`, `ffmpeg`) |
+| `method` | Method to invoke (e.g., `get`, `query`, `transcode`) |
+| `args` | Key-value arguments |
+
+### Examples
+
+```aro
+(* HTTP GET request *)
+<Call> the <response> from the <http: get> with {
+    url: "https://api.example.com/users"
+}.
+
+(* Database query *)
+<Call> the <users> from the <postgres: query> with {
+    sql: "SELECT * FROM users WHERE active = true"
+}.
+
+(* Media transcoding *)
+<Call> the <result> from the <ffmpeg: transcode> with {
+    input: "/path/to/video.mov",
+    output: "/path/to/video.mp4",
+    format: "mp4"
+}.
 ```
-import swift Foundation.{ URL, Data, Date };
-import swift MyApp.Models.{ User, Order };
 
-(API Integration: External) {
-    <Create> the <url: URL> from "https://api.example.com/users".
-    <Create> the <date: Date> from Date().
-    <Retrieve> the <user: User> from the <swift-repository>.
+---
+
+## Built-in Services
+
+### HTTP Client
+
+The `http` service is built-in and provides HTTP request capabilities.
+
+```aro
+(* GET request *)
+<Call> the <response> from the <http: get> with {
+    url: "https://api.example.com/data",
+    headers: { "Authorization": "Bearer token123" }
+}.
+
+(* POST request *)
+<Call> the <response> from the <http: post> with {
+    url: "https://api.example.com/users",
+    body: { name: "Alice", email: "alice@example.com" },
+    headers: { "Content-Type": "application/json" }
+}.
+
+(* Other methods: put, patch, delete *)
+<Call> the <response> from the <http: delete> with {
+    url: "https://api.example.com/users/123"
+}.
+```
+
+**Response format:**
+
+```json
+{
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": { ... }
 }
 ```
 
-#### 1.3 Call Swift Functions
+---
 
-```
-import swift CryptoKit.{ SHA256 };
-import swift MyApp.Utilities.{ formatCurrency, validateEmail };
+## Creating Custom Services
 
-(Security: Crypto) {
-    <Compute> the <hash: String> from SHA256.hash(data: <password>.data).
-    <Compute> the <formatted: String> from formatCurrency(<amount>).
-    <Compute> the <valid: Bool> from validateEmail(<email>).
+Services are Swift types that implement the `AROService` protocol.
+
+### Service Protocol
+
+```swift
+public protocol AROService: Sendable {
+    /// Service name (e.g., "postgres", "redis")
+    static var name: String { get }
+
+    /// Initialize the service
+    init() throws
+
+    /// Call a method
+    func call(_ method: String, args: [String: any Sendable]) async throws -> any Sendable
+
+    /// Shutdown (optional)
+    func shutdown() async
 }
 ```
 
-#### 1.4 Implement Swift Protocols
+### Example: PostgreSQL Service
 
-```
-@implements(swift: Hashable, Codable)
-type User {
-    id: String;
-    email: String;
-    name: String;
-}
+```swift
+import PostgresNIO
 
-@implements(swift: AsyncSequence)
-type EventStream<T> {
-    // ...
-}
-```
+public struct PostgresService: AROService {
+    public static let name = "postgres"
 
-#### 1.5 Swift Extensions
+    private let pool: PostgresConnectionPool
 
-```
-extend swift String {
-    func isValidEmail() -> Bool {
-        <Return> self matches "^[^@]+@[^@]+\\.[^@]+$".
+    public init() throws {
+        let config = PostgresConnection.Configuration(...)
+        pool = try PostgresConnectionPool(configuration: config)
     }
-}
 
-// Usage
-if <email>.isValidEmail() then { ... }
-```
-
----
-
-### 2. External Type Mappings
-
-#### 2.1 Type Mapping Declaration
-
-```ebnf
-type_mapping = "map" , aro_type , "to" , "swift" , swift_type , 
-               [ mapping_options ] , ";" ;
-```
-
-**Example:**
-```
-// Built-in mappings
-map String to swift Swift.String;
-map Int to swift Swift.Int;
-map Float to swift Swift.Double;
-map Bool to swift Swift.Bool;
-map List<T> to swift Swift.Array<T>;
-map Map<K, V> to swift Swift.Dictionary<K, V>;
-
-// Custom mappings
-map Money to swift Decimal {
-    toSwift: <m> => Decimal(<m>.amount),
-    fromSwift: <d> => Money { amount: <d>, currency: .USD }
-};
-
-map DateTime to swift Foundation.Date {
-    toSwift: <dt> => Date(timeIntervalSince1970: <dt>.timestamp),
-    fromSwift: <d> => DateTime.fromTimestamp(<d>.timeIntervalSince1970)
-};
-```
-
-#### 2.2 Automatic Codable
-
-```
-@codable
-type OrderRequest {
-    customerId: String;
-    items: List<OrderItem>;
-    shippingAddress: Address;
-}
-
-// Generates:
-// extension OrderRequest: Codable { ... }
-```
-
----
-
-### 3. REST API Integration
-
-#### 3.1 API Client Definition
-
-```ebnf
-api_client = "api" , client_name , "{" ,
-             "baseUrl" , ":" , string_literal , ";" ,
-             { api_endpoint } ,
-             "}" ;
-
-api_endpoint = http_method , path , [ request_config ] , 
-               "->" , response_type , ";" ;
-```
-
-**Example:**
-```
-api UserAPI {
-    baseUrl: "https://api.example.com/v1";
-    
-    headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${token}"
-    };
-    
-    GET "/users" -> List<User>;
-    GET "/users/{id}" -> User?;
-    POST "/users" with body: CreateUserRequest -> User;
-    PUT "/users/{id}" with body: UpdateUserRequest -> User;
-    DELETE "/users/{id}" -> Void;
-    
-    GET "/users/{id}/orders" 
-        with query: { status: OrderStatus?, limit: Int? }
-        -> List<Order>;
-}
-
-// Usage
-(User Management: API) {
-    <Require> <api: UserAPI> from framework.
-    
-    <Call> the <users: List<User>> from <api>.GET("/users").
-    <Call> the <user: User?> from <api>.GET("/users/${userId}").
-    <Call> the <newUser: User> from <api>.POST("/users", body: <request>).
-}
-```
-
-#### 3.2 Error Handling
-
-```
-api PaymentAPI {
-    baseUrl: "https://payments.example.com";
-    
-    errors: {
-        400: ValidationError,
-        401: AuthenticationError,
-        404: NotFoundError,
-        500: ServerError
-    };
-    
-    POST "/charge" with body: ChargeRequest -> ChargeResponse
-        throws PaymentError;
-}
-
-(Payment: Processing) {
-    try {
-        <Call> the <r> from <PaymentAPI>.POST("/charge", body: <charge>).
-    } catch <PaymentError> as <e> {
-        <Log> the <e> for <monitoring>.
-        <Return> a <failed-response> for the <request>.
-    }
-}
-```
-
-#### 3.3 Pagination
-
-```
-api ProductAPI {
-    GET "/products" 
-        with query: { page: Int, limit: Int }
-        -> Paginated<Product>;
-}
-
-(List Products: Catalog) {
-    <Set> the <all-products> to [].
-    <Set> the <page> to 1.
-    
-    repeat {
-        <Call> the <r> from <ProductAPI>.GET("/products", 
-            query: { page: <page>, limit: 100 }).
-        <Add> <r>.items to <all-products>.
-        <Increment> <page>.
-    } until <r>.hasMore is false
-}
-```
-
----
-
-### 4. GraphQL Integration
-
-```
-graphql UserGraphQL {
-    endpoint: "https://api.example.com/graphql";
-    
-    query GetUser(id: ID!) -> User {
-        user(id: $id) {
-            id
-            email
-            name
-            orders {
-                id
-                total
+    public func call(_ method: String, args: [String: any Sendable]) async throws -> any Sendable {
+        switch method {
+        case "query":
+            let sql = args["sql"] as! String
+            let rows = try await pool.query(sql)
+            return rows.map { row in
+                // Convert to dictionary
             }
+
+        case "execute":
+            let sql = args["sql"] as! String
+            try await pool.execute(sql)
+            return ["success": true]
+
+        default:
+            throw ServiceError.unknownMethod(method, service: Self.name)
         }
     }
-    
-    mutation CreateUser(input: CreateUserInput!) -> User {
-        createUser(input: $input) {
-            id
-            email
+
+    public func shutdown() async {
+        await pool.close()
+    }
+}
+```
+
+### Registration
+
+Services are registered with the `ServiceRegistry`:
+
+```swift
+try ServiceRegistry.shared.register(PostgresService())
+```
+
+---
+
+## Plugin System
+
+When ARO is distributed as a pre-compiled binary, users can add custom services via **plugins**.
+
+### Plugin Structure
+
+```
+MyApp/
+├── main.aro
+├── openapi.yaml
+├── plugins/                    # Custom services
+│   └── MyService.swift
+└── aro.yaml
+```
+
+### Plugin Swift File
+
+```swift
+// plugins/MyService.swift
+import Foundation
+
+@_cdecl("aro_plugin_register")
+public func register(_ registry: UnsafeMutableRawPointer) {
+    let reg = AROPluginRegistry(registry)
+    reg.registerService("myservice", MyService())
+}
+
+struct MyService: AROPluginService {
+    func call(_ method: String, args: [String: Any]) throws -> Any {
+        switch method {
+        case "greet":
+            let name = args["name"] as? String ?? "World"
+            return "Hello, \(name)!"
+        default:
+            throw NSError(domain: "Plugin", code: 1)
         }
     }
 }
+```
 
-(User Query: API) {
-    <Query> the <user: User> from <UserGraphQL>.GetUser(id: "123").
-    <Mutate> the <newUser: User> from <UserGraphQL>.CreateUser(input: <data>).
+### How Plugins Work
+
+1. ARO scans `./plugins/` directory
+2. Compiles `.swift` files to `.dylib` using `swiftc`
+3. Loads via `dlopen`
+4. Calls `aro_plugin_register` entry point
+
+### Configuration
+
+```yaml
+# aro.yaml
+plugins:
+  - source: plugins/MyService.swift
+  - source: plugins/CacheService.swift
+
+  # Pre-compiled plugins
+  - library: /path/to/CustomPlugin.dylib
+```
+
+---
+
+## Complete Example
+
+### openapi.yaml
+
+```yaml
+openapi: 3.0.3
+info:
+  title: Weather Service
+  version: 1.0.0
+
+paths: {}
+
+components:
+  schemas:
+    WeatherData:
+      type: object
+      properties:
+        temperature:
+          type: number
+        conditions:
+          type: string
+        location:
+          type: string
+```
+
+### main.aro
+
+```aro
+(Application-Start: Weather Service) {
+    <Log> the <message> for the <console> with "Weather Service starting...".
+
+    (* Fetch weather from external API *)
+    <Call> the <response> from the <http: get> with {
+        url: "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true"
+    }.
+
+    <Extract> the <weather> from the <response: body>.
+
+    <Log> the <message> for the <console> with "Current weather:".
+    <Log> the <message> for the <console> with <weather>.
+
+    <Return> an <OK: status> for the <startup>.
+}
+
+(Application-End: Success) {
+    <Log> the <message> for the <console> with "Weather Service shutting down...".
+    <Return> an <OK: status> for the <shutdown>.
 }
 ```
 
 ---
 
-### 5. Database Integration
+## Service Method Reference
 
-#### 5.1 SQL Databases
+### HTTP Service (`http`)
 
-```
-database UserDB: PostgreSQL {
-    connection: env("DATABASE_URL");
-    
-    table users {
-        id: UUID primary key;
-        email: String unique;
-        name: String;
-        created_at: DateTime default now();
-    }
-    
-    table orders {
-        id: UUID primary key;
-        user_id: UUID references users(id);
-        total: Decimal;
-        status: String;
-    }
-}
-
-(User Data: Persistence) {
-    <Require> <db: UserDB> from framework.
-    
-    // Query
-    <Query> the <user: User?> from <db>.users
-        where email = <email>.
-    
-    <Query> the <orders: List<Order>> from <db>.orders
-        where user_id = <user>.id
-        order by created_at desc
-        limit 10.
-    
-    // Insert
-    <Insert> <new-user> into <db>.users.
-    
-    // Update
-    <Update> <db>.users
-        set name = <new-name>
-        where id = <user-id>.
-    
-    // Transaction
-    transaction {
-        <Insert> <order> into <db>.orders.
-        <Update> <db>.inventory set quantity = quantity - 1.
-    }
-}
-```
-
-#### 5.2 NoSQL (MongoDB)
-
-```
-database ProductDB: MongoDB {
-    connection: env("MONGO_URL");
-    
-    collection products {
-        _id: ObjectId;
-        name: String;
-        price: Decimal;
-        tags: List<String>;
-        metadata: Map<String, Any>;
-    }
-}
-
-(Product Search: Catalog) {
-    <Query> the <products: List<Product>> from <ProductDB>.products
-        where { 
-            tags: { $in: ["electronics", "sale"] },
-            price: { $lt: 100 }
-        }
-        sort { price: 1 }
-        limit 20.
-}
-```
+| Method | Arguments | Description |
+|--------|-----------|-------------|
+| `get` | `url`, `headers?` | HTTP GET request |
+| `post` | `url`, `body`, `headers?` | HTTP POST request |
+| `put` | `url`, `body`, `headers?` | HTTP PUT request |
+| `patch` | `url`, `body`, `headers?` | HTTP PATCH request |
+| `delete` | `url`, `headers?` | HTTP DELETE request |
 
 ---
 
-### 6. Message Queues
+## Implementation Notes
 
-```
-queue OrderQueue: RabbitMQ {
-    connection: env("RABBITMQ_URL");
-    
-    exchange orders {
-        type: topic;
-        durable: true;
-    }
-    
-    queue order-processing {
-        bindings: ["orders.created", "orders.updated"];
-    }
-}
+### Interpreter Mode
 
-(Order Events: Messaging) {
-    // Publish
-    <Publish> OrderCreated { orderId: <id> } 
-        to <OrderQueue>.orders 
-        with routingKey "orders.created".
-    
-    // Subscribe
-    <Subscribe> to <OrderQueue>.order-processing as <messages>.
-    
-    for await <msg> in <messages> {
-        <Process> the <msg>.
-        <Acknowledge> the <msg>.
-    }
-}
-```
+1. Application loads, discovers `aro.yaml`
+2. Swift Package Manager loads service packages
+3. Services register with `ServiceRegistry`
+4. `<Call>` action looks up service and invokes method
+
+### Compiled Mode
+
+1. `aro build` reads `aro.yaml`, includes service packages in link
+2. LLVM IR calls `aro_action_call` → Swift runtime
+3. Swift runtime looks up service in `ServiceRegistry`
+4. Service method executes
 
 ---
 
-### 7. gRPC Integration
+## Summary
 
-```
-grpc UserService {
-    proto: "protos/user.proto";
-    
-    rpc GetUser(GetUserRequest) returns (User);
-    rpc ListUsers(ListUsersRequest) returns (stream User);
-    rpc CreateUser(CreateUserRequest) returns (User);
-}
+ARO's interoperability is built on a simple principle:
 
-(User gRPC: Integration) {
-    <Require> <client: UserService> from framework.
-    
-    <Call> the <user: User> from <client>.GetUser({ id: "123" }).
-    
-    for await <user> in <client>.ListUsers({ limit: 100 }) {
-        <Process> the <user>.
-    }
-}
-```
+| Concept | Implementation |
+|---------|---------------|
+| External libraries | Swift Package Services |
+| Invocation | `<Call>` action |
+| Custom services | Plugin system |
+| Configuration | `aro.yaml` |
 
----
-
-### 8. FFI (C/C++)
-
-```
-extern "C" {
-    func openssl_encrypt(data: Pointer<UInt8>, len: Int) -> Pointer<UInt8>;
-    func openssl_decrypt(data: Pointer<UInt8>, len: Int) -> Pointer<UInt8>;
-}
-
-(Encryption: Security) {
-    <Convert> the <data-ptr: Pointer<UInt8>> from <data>.
-    <Call> the <encrypted-ptr> from openssl_encrypt(<data-ptr>, <data>.length).
-    <Convert> the <encrypted: Data> from <encrypted-ptr>.
-}
-```
-
----
-
-### 9. Complete Grammar Extension
-
-```ebnf
-(* Interoperability Grammar *)
-
-(* Swift Import *)
-swift_import = "import" , "swift" , module_path , 
-               [ "{" , identifier_list , "}" ] , ";" ;
-
-(* Type Mapping *)
-type_mapping = "map" , type_name , "to" , "swift" , swift_type ,
-               [ "{" , mapping_funcs , "}" ] , ";" ;
-
-mapping_funcs = "toSwift" , ":" , lambda , "," ,
-                "fromSwift" , ":" , lambda ;
-
-(* Swift Extension *)
-swift_extension = "extend" , "swift" , swift_type , 
-                  "{" , { func_def } , "}" ;
-
-(* API Client *)
-api_client = "api" , identifier , "{" ,
-             "baseUrl" , ":" , string_literal , ";" ,
-             [ "headers" , ":" , inline_object , ";" ] ,
-             [ "errors" , ":" , inline_object , ";" ] ,
-             { api_endpoint } ,
-             "}" ;
-
-api_endpoint = http_method , string_literal ,
-               [ "with" , endpoint_config ] ,
-               "->" , type_annotation ,
-               [ "throws" , type_name ] , ";" ;
-
-http_method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" ;
-
-endpoint_config = "body" , ":" , type_name
-                | "query" , ":" , inline_object
-                | "body" , ":" , type_name , "," , 
-                  "query" , ":" , inline_object ;
-
-(* GraphQL *)
-graphql_client = "graphql" , identifier , "{" ,
-                 "endpoint" , ":" , string_literal , ";" ,
-                 { graphql_operation } ,
-                 "}" ;
-
-graphql_operation = ( "query" | "mutation" ) , identifier ,
-                    "(" , param_list , ")" , "->" , type_annotation ,
-                    graphql_selection ;
-
-(* Database *)
-database_def = "database" , identifier , ":" , db_type , 
-               "{" , { db_member } , "}" ;
-
-db_type = "PostgreSQL" | "MySQL" | "SQLite" | "MongoDB" ;
-
-db_member = "connection" , ":" , expression , ";"
-          | table_def 
-          | collection_def ;
-
-table_def = "table" , identifier , "{" , { column_def } , "}" ;
-collection_def = "collection" , identifier , "{" , { field_def } , "}" ;
-
-(* Message Queue *)
-queue_def = "queue" , identifier , ":" , queue_type ,
-            "{" , { queue_member } , "}" ;
-
-queue_type = "RabbitMQ" | "Kafka" | "SQS" ;
-
-(* gRPC *)
-grpc_def = "grpc" , identifier , "{" ,
-           "proto" , ":" , string_literal , ";" ,
-           { rpc_def } ,
-           "}" ;
-
-rpc_def = "rpc" , identifier , "(" , type_name , ")" ,
-          "returns" , "(" , [ "stream" ] , type_name , ")" , ";" ;
-
-(* FFI *)
-extern_block = "extern" , string_literal , "{" , { extern_func } , "}" ;
-extern_func = "func" , identifier , "(" , param_list , ")" ,
-              [ "->" , type_annotation ] , ";" ;
-```
-
----
-
-### 10. Complete Example
-
-```
-import swift Foundation.{ URL, URLSession };
-import swift Vapor.{ Request, Response };
-
-// Type mappings
-map UserId to swift String;
-map Money to swift Decimal {
-    toSwift: <m> => Decimal(string: String(<m>.amount))!,
-    fromSwift: <d> => Money { amount: Double(truncating: <d> as NSNumber), currency: .USD }
-};
-
-// REST API
-api OrderAPI {
-    baseUrl: env("ORDER_API_URL");
-    
-    headers: {
-        "Authorization": "Bearer ${env('API_TOKEN')}",
-        "X-Request-ID": "${uuid()}"
-    };
-    
-    errors: {
-        400: ValidationError,
-        401: AuthError,
-        404: NotFoundError,
-        500: ServerError
-    };
-    
-    GET "/orders" 
-        with query: { status: String?, page: Int?, limit: Int? }
-        -> Paginated<Order>;
-    
-    GET "/orders/{id}" -> Order?;
-    
-    POST "/orders" with body: CreateOrderRequest -> Order
-        throws OrderError;
-}
-
-// Database
-database AppDB: PostgreSQL {
-    connection: env("DATABASE_URL");
-    
-    table orders {
-        id: UUID primary key default gen_random_uuid();
-        customer_id: UUID not null;
-        status: String not null default 'pending';
-        total: Decimal not null;
-        created_at: DateTime default now();
-    }
-}
-
-// Feature using integrations
-(Sync Orders: Integration) {
-    <Require> <api: OrderAPI> from framework.
-    <Require> <db: AppDB> from framework.
-    
-    // Fetch from API
-    <Set> the <page> to 1.
-    <Set> the <all-orders> to [].
-    
-    repeat {
-        try {
-            <Call> the <r: Paginated<Order>> from 
-                <api>.GET("/orders", query: { 
-                    status: "completed",
-                    page: <page>,
-                    limit: 100
-                }).
-            
-            <Add> <r>.items to <all-orders>.
-            <Increment> <page>.
-            
-        } catch <ServerError> as <e> {
-            <Log> the <e> for <monitoring>.
-            <Wait> for 5.seconds.
-            <Continue>.
-        }
-    } until <r>.hasMore is false
-    
-    // Sync to database
-    transaction {
-        for each <order> in <all-orders> {
-            <Query> the <existing: Order?> from <db>.orders
-                where id = <order>.id.
-            
-            if <existing> is null then {
-                <Insert> <order> into <db>.orders.
-            } else {
-                <Update> <db>.orders
-                    set status = <order>.status, total = <order>.total
-                    where id = <order>.id.
-            }
-        }
-    }
-    
-    <Log> the <sync-complete> with { count: <all-orders>.count() }.
-}
-```
+This approach provides:
+- **Simplicity**: One action for all external calls
+- **Extensibility**: Easy to add new services
+- **Portability**: Works in interpreter and compiler modes
+- **Swift Integration**: Leverages Swift ecosystem
 
 ---
 
@@ -616,4 +352,5 @@ database AppDB: PostgreSQL {
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2024-01 | Initial specification |
+| 2.0 | 2024-12 | Simplified to Service-based architecture |
+| 1.0 | 2024-01 | Initial specification with complex syntax |

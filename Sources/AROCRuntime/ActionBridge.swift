@@ -1004,3 +1004,120 @@ struct WaitResultBridge: Sendable {
     let completed: Bool
     let reason: String
 }
+
+// MARK: - External Service Action
+
+/// Call action - invoke a method on an external service
+@_cdecl("aro_action_call")
+public func aro_action_call(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ resultPtr: UnsafeRawPointer?,
+    _ objectPtr: UnsafeRawPointer?
+) -> UnsafeMutableRawPointer? {
+    guard let ctxHandle = getContext(contextPtr),
+          let result = resultPtr,
+          let object = objectPtr else { return nil }
+
+    let resultDesc = toResultDescriptor(result)
+    let objectDesc = toObjectDescriptor(object)
+
+    // Parse service and method from object
+    // Format: <service: method>
+    let serviceName: String
+    let methodName: String
+
+    if !objectDesc.specifiers.isEmpty {
+        serviceName = objectDesc.base
+        methodName = objectDesc.specifiers[0]
+    } else {
+        // Try to split on hyphen
+        let parts = objectDesc.base.split(separator: "-", maxSplits: 1)
+        if parts.count == 2 {
+            serviceName = String(parts[0])
+            methodName = String(parts[1])
+        } else {
+            print("[ARO] Call error: Invalid service:method format")
+            return boxResult(CallResultBridge(success: false, error: "Invalid format"))
+        }
+    }
+
+    // Get arguments from literal or expression value
+    // Object literals are bound as _expression_ (parsed by expression evaluator)
+    var args: [String: any Sendable] = [:]
+    if let exprArgs = ctxHandle.context.resolveAny("_expression_") as? [String: any Sendable] {
+        args = exprArgs
+    } else if let literalArgs = ctxHandle.context.resolveAny("_literal_") as? [String: any Sendable] {
+        args = literalArgs
+    }
+
+    // Call the service synchronously using a semaphore
+    // (Native code needs synchronous execution)
+    let resultHolder = ServiceCallResultHolder()
+    let semaphore = DispatchSemaphore(value: 0)
+
+    // Copy values for Sendable closure
+    let svcName = serviceName
+    let mtdName = methodName
+    let callArgs = args
+
+    Task { @Sendable in
+        do {
+            let result = try await ExternalServiceRegistry.shared.call(svcName, method: mtdName, args: callArgs)
+            resultHolder.setResult(result)
+        } catch {
+            resultHolder.setError(error)
+        }
+        semaphore.signal()
+    }
+
+    semaphore.wait()
+
+    if let error = resultHolder.error {
+        print("[ARO] Call error: \(error)")
+        return boxResult(CallResultBridge(success: false, error: error.localizedDescription))
+    }
+
+    // Bind result
+    if let callResult = resultHolder.result {
+        ctxHandle.context.bind(resultDesc.base, value: callResult)
+        return boxResult(callResult)
+    }
+
+    return boxResult(CallResultBridge(success: true, error: nil))
+}
+
+struct CallResultBridge: Sendable {
+    let success: Bool
+    let error: String?
+}
+
+/// Thread-safe holder for service call results
+final class ServiceCallResultHolder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _result: (any Sendable)?
+    private var _error: Error?
+
+    var result: (any Sendable)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _result
+    }
+
+    var error: Error? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _error
+    }
+
+    func setResult(_ value: any Sendable) {
+        lock.lock()
+        defer { lock.unlock() }
+        _result = value
+    }
+
+    func setError(_ err: Error) {
+        lock.lock()
+        defer { lock.unlock() }
+        _error = err
+    }
+}

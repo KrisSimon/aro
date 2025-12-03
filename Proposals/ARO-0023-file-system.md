@@ -52,7 +52,7 @@ Watch directories for changes:
 
 ```aro
 (Application-Start: File Watcher) {
-    <Watch> the <directory: "./watched"> as <file-monitor>.
+    <Watch> the <directory: "./watched"> as <named: file-monitor>.
     <Return> an <OK: status> for the <startup>.
 }
 ```
