@@ -65,7 +65,6 @@ public final class ExecutionEngine: @unchecked Sendable {
         entryPoint: String = "Application-Start"
     ) async throws -> Response {
         print("[ExecutionEngine] execute() called with entryPoint: \(entryPoint)")
-        fflush(stdout)
 
         // Find entry point
         guard let entryFeatureSet = program.featureSets.first(where: {
@@ -120,7 +119,6 @@ public final class ExecutionEngine: @unchecked Sendable {
         }
 
         print("[ExecutionEngine] Found \(socketHandlers.count) socket event handlers")
-        fflush(stdout)
 
         for analyzedFS in socketHandlers {
             let featureSetName = analyzedFS.featureSet.name
@@ -130,12 +128,10 @@ public final class ExecutionEngine: @unchecked Sendable {
             // Determine which event type this handler should respond to
             if lowercaseName.contains("data received") || lowercaseName.contains("data") {
                 print("[ExecutionEngine] -> Subscribing to DataReceivedEvent, eventBus=\(ObjectIdentifier(eventBus))")
-                fflush(stdout)
                 // Subscribe to DataReceivedEvent
                 eventBus.subscribe(to: DataReceivedEvent.self) { [weak self] event in
                     guard let self = self else { return }
                     print("[ExecutionEngine] DataReceivedEvent received! connectionId=\(event.connectionId), data=\(event.data.count) bytes")
-                    fflush(stdout)
                     await self.executeSocketHandler(
                         analyzedFS,
                         program: program,

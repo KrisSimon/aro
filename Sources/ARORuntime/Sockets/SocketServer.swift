@@ -236,13 +236,11 @@ private final class SocketHandler: ChannelInboundHandler, @unchecked Sendable {
         guard let id = connectionId,
               let bytes = buffer.readBytes(length: buffer.readableBytes) else {
             print("[SocketHandler] channelRead: no connectionId or bytes")
-            fflush(stdout)
             return
         }
 
         let receivedData = Data(bytes)
         print("[SocketHandler] channelRead: publishing DataReceivedEvent for \(id), \(receivedData.count) bytes, eventBus=\(ObjectIdentifier(eventBus))")
-        fflush(stdout)
         eventBus.publish(DataReceivedEvent(connectionId: id, data: receivedData))
     }
 

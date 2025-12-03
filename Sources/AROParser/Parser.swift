@@ -666,6 +666,13 @@ public final class Parser {
                     got: peek()
                 )
             }
+        } else {
+            // Legacy support: parse additional space-separated specifiers
+            // e.g., <user: id name> where "id" and "name" are both specifiers
+            while peek().kind.isIdentifier {
+                typeStr += " "
+                typeStr += try parseCompoundIdentifier()
+            }
         }
 
         return typeStr
