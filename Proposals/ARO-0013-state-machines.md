@@ -69,25 +69,26 @@ components:
 ### 2.1 Syntax
 
 ```aro
-<Accept> state <from->to> on <object: field>.
+<Accept> the <transition: from_to_target> on <object: field>.
 ```
 
 Where:
 - `from` is the expected current state
-- `to` is the target state
+- `target` is the target state
+- `_to_` is the separator between states
 - `object: field` is the field being transitioned
 
 ### 2.2 Examples
 
 ```aro
 (* Transition from draft to placed *)
-<Accept> state <draft->placed> on <order: status>.
+<Accept> the <transition: draft_to_placed> on <order: status>.
 
 (* Transition from placed to paid *)
-<Accept> state <placed->paid> on <order: status>.
+<Accept> the <transition: placed_to_paid> on <order: status>.
 
 (* Transition from paid to shipped *)
-<Accept> state <paid->shipped> on <order: status>.
+<Accept> the <transition: paid_to_shipped> on <order: status>.
 ```
 
 ### 2.3 Error Handling
@@ -99,6 +100,11 @@ Cannot accept state draft->placed on order: status. Current state is "paid".
 ```
 
 This follows ARO's "Code Is The Error Message" philosophy.
+
+### 2.4 Implementation Note
+
+The syntax uses `_to_` as the separator because `to` is a reserved preposition in ARO.
+The action parses the transition string and extracts `from` and `target` states.
 
 ---
 
@@ -153,58 +159,48 @@ components:
 
 ```aro
 (placeOrder: Order Management) {
-    <Extract> the <orderId> from the <pathParameters: id>.
-    <Retrieve> the <order: Order> from the <order-repository> where id = <orderId>.
+    <Extract> the <order-id> from the <pathParameters: id>.
+    <Retrieve> the <order> from the <order-repository>.
 
     (* Accept state transition from draft to placed *)
-    <Accept> state <draft->placed> on <order: status>.
+    <Accept> the <transition: draft_to_placed> on <order: status>.
 
-    <Store> the <order> in the <order-repository>.
+    <Store> the <order> into the <order-repository>.
     <Emit> to <Send Order Confirmation> with <order>.
     <Return> an <OK: status> with <order>.
 }
 
 (payOrder: Order Management) {
-    <Extract> the <orderId> from the <pathParameters: id>.
-    <Retrieve> the <order: Order> from the <order-repository> where id = <orderId>.
+    <Extract> the <order-id> from the <pathParameters: id>.
+    <Retrieve> the <order> from the <order-repository>.
 
     (* Must be placed to accept payment *)
-    <Accept> state <placed->paid> on <order: status>.
+    <Accept> the <transition: placed_to_paid> on <order: status>.
 
-    <Store> the <order> in the <order-repository>.
+    <Store> the <order> into the <order-repository>.
     <Return> an <OK: status> with <order>.
 }
 
 (shipOrder: Order Management) {
-    <Extract> the <orderId> from the <pathParameters: id>.
-    <Retrieve> the <order: Order> from the <order-repository> where id = <orderId>.
+    <Extract> the <order-id> from the <pathParameters: id>.
+    <Retrieve> the <order> from the <order-repository>.
 
     (* Must be paid to ship *)
-    <Accept> state <paid->shipped> on <order: status>.
+    <Accept> the <transition: paid_to_shipped> on <order: status>.
 
-    <Store> the <order> in the <order-repository>.
+    <Store> the <order> into the <order-repository>.
     <Emit> to <Send Shipping Notification> with <order>.
     <Return> an <OK: status> with <order>.
 }
 
 (cancelOrder: Order Management) {
-    <Extract> the <orderId> from the <pathParameters: id>.
-    <Retrieve> the <order: Order> from the <order-repository> where id = <orderId>.
+    <Extract> the <order-id> from the <pathParameters: id>.
+    <Retrieve> the <order> from the <order-repository>.
 
-    (* Can cancel from draft or placed states *)
-    match <order: status> {
-        case "draft" {
-            <Accept> state <draft->cancelled> on <order: status>.
-        }
-        case "placed" {
-            <Accept> state <placed->cancelled> on <order: status>.
-        }
-        default {
-            <Return> a <BadRequest: status> with "Cannot cancel order in this state".
-        }
-    }
+    (* Can only cancel from draft state *)
+    <Accept> the <transition: draft_to_cancelled> on <order: status>.
 
-    <Store> the <order> in the <order-repository>.
+    <Store> the <order> into the <order-repository>.
     <Return> an <OK: status> with <order>.
 }
 ```
@@ -225,10 +221,10 @@ No new keywords. No special constructs. Just:
 The state transition is explicit in the code:
 
 ```aro
-<Accept> state <draft->placed> on <order: status>.
+<Accept> the <transition: draft_to_placed> on <order: status>.
 ```
 
-Reads naturally: "Accept the state change from draft to placed on order status."
+Reads naturally: "Accept the transition from draft to placed on order status."
 
 ### 4.3 Safety
 
@@ -244,11 +240,15 @@ Invalid transitions fail with descriptive errors.
 ## 5. Grammar Extension
 
 ```ebnf
-accept_statement = "<Accept>" , "state" , "<" , state_transition , ">" ,
+accept_statement = "<Accept>" , "the" , "<" , transition_spec , ">" ,
                    "on" , "<" , qualified_noun , ">" , "." ;
 
-state_transition = identifier , "->" , identifier ;
+transition_spec = "transition" , ":" , state_transition ;
+
+state_transition = identifier , "_to_" , identifier ;
 ```
+
+Note: The syntax uses `_to_` as the separator because `to` is a reserved preposition in ARO.
 
 ---
 
@@ -272,7 +272,7 @@ These add complexity without matching ARO's philosophy. Use standard ARO control
 | Concept | ARO Approach |
 |---------|--------------|
 | State definition | OpenAPI enum |
-| State transition | `<Accept> state <from->to>` |
+| State transition | `<Accept> the <transition: from_to_target>` |
 | Validation | Runtime checks current state |
 | Error messages | "Cannot accept state X->Y on Z" |
 | Complex logic | Use `if`/`match` |

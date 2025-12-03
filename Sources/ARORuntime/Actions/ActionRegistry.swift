@@ -84,6 +84,9 @@ public final class ActionRegistry: @unchecked Sendable {
 
         // Wait action for long-running applications
         register(WaitForEventsAction.self)
+
+        // State transition action
+        register(AcceptAction.self)
     }
 
     /// Register a custom action
