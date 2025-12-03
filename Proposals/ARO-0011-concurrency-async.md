@@ -1,491 +1,303 @@
-# ARO-0011: Concurrency and Async
+# ARO-0011: Concurrency Model
 
 * Proposal: ARO-0011
 * Author: ARO Language Team
-* Status: **Draft**
-* Requires: ARO-0001, ARO-0008
+* Status: **Accepted**
+* Requires: ARO-0001
 
 ## Abstract
 
-This proposal introduces concurrency primitives to ARO, enabling parallel execution, async operations, and structured concurrency.
+This proposal defines ARO's concurrency model: **feature sets are async, statements are sync**. Feature sets execute asynchronously in response to events. Within a feature set, all statements execute synchronously and serially.
 
-## Motivation
+## Philosophy
 
-Modern applications require:
+ARO's concurrency model matches how project managers think:
 
-1. **Async I/O**: Non-blocking network/database calls
-2. **Parallelism**: Process multiple items concurrently
-3. **Coordination**: Synchronize concurrent operations
-4. **Safety**: Prevent data races
+- **"When X happens, do Y"** - Feature sets are triggered by events
+- **"Do this, then this, then this"** - Steps happen in order
 
----
+Project managers don't think about threads, locks, race conditions, or async/await. They think about things happening and responding to them in sequence.
 
-### 1. Async Feature Sets
-
-#### 1.1 Async Declaration
-
-```ebnf
-async_feature_set = "async" , feature_set ;
-```
-
-**Example:**
-```
-async (Fetch User Data: API) {
-    <Retrieve> the <user> from the <remote-api>.
-    <Retrieve> the <preferences> from the <preferences-service>.
-    <Return> the <combined-data> for the <request>.
-}
-```
-
-#### 1.2 Await Expression
-
-```ebnf
-await_expression = "await" , expression ;
-```
-
-**Example:**
-```
-async (Dashboard: UI) {
-    <Set> the <user-future> to async <Fetch> the <user>.
-    <Set> the <orders-future> to async <Fetch> the <orders>.
-    
-    // Explicit await
-    <Set> the <user> to await <user-future>.
-    <Set> the <orders> to await <orders-future>.
-    
-    <Compose> the <dashboard> from <user> and <orders>.
-}
-```
+**The fundamental principle**: Events trigger feature sets asynchronously. Inside a feature set, everything runs top to bottom.
 
 ---
 
-### 2. Parallel Execution
+## The Model
 
-#### 2.1 Parallel For-Each
+### 1. Feature Sets Are Async
 
-```ebnf
-parallel_foreach = "parallel" , "for" , "each" , variable_reference ,
-                   "in" , variable_reference ,
-                   [ "with" , parallel_options ] ,
-                   block ;
+Every feature set runs asynchronously when triggered by an event:
 
-parallel_options = "{" , option_list , "}" ;
-option_list = option , { "," , option } ;
-option = identifier , ":" , expression ;
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Event Bus                                 │
+│                                                              │
+│  HTTP Request ──┬──► (listUsers: User API)                  │
+│                 │                                            │
+│  Socket Data ───┼──► (Handle Data: Socket Handler)          │
+│                 │                                            │
+│  File Changed ──┼──► (Process File: File Handler)           │
+│                 │                                            │
+│  UserCreated ───┴──► (Send Email: UserCreated Handler)      │
+│                                                              │
+│  (Multiple events can trigger multiple feature sets          │
+│   running concurrently)                                      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Example:**
-```
-async (Process Orders: Batch) {
-    <Retrieve> the <pending-orders> from the <order-queue>.
-    
-    parallel for each <order> in <pending-orders> with { maxConcurrency: 10 } {
-        <Process> the <order>.
-        <Update> the <order: status> to "completed".
-    }
+When multiple events arrive, multiple feature sets can execute simultaneously.
+
+### 2. Statements Are Sync
+
+Inside a feature set, statements execute **synchronously** and **serially**:
+
+```aro
+(Process Order: Order API) {
+    <Extract> the <data> from the <request: body>.      (* 1. First *)
+    <Validate> the <data> for the <order-schema>.       (* 2. Second *)
+    <Create> the <order> with <data>.                   (* 3. Third *)
+    <Store> the <order> in the <order-repository>.      (* 4. Fourth *)
+    <Emit> an <OrderCreated: event> with <order>.       (* 5. Fifth *)
+    <Return> a <Created: status> with <order>.          (* 6. Last *)
 }
 ```
 
-#### 2.2 Parallel Map
-
-```
-<Compute> the <results> from 
-    <items>.parallelMap(<item> => <process>(<item>), concurrency: 5).
-```
+Each statement completes before the next one starts. No callbacks. No promises. No async/await syntax. Just sequential execution.
 
 ---
 
-### 3. Concurrent Execution
+## Why This Model?
 
-#### 3.1 Concurrent Block
+### 1. Simplicity
 
-Execute multiple operations concurrently and wait for all:
-
-```ebnf
-concurrent_block = "concurrent" , "{" , { concurrent_task } , "}" ;
-concurrent_task = [ identifier , "=" ] , statement ;
-```
-
-**Example:**
-```
-async (User Profile: Aggregation) {
-    concurrent {
-        user = <Retrieve> the <user> from the <user-service>.
-        orders = <Retrieve> the <orders> from the <order-service>.
-        recommendations = <Retrieve> the <recommendations> from the <ml-service>.
-    }
-    
-    // All three complete before continuing
-    <Compose> the <profile> from <user>, <orders>, <recommendations>.
+Traditional async code:
+```javascript
+async function processOrder(req) {
+    const data = await extractData(req);
+    const validated = await validate(data);
+    const order = await createOrder(validated);
+    await storeOrder(order);
+    await emitEvent('OrderCreated', order);
+    return { status: 201, body: order };
 }
 ```
 
-#### 3.2 Race Block
-
-Return first completed result:
-
-```ebnf
-race_block = "race" , "{" , { concurrent_task } , "}" ;
-```
-
-**Example:**
-```
-async (Fast Response: Caching) {
-    race {
-        cached = <Retrieve> the <data> from the <cache>.
-        fresh = <Retrieve> the <data> from the <database>.
-    }
-    
-    // First to complete wins
-    <Return> the <data> for the <request>.
+ARO code:
+```aro
+(Process Order: Order API) {
+    <Extract> the <data> from the <request: body>.
+    <Validate> the <data> for the <order-schema>.
+    <Create> the <order> with <data>.
+    <Store> the <order> in the <order-repository>.
+    <Emit> an <OrderCreated: event> with <order>.
+    <Return> a <Created: status> with <order>.
 }
 ```
+
+No `async`. No `await`. Just statements in order.
+
+### 2. No Race Conditions
+
+Within a feature set, there's no shared mutable state problem:
+- Variables are scoped to the feature set
+- Statements execute serially
+- No concurrent access to the same data
+
+### 3. Natural Event Flow
+
+Events naturally express concurrency:
+- User requests an order while another user requests their profile
+- Both feature sets run concurrently
+- Each processes their own data independently
 
 ---
 
-### 4. Actors
+## How It Works
 
-#### 4.1 Actor Definition
+### Event Triggers Feature Set
 
-```ebnf
-actor_definition = "actor" , identifier , "{" ,
-                   { actor_member } ,
-                   "}" ;
-
-actor_member = state_declaration | message_handler ;
-state_declaration = "state" , identifier , ":" , type_annotation , 
-                    [ "=" , expression ] , ";" ;
-message_handler = "on" , message_pattern , block ;
 ```
-
-**Example:**
-```
-actor Counter {
-    state count: Int = 0;
-    
-    on <Increment> {
-        <Set> the <count> to <count> + 1.
-    }
-    
-    on <Decrement> {
-        <Set> the <count> to <count> - 1.
-    }
-    
-    on <GetCount> {
-        <Reply> with <count>.
-    }
-    
-    on <Reset: value> {
-        <Set> the <count> to <value>.
-    }
+HTTP POST /orders
+    │
+    ▼
+┌─────────────────────────────────────┐
+│ Runtime Event Bus                    │
+│                                      │
+│ Route matches "createOrder"          │
+│ Spawn new execution context          │
+│ Execute feature set statements       │
+└─────────────────────────────────────┘
+    │
+    ▼
+(createOrder: Order API) {
+    statement 1
+    statement 2
+    statement 3
+    ...
 }
 ```
 
-#### 4.2 Actor Usage
+### Multiple Events, Multiple Executions
 
 ```
-async (Counter Demo: Example) {
-    <Create> the <counter> as Counter.
-    
-    <Send> <Increment> to <counter>.
-    <Send> <Increment> to <counter>.
-    <Send> <Increment> to <counter>.
-    
-    <Ask> the <current: Int> from <counter> with <GetCount>.
-    // current == 3
-}
+HTTP POST /orders (User A)  ──────────►  Execution Context 1
+                                              │
+HTTP GET /users (User B)    ──────────►  Execution Context 2
+                                              │
+Socket Data (Client C)      ──────────►  Execution Context 3
+                                              │
+FileChanged (config.json)   ──────────►  Execution Context 4
+
+(All running concurrently, each executing their statements serially)
 ```
 
 ---
 
-### 5. Channels
+## Blocking Operations
 
-#### 5.1 Channel Creation
+All I/O operations block within their feature set:
 
-```ebnf
-channel_creation = "<Create>" , "channel" , "<" , identifier , ">" ,
-                   "of" , type_annotation ,
-                   [ "with" , channel_options ] , "." ;
-```
+```aro
+(Fetch Data: API) {
+    (* This blocks until the HTTP call completes *)
+    <Fetch> the <data> from the <external-api>.
 
-**Example:**
-```
-<Create> channel <tasks> of Task with { buffer: 100 }.
-<Create> channel <results> of Result.  // Unbuffered
-```
+    (* This doesn't start until fetch is done *)
+    <Transform> the <result> from <data>.
 
-#### 5.2 Send and Receive
-
-```
-// Send to channel
-<Send> the <task> to <tasks>.
-
-// Receive from channel
-<Receive> the <task> from <tasks>.
-
-// Non-blocking receive
-<TryReceive> the <task: Task?> from <tasks>.
-```
-
-#### 5.3 Select Statement
-
-```ebnf
-select_statement = "select" , "{" , { select_case } , "}" ;
-select_case = "case" , channel_operation , block ;
-```
-
-**Example:**
-```
-select {
-    case <Receive> the <task> from <tasks> {
-        <Process> the <task>.
-    }
-    case <Receive> the <signal> from <shutdown> {
-        <Break>.
-    }
-    case timeout 5.seconds {
-        <Log> the <idle> for <monitoring>.
-    }
+    <Return> an <OK: status> with <result>.
 }
 ```
+
+The runtime handles the async nature of I/O. The programmer writes sequential code.
 
 ---
 
-### 6. Structured Concurrency
+## Event Emission
 
-#### 6.1 Task Groups
+Feature sets can trigger other feature sets via events:
 
-```ebnf
-task_group = "with" , "tasks" , [ "as" , identifier ] , block ;
-```
+```aro
+(Create User: User API) {
+    <Extract> the <data> from the <request: body>.
+    <Create> the <user> with <data>.
+    <Store> the <user> in the <user-repository>.
 
-**Example:**
-```
-async (Process Batch: Pipeline) {
-    with tasks as <group> {
-        for each <item> in <items> {
-            <Spawn> <Process> the <item> in <group>.
-        }
-    }
-    // All tasks complete when block exits
-    
-    <Log> the <batch-complete> for <monitoring>.
+    (* This triggers other feature sets asynchronously *)
+    <Emit> a <UserCreated: event> with <user>.
+
+    (* Continues immediately, doesn't wait for handlers *)
+    <Return> a <Created: status> with <user>.
+}
+
+(* Runs asynchronously when UserCreated is emitted *)
+(Send Welcome Email: UserCreated Handler) {
+    <Extract> the <user> from the <event: user>.
+    <Send> the <welcome-email> to the <user: email>.
+    <Return> an <OK: status>.
+}
+
+(* Also runs asynchronously, concurrently with email *)
+(Track Analytics: UserCreated Handler) {
+    <Extract> the <user> from the <event: user>.
+    <Record> the <signup: metric> with <user>.
+    <Return> an <OK: status>.
 }
 ```
 
-#### 6.2 Cancellation
+When `<Emit>` executes:
+1. The event is published to the event bus
+2. Execution continues in the current feature set
+3. Subscribed handlers start executing in parallel
 
+---
+
+## No Concurrency Primitives
+
+ARO explicitly does **not** provide:
+
+- `async` / `await` keywords
+- Promises / Futures
+- Threads / Task spawning
+- Locks / Mutexes / Semaphores
+- Channels
+- Actors
+- Race / All / Any combinators
+- Parallel for loops
+
+These are implementation concerns. The runtime handles them. The programmer writes sequential code that responds to events.
+
+---
+
+## Examples
+
+### HTTP Server
+
+```aro
+(Application-Start: My API) {
+    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status>.
+}
+
+(* Each request triggers this feature set independently *)
+(getUser: User API) {
+    <Extract> the <id> from the <pathParameters: id>.
+    <Retrieve> the <user> from the <user-repository> where id = <id>.
+    <Return> an <OK: status> with <user>.
+}
 ```
-async (Cancellable Operation: Control) {
-    <Set> the <task> to async <LongRunning> operation.
-    
-    if <timeout-reached> then {
-        <Cancel> the <task>.
-    }
-    
-    try {
-        <Set> the <result> to await <task>.
-    } catch <CancellationError> {
-        <Log> the <cancelled> for <monitoring>.
-    }
+
+100 simultaneous requests = 100 concurrent feature set executions.
+Each execution runs its statements serially.
+
+### Socket Echo Server
+
+```aro
+(Application-Start: Echo Server) {
+    <Start> the <socket-server> on port 9000.
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status>.
+}
+
+(* Each client message triggers this independently *)
+(Handle Data: Socket Event Handler) {
+    <Extract> the <data> from the <event: data>.
+    <Extract> the <connection> from the <event: connection>.
+    <Send> the <data> to the <connection>.
+    <Return> an <OK: status>.
+}
+```
+
+### File Watcher
+
+```aro
+(Application-Start: File Watcher) {
+    <Watch> the <directory> for the <changes> with "./watched".
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status>.
+}
+
+(* Each file change triggers this independently *)
+(Handle File Change: File Event Handler) {
+    <Extract> the <path> from the <event: path>.
+    <Extract> the <type> from the <event: type>.
+    <Log> the <change: message> with <path> and <type>.
+    <Return> an <OK: status>.
 }
 ```
 
 ---
 
-### 7. Synchronization Primitives
+## Summary
 
-#### 7.1 Mutex
+ARO's concurrency model is radically simple:
 
-```
-async (Thread Safe: Concurrency) {
-    <Acquire> the <mutex>.
-    defer {
-        <Release> the <mutex>.
-    }
-    
-    <Update> the <shared-state>.
-}
+1. **Feature sets run async** - Triggered by events, run concurrently
+2. **Statements run sync** - Execute serially within a feature set
+3. **No concurrency primitives** - The runtime handles all of it
 
-// Or with block syntax
-with lock <mutex> {
-    <Update> the <shared-state>.
-}
-```
-
-#### 7.2 Semaphore
-
-```
-<Create> semaphore <connections> with { permits: 10 }.
-
-async (Rate Limited: API) {
-    <Acquire> permit from <connections>.
-    defer {
-        <Release> permit to <connections>.
-    }
-    
-    <Call> the <external-api>.
-}
-```
-
-#### 7.3 Barrier
-
-```
-async (Phased Computation: Parallel) {
-    <Create> barrier <phase-complete> for <worker-count>.
-    
-    parallel for each <worker> in <workers> {
-        <Execute> phase 1.
-        <Await> the <phase-complete>.  // All workers sync here
-        <Execute> phase 2.
-    }
-}
-```
-
----
-
-### 8. Async Streams
-
-#### 8.1 Stream Definition
-
-```
-async (Event Stream: Reactive) {
-    <Create> stream <events> of Event.
-    
-    // Producer
-    async {
-        for each <event> in <event-source> {
-            <Yield> the <event> to <events>.
-        }
-        <Complete> the <events>.
-    }
-    
-    // Consumer
-    for await <event> in <events> {
-        <Process> the <event>.
-    }
-}
-```
-
-#### 8.2 Stream Operators
-
-```
-<Transform> the <filtered-events> from 
-    <events>
-        .filter(<e> => <e>.type == "important")
-        .map(<e> => <e>.payload)
-        .buffer(100)
-        .debounce(100.milliseconds).
-```
-
----
-
-### 9. Complete Grammar Extension
-
-```ebnf
-(* Concurrency Grammar *)
-
-(* Async Feature Set *)
-async_feature_set = "async" , feature_set ;
-
-(* Await *)
-await_expression = "await" , expression ;
-async_expression = "async" , expression ;
-
-(* Parallel *)
-parallel_foreach = "parallel" , "for" , "each" , 
-                   variable_reference , "in" , variable_reference ,
-                   [ "with" , inline_object ] , block ;
-
-(* Concurrent/Race *)
-concurrent_block = "concurrent" , "{" , { task_binding } , "}" ;
-race_block = "race" , "{" , { task_binding } , "}" ;
-task_binding = [ identifier , "=" ] , statement ;
-
-(* Actor *)
-actor_definition = "actor" , identifier , "{" , { actor_member } , "}" ;
-actor_member = state_decl | message_handler ;
-state_decl = "state" , identifier , ":" , type_annotation , 
-             [ "=" , expression ] , ";" ;
-message_handler = "on" , pattern , block ;
-
-(* Channels *)
-channel_op = send_op | receive_op | select_stmt ;
-send_op = "<Send>" , expression , "to" , variable_reference , "." ;
-receive_op = "<Receive>" , variable_reference , "from" , 
-             variable_reference , "." ;
-select_stmt = "select" , "{" , { select_case } , "}" ;
-select_case = "case" , ( channel_op | timeout_clause ) , block ;
-timeout_clause = "timeout" , duration ;
-
-(* Task Groups *)
-task_group = "with" , "tasks" , [ "as" , identifier ] , block ;
-spawn_stmt = "<Spawn>" , statement , "in" , variable_reference , "." ;
-cancel_stmt = "<Cancel>" , variable_reference , "." ;
-
-(* Synchronization *)
-lock_block = "with" , "lock" , variable_reference , block ;
-
-(* Async Streams *)
-for_await = "for" , "await" , variable_reference , "in" , 
-            variable_reference , block ;
-yield_stmt = "<Yield>" , expression , "to" , variable_reference , "." ;
-```
-
----
-
-### 10. Complete Example
-
-```
-actor OrderProcessor {
-    state pendingOrders: List<Order> = [];
-    state processing: Bool = false;
-    
-    on <Enqueue: order> {
-        <Add> the <order> to <pendingOrders>.
-        if not <processing> then {
-            <Send> <ProcessNext> to self.
-        }
-    }
-    
-    on <ProcessNext> {
-        if <pendingOrders> is empty then {
-            <Set> the <processing> to false.
-        } else {
-            <Set> the <processing> to true.
-            <Dequeue> the <order> from <pendingOrders>.
-            <Process> the <order>.
-            <Send> <ProcessNext> to self.
-        }
-    }
-}
-
-async (Order Pipeline: E-Commerce) {
-    <Create> channel <incoming> of Order with { buffer: 1000 }.
-    <Create> the <processor> as OrderProcessor.
-    
-    // Producer task
-    <Spawn> async {
-        for await <order> in <order-stream> {
-            <Send> the <order> to <incoming>.
-        }
-    }.
-    
-    // Consumer tasks
-    parallel for each <_> in range(1, 10) with { maxConcurrency: 10 } {
-        while true {
-            select {
-                case <Receive> the <order> from <incoming> {
-                    <Send> <Enqueue: order> to <processor>.
-                }
-                case <Receive> <_> from <shutdown> {
-                    <Break>.
-                }
-            }
-        }
-    }
-}
-```
+This isn't enterprise-grade concurrency control. It's concurrency for humans who want to write sequential code that responds to events.
 
 ---
 
@@ -493,4 +305,5 @@ async (Order Pipeline: E-Commerce) {
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2024-01 | Initial specification |
+| 1.0 | 2024-01 | Initial specification with full concurrency primitives |
+| 2.0 | 2024-12 | Complete rewrite: event-driven async, serial sync execution |
