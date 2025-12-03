@@ -2,7 +2,7 @@
 
 * Proposal: ARO-0025
 * Author: ARO Language Team
-* Status: **Draft**
+* Status: **Implemented**
 * Requires: ARO-0020, ARO-0009
 
 ## Abstract
@@ -66,17 +66,22 @@ Actions receive structured information about the statement:
 
 ```swift
 public struct ResultDescriptor: Sendable {
-    public let identifier: String      // Variable name to bind
-    public let typeHint: String?       // Optional type annotation
-    public let article: String         // "a", "an", "the"
+    public let base: String           // Variable name to bind
+    public let specifiers: [String]   // Type specifiers from qualified noun
+    public let span: SourceSpan       // Source location for error reporting
+
+    public var fullName: String       // Full qualified name for display
 }
 
 public struct ObjectDescriptor: Sendable {
     public let preposition: Preposition  // for, from, into, with, etc.
-    public let sourceType: SourceType    // variable, literal, repository, etc.
-    public let identifier: String        // Source identifier
-    public let qualifier: String?        // Optional qualifier after ':'
-    public let condition: Condition?     // Optional where clause
+    public let base: String              // Source identifier
+    public let specifiers: [String]      // Type specifiers from qualified noun
+    public let span: SourceSpan          // Source location for error reporting
+
+    public var isExternalReference: Bool // Whether this references an external source
+    public var fullName: String          // Full qualified name for display
+    public var keyPath: String           // Nested access path (e.g., "request.parameters.userId")
 }
 ```
 
@@ -88,15 +93,19 @@ Actions access runtime services through the context:
 public protocol ExecutionContext: AnyObject, Sendable {
     // Variable management
     func resolve<T: Sendable>(_ name: String) -> T?
+    func resolveAny(_ name: String) -> (any Sendable)?
     func require<T: Sendable>(_ name: String) throws -> T
     func bind(_ name: String, value: any Sendable)
     func exists(_ name: String) -> Bool
+    var variableNames: Set<String> { get }
 
     // Service access
     func service<S>(_ type: S.Type) -> S?
+    func register<S: Sendable>(_ service: S)
 
     // Repository access
-    func repository<T>(named: String) -> (any Repository<T>)?
+    func repository<T: Sendable>(named: String) -> (any Repository<T>)?
+    func registerRepository<T: Sendable>(name: String, repository: any Repository<T>)
 
     // Response management
     func setResponse(_ response: Response)
@@ -108,6 +117,14 @@ public protocol ExecutionContext: AnyObject, Sendable {
     // Metadata
     var featureSetName: String { get }
     var executionId: String { get }
+    var parent: ExecutionContext? { get }
+    func createChild(featureSetName: String) -> ExecutionContext
+
+    // Wait state management (for long-running applications)
+    func enterWaitState()
+    func waitForShutdown() async throws
+    var isWaiting: Bool { get }
+    func signalShutdown()
 }
 ```
 
@@ -117,7 +134,7 @@ public protocol ExecutionContext: AnyObject, Sendable {
 /// Custom action to send SMS messages
 public struct SendSMSAction: ActionImplementation {
     public static let role: ActionRole = .export
-    public static let verbs: Set<String> = ["SMS", "Text"]
+    public static let verbs: Set<String> = ["sms", "text"]
     public static let validPrepositions: Set<Preposition> = [.to, .with]
 
     public init() {}
@@ -127,32 +144,32 @@ public struct SendSMSAction: ActionImplementation {
         object: ObjectDescriptor,
         context: ExecutionContext
     ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
         // Get the SMS service
         guard let smsService = context.service(SMSService.self) else {
-            throw ActionError.serviceNotFound("SMSService")
+            throw ActionError.missingService("SMSService")
         }
 
         // Get the message content
-        let message: String = try context.require(result.identifier)
+        let message: String = try context.require(result.base)
 
         // Get the recipient from the object
         let recipient: String
-        switch object.sourceType {
-        case .variable:
-            recipient = try context.require(object.identifier)
-        case .literal:
-            recipient = object.identifier
-        default:
-            throw ActionError.invalidObjectSource(object.sourceType)
+        if let resolved: String = context.resolve(object.base) {
+            recipient = resolved
+        } else {
+            recipient = object.base
         }
 
         // Send the SMS
-        let result = try await smsService.send(message: message, to: recipient)
+        let smsResult = try await smsService.send(message: message, to: recipient)
 
-        // Emit event
-        context.emit(SMSSentEvent(recipient: recipient, messageId: result.id))
+        // Bind result and emit event
+        context.bind(result.base, value: smsResult)
+        context.emit(SMSSentEvent(recipient: recipient, messageId: smsResult.id))
 
-        return result
+        return smsResult
     }
 }
 ```
@@ -191,13 +208,24 @@ Actions should throw `ActionError` for recoverable errors:
 
 ```swift
 public enum ActionError: Error, Sendable {
-    case variableNotFound(String)
+    case statementFailed(AROError)           // Generated error from statement (ARO-0008)
+    case undefinedVariable(String)           // Variable not found in context
+    case propertyNotFound(property: String, on: String)
+    case invalidPreposition(action: String, received: Preposition, expected: Set<Preposition>)
+    case missingService(String)              // Required service not registered
+    case undefinedRepository(String)         // Repository not found
     case typeMismatch(expected: String, actual: String)
-    case serviceNotFound(String)
-    case repositoryNotFound(String)
-    case invalidObjectSource(SourceType)
-    case conditionNotMet(String)
-    case executionFailed(String)
+    case thrown(type: String, reason: String, context: String)  // Explicit throw
+    case unknownAction(String)               // Action not found for verb
+    case validationFailed(String)
+    case comparisonFailed(String)
+    case ioError(String)
+    case networkError(String)
+    case timeout(String)
+    case featureSetNotFound(String)
+    case entryPointNotFound(String)
+    case cancelled
+    case runtimeError(String)
 }
 ```
 
@@ -231,7 +259,7 @@ Use the logging service for debugging and monitoring.
 /// Action to execute raw SQL queries
 public struct QueryAction: ActionImplementation {
     public static let role: ActionRole = .request
-    public static let verbs: Set<String> = ["Query", "SQL"]
+    public static let verbs: Set<String> = ["query", "sql"]
     public static let validPrepositions: Set<Preposition> = [.from, .with]
 
     public init() {}
@@ -241,27 +269,26 @@ public struct QueryAction: ActionImplementation {
         object: ObjectDescriptor,
         context: ExecutionContext
     ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
         // Get database service
         guard let db = context.service(DatabaseService.self) else {
-            throw ActionError.serviceNotFound("DatabaseService")
+            throw ActionError.missingService("DatabaseService")
         }
 
-        // Get SQL query
+        // Get SQL query - try to resolve as variable, otherwise use as literal
         let sql: String
-        switch object.sourceType {
-        case .variable:
-            sql = try context.require(object.identifier)
-        case .literal:
-            sql = object.identifier
-        default:
-            throw ActionError.invalidObjectSource(object.sourceType)
+        if let resolved: String = context.resolve(object.base) {
+            sql = resolved
+        } else {
+            sql = object.base
         }
 
         // Execute query
         let rows = try await db.query(sql)
 
         // Bind result
-        context.bind(result.identifier, value: rows)
+        context.bind(result.base, value: rows)
 
         // Emit event
         context.emit(QueryExecutedEvent(
@@ -289,10 +316,26 @@ Usage in ARO:
 
 ## Implementation Notes
 
-- Actions are instantiated once and reused
+- Actions are instantiated per-execution (via `init()`)
 - The `execute` method must be thread-safe
 - Services should be accessed through the context, not stored
 - Custom actions integrate with the same event system as built-in actions
+- Use `validatePreposition()` helper to check prepositions early
+- Verbs should be lowercase in the `verbs` set
+
+---
+
+## Implementation Location
+
+The Action Extension Interface is implemented in:
+
+- `Sources/ARORuntime/Actions/ActionProtocol.swift` - `ActionImplementation` protocol and `ActionRole` enum
+- `Sources/ARORuntime/Actions/ActionDescriptors.swift` - `ResultDescriptor` and `ObjectDescriptor`
+- `Sources/ARORuntime/Actions/ActionError.swift` - `ActionError` enum
+- `Sources/ARORuntime/Actions/ActionRegistry.swift` - `ActionRegistry` for registration
+- `Sources/ARORuntime/Core/ExecutionContext.swift` - `ExecutionContext` protocol
+
+See also `Documentation/ActionDeveloperGuide.md` for a comprehensive developer guide.
 
 ---
 
@@ -301,3 +344,4 @@ Usage in ARO:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2024-12 | Initial specification |
+| 1.1 | 2024-12 | Updated to match implementation: descriptor fields, error cases, context methods |
