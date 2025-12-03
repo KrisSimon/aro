@@ -20,6 +20,7 @@ public final class Lexer: @unchecked Sendable {
         // Core
         "publish": .publish,
         "require": .require,
+        "import": .import,
         "as": .as,
 
         // Control Flow (ARO-0004)

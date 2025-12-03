@@ -13,22 +13,52 @@ public protocol ASTNode: Sendable, Locatable, CustomStringConvertible {
     func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result
 }
 
+// MARK: - Import Declaration (ARO-0007)
+
+/// An import declaration for including another ARO application
+public struct ImportDeclaration: ASTNode {
+    /// The relative path to the imported application directory
+    public let path: String
+    public let span: SourceSpan
+
+    public init(path: String, span: SourceSpan) {
+        self.path = path
+        self.span = span
+    }
+
+    public var description: String {
+        "import \(path)"
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
 // MARK: - Program (Root Node)
 
 /// The root node representing an entire ARO program
 public struct Program: ASTNode {
+    /// Import declarations (ARO-0007)
+    public let imports: [ImportDeclaration]
     public let featureSets: [FeatureSet]
     public let span: SourceSpan
-    
-    public init(featureSets: [FeatureSet], span: SourceSpan) {
+
+    public init(imports: [ImportDeclaration] = [], featureSets: [FeatureSet], span: SourceSpan) {
+        self.imports = imports
         self.featureSets = featureSets
         self.span = span
     }
-    
+
     public var description: String {
-        "Program(\(featureSets.count) feature sets)"
+        var desc = "Program("
+        if !imports.isEmpty {
+            desc += "\(imports.count) imports, "
+        }
+        desc += "\(featureSets.count) feature sets)"
+        return desc
     }
-    
+
     public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
         try visitor.visit(self)
     }
@@ -744,6 +774,7 @@ public protocol ASTVisitor {
     associatedtype Result
 
     func visit(_ node: Program) throws -> Result
+    func visit(_ node: ImportDeclaration) throws -> Result
     func visit(_ node: FeatureSet) throws -> Result
     func visit(_ node: AROStatement) throws -> Result
     func visit(_ node: PublishStatement) throws -> Result
@@ -769,10 +800,15 @@ public protocol ASTVisitor {
 /// Default implementations that traverse children
 public extension ASTVisitor where Result == Void {
     func visit(_ node: Program) throws {
+        for importDecl in node.imports {
+            try importDecl.accept(self)
+        }
         for featureSet in node.featureSets {
             try featureSet.accept(self)
         }
     }
+
+    func visit(_ node: ImportDeclaration) throws {}
 
     func visit(_ node: FeatureSet) throws {
         for statement in node.statements {
@@ -865,12 +901,19 @@ public struct ASTPrinter: ASTVisitor {
         var result = "Program\n"
         var printer = self
         printer.indent += 1
+        for importDecl in node.imports {
+            result += try! importDecl.accept(printer)
+        }
         for featureSet in node.featureSets {
             result += try! featureSet.accept(printer)
         }
         return result
     }
-    
+
+    public func visit(_ node: ImportDeclaration) -> String {
+        "\(indentation())Import: \(node.path)\n"
+    }
+
     public func visit(_ node: FeatureSet) -> String {
         var result = "\(indentation())FeatureSet: \(node.name)\n"
         result += "\(indentation())  BusinessActivity: \(node.businessActivity)\n"

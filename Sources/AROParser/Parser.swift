@@ -26,8 +26,21 @@ public final class Parser {
     /// Parses the tokens into a Program AST
     public func parse() throws -> Program {
         let startSpan = peek().span
+        var imports: [ImportDeclaration] = []
         var featureSets: [FeatureSet] = []
 
+        // Parse import declarations (ARO-0007) - must come before feature sets
+        while check(.import) {
+            do {
+                let importDecl = try parseImportDeclaration()
+                imports.append(importDecl)
+            } catch let error as ParserError {
+                diagnostics.report(error)
+                synchronize()
+            }
+        }
+
+        // Parse feature sets
         while !isAtEnd {
             do {
                 let featureSet = try parseFeatureSet()
@@ -41,8 +54,62 @@ public final class Parser {
         // Use startSpan if we haven't advanced (empty program)
         let endSpan = current > 0 ? previous().span : startSpan
         return Program(
+            imports: imports,
             featureSets: featureSets,
             span: startSpan.merged(with: endSpan)
+        )
+    }
+
+    // MARK: - Import Declaration Parsing (ARO-0007)
+
+    /// Parses: "import" path
+    /// Path can be: ../folder, ./folder, ../../path/to/app
+    private func parseImportDeclaration() throws -> ImportDeclaration {
+        let startToken = try expect(.import, message: "'import'")
+
+        // Parse the path - it's a sequence of identifiers, dots, and slashes
+        var path = ""
+
+        // Path starts with ./ or ../ or identifier
+        while !isAtEnd && !check(.leftParen) && !check(.import) {
+            let token = peek()
+            switch token.kind {
+            case .dot:
+                path += "."
+                advance()
+            case .slash:
+                path += "/"
+                advance()
+            case .identifier(let name):
+                path += name
+                advance()
+            case .hyphen:
+                path += "-"
+                advance()
+            default:
+                // End of path
+                break
+            }
+            // Break if we hit something that's not part of a path
+            if case .leftParen = peek().kind { break }
+            if case .import = peek().kind { break }
+            if case .eof = peek().kind { break }
+            // Check if we've stopped making progress (no more path chars)
+            let nextToken = peek()
+            if case .dot = nextToken.kind { continue }
+            if case .slash = nextToken.kind { continue }
+            if case .identifier = nextToken.kind { continue }
+            if case .hyphen = nextToken.kind { continue }
+            break
+        }
+
+        if path.isEmpty {
+            throw ParserError.unexpectedToken(expected: "import path", got: peek())
+        }
+
+        return ImportDeclaration(
+            path: path,
+            span: startToken.span.merged(with: previous().span)
         )
     }
     

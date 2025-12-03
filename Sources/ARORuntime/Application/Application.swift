@@ -275,6 +275,7 @@ public struct ApplicationDiscovery {
         return DiscoveredApplication(
             rootPath: rootPath,
             sourceFiles: sourceFiles,
+            importPaths: [],  // Basic discover doesn't resolve imports
             entryPointFeatureSet: entryPoint,
             openAPISpec: openAPISpec,
             hasOpenAPIContract: openAPISpec != nil
@@ -332,8 +333,11 @@ public struct DiscoveredApplication: Sendable {
     /// Root directory of the application
     public let rootPath: URL
 
-    /// All source files found
+    /// All source files found (including from imported applications)
     public let sourceFiles: [URL]
+
+    /// Import paths discovered (ARO-0007)
+    public let importPaths: [String]
 
     /// The entry point feature set name
     public let entryPointFeatureSet: String
@@ -343,4 +347,111 @@ public struct DiscoveredApplication: Sendable {
 
     /// Whether an OpenAPI contract was found
     public let hasOpenAPIContract: Bool
+}
+
+// MARK: - Import Resolution (ARO-0007)
+
+extension ApplicationDiscovery {
+    /// Resolve imports from source files
+    /// - Parameters:
+    ///   - sourceFiles: The source files to parse for imports
+    ///   - rootPath: The root directory for resolving relative paths
+    /// - Returns: List of resolved import paths
+    public func resolveImports(from sourceFiles: [URL], rootPath: URL) throws -> [URL] {
+        var importedPaths: Set<URL> = []
+        let compiler = Compiler()
+
+        for sourceFile in sourceFiles {
+            let source = try String(contentsOf: sourceFile, encoding: .utf8)
+            let result = compiler.compile(source)
+
+            // Extract imports from parsed program
+            for importDecl in result.analyzedProgram.program.imports {
+                let resolvedPath = resolveImportPath(importDecl.path, relativeTo: rootPath)
+                importedPaths.insert(resolvedPath)
+            }
+        }
+
+        return Array(importedPaths)
+    }
+
+    /// Resolve an import path relative to a base directory
+    private func resolveImportPath(_ importPath: String, relativeTo baseDir: URL) -> URL {
+        // Handle relative paths like ../user-service, ./utils
+        if importPath.hasPrefix("../") || importPath.hasPrefix("./") {
+            return baseDir.appendingPathComponent(importPath).standardized
+        }
+        // Treat as relative to base directory
+        return baseDir.appendingPathComponent(importPath).standardized
+    }
+
+    /// Discover an application with all its imports (recursive)
+    /// - Parameters:
+    ///   - path: Directory or file path
+    ///   - entryPoint: Entry point feature set name
+    ///   - visited: Already visited paths (to prevent cycles)
+    /// - Returns: Application configuration with all imported sources
+    public func discoverWithImports(
+        at path: URL,
+        entryPoint: String = "Application-Start",
+        visited: Set<URL> = []
+    ) async throws -> DiscoveredApplication {
+        var isDirectory: ObjCBool = false
+
+        guard FileManager.default.fileExists(atPath: path.path, isDirectory: &isDirectory) else {
+            throw ApplicationError.sourceFileNotFound(path.path)
+        }
+
+        let sourceFiles: [URL]
+        let rootPath: URL
+
+        if isDirectory.boolValue {
+            sourceFiles = try findSourceFiles(in: path)
+            rootPath = path
+        } else {
+            sourceFiles = [path]
+            rootPath = path.deletingLastPathComponent()
+        }
+
+        // Prevent cycles
+        let standardizedRoot = rootPath.standardized
+        var newVisited = visited
+        newVisited.insert(standardizedRoot)
+
+        // Resolve imports from source files
+        let importedPaths = try resolveImports(from: sourceFiles, rootPath: rootPath)
+        var allSourceFiles = sourceFiles
+        var allImportPaths: [String] = []
+
+        // Recursively discover imported applications
+        for importedPath in importedPaths {
+            let standardizedImport = importedPath.standardized
+            if newVisited.contains(standardizedImport) {
+                // Skip circular imports
+                continue
+            }
+
+            if FileManager.default.fileExists(atPath: importedPath.path) {
+                let importedApp = try await discoverWithImports(
+                    at: importedPath,
+                    entryPoint: entryPoint,
+                    visited: newVisited
+                )
+                allSourceFiles.append(contentsOf: importedApp.sourceFiles)
+                allImportPaths.append(importedPath.path)
+            }
+        }
+
+        // Check for OpenAPI contract
+        let openAPISpec = try loadOpenAPISpec(from: rootPath)
+
+        return DiscoveredApplication(
+            rootPath: rootPath,
+            sourceFiles: allSourceFiles,
+            importPaths: allImportPaths,
+            entryPointFeatureSet: entryPoint,
+            openAPISpec: openAPISpec,
+            hasOpenAPIContract: openAPISpec != nil
+        )
+    }
 }
