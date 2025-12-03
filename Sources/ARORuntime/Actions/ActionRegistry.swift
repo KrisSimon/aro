@@ -79,6 +79,11 @@ public final class ActionRegistry: @unchecked Sendable {
         register(ListenAction.self)
         register(RouteAction.self)
 
+        // Socket actions (ARO-0024)
+        register(ConnectAction.self)
+        register(BroadcastAction.self)
+        register(CloseAction.self)
+
         // File actions
         register(WatchAction.self)
 

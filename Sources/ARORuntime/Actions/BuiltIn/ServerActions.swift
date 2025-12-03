@@ -73,8 +73,18 @@ public struct StartAction: ActionImplementation {
     }
 
     private func startSocketServer(object: ObjectDescriptor, context: ExecutionContext) async throws -> any Sendable {
+        // Get port from various sources:
+        // 1. From "with" clause (_literal_ or _expression_)
+        // 2. From object specifiers
+        // 3. Default to 9000
         let port: Int
-        if let portSpec = object.specifiers.first, let p = Int(portSpec) {
+        if let literalPort = context.resolveAny("_literal_") as? Int {
+            port = literalPort
+        } else if let literalStr = context.resolveAny("_literal_") as? String, let p = Int(literalStr) {
+            port = p
+        } else if let exprPort = context.resolveAny("_expression_") as? Int {
+            port = exprPort
+        } else if let portSpec = object.specifiers.first, let p = Int(portSpec) {
             port = p
         } else {
             port = 9000 // default
@@ -255,6 +265,7 @@ public protocol SocketServerService: Sendable {
     func stop() async throws
     func send(data: Data, to connectionId: String) async throws
     func send(string: String, to connectionId: String) async throws
+    func broadcast(data: Data) async throws
 }
 
 /// File monitor service protocol
@@ -555,6 +566,241 @@ public struct WaitStateEnteredEvent: RuntimeEvent {
 
     public init() {
         self.timestamp = Date()
+    }
+}
+
+// MARK: - Socket Actions
+
+/// Connects to a remote socket server
+///
+/// The Connect action establishes a TCP connection to a remote host.
+///
+/// ## Example
+/// ```
+/// <Connect> to <host: "192.168.1.100"> on port 8080 as <server-connection>.
+/// ```
+public struct ConnectAction: ActionImplementation {
+    public static let role: ActionRole = .own
+    public static let verbs: Set<String> = ["connect"]
+    public static let validPrepositions: Set<Preposition> = [.to, .with]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
+        // Parse host and port from object
+        // Expected format: <host: "hostname"> or host specified in object.base
+        let host: String
+        let port: Int
+
+        // Check for host in object specifiers
+        if object.base.lowercased() == "host" {
+            // <Connect> to <host: "192.168.1.100"> on port 8080
+            if let hostSpec = object.specifiers.first {
+                host = hostSpec.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            } else {
+                host = "localhost"
+            }
+        } else if let resolvedHost: String = context.resolve(object.base) {
+            host = resolvedHost
+        } else {
+            host = object.base
+        }
+
+        // Get port from literal or context
+        if let portValue = context.resolveAny("_literal_") as? Int {
+            port = portValue
+        } else if let portStr = context.resolveAny("_literal_") as? String, let p = Int(portStr) {
+            port = p
+        } else {
+            // Try to find port in specifiers
+            if let portSpec = object.specifiers.dropFirst().first, let p = Int(portSpec) {
+                port = p
+            } else {
+                port = 8080 // default
+            }
+        }
+
+        #if !os(Windows)
+        // Create and connect socket client
+        let client = AROSocketClient(eventBus: .shared)
+        try await client.connect(host: host, port: port)
+
+        // Store connection in context
+        let connectionId = client.connectionId
+        context.bind(result.base, value: connectionId)
+
+        // Register the client for later use
+        context.register(client)
+
+        return ConnectResult(connectionId: connectionId, host: host, port: port, success: true)
+        #else
+        throw ActionError.runtimeError("Socket client not available on Windows")
+        #endif
+    }
+}
+
+/// Result of a connect operation
+public struct ConnectResult: Sendable, Equatable {
+    public let connectionId: String
+    public let host: String
+    public let port: Int
+    public let success: Bool
+}
+
+/// Broadcasts data to all connected clients
+///
+/// The Broadcast action sends data to all clients connected to a socket server.
+///
+/// ## Example
+/// ```
+/// <Broadcast> the <message> to the <socket-server>.
+/// ```
+public struct BroadcastAction: ActionImplementation {
+    public static let role: ActionRole = .response
+    public static let verbs: Set<String> = ["broadcast"]
+    public static let validPrepositions: Set<Preposition> = [.to, .via]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        try validatePreposition(object.preposition)
+
+        // Get data to broadcast
+        guard let data = context.resolveAny(result.base) else {
+            throw ActionError.undefinedVariable(result.base)
+        }
+
+        #if !os(Windows)
+        // Try socket server service
+        if let socketServer = context.service(SocketServerService.self) {
+            let dataToSend: Data
+            if let d = data as? Data {
+                dataToSend = d
+            } else if let s = data as? String {
+                dataToSend = s.data(using: .utf8) ?? Data()
+            } else {
+                dataToSend = String(describing: data).data(using: .utf8) ?? Data()
+            }
+
+            try await socketServer.broadcast(data: dataToSend)
+            return BroadcastResult(success: true, clientCount: -1) // Count not available
+        }
+        #endif
+
+        // Emit broadcast event
+        context.emit(BroadcastRequestedEvent(data: String(describing: data)))
+
+        return BroadcastResult(success: true, clientCount: 0)
+    }
+}
+
+/// Result of a broadcast operation
+public struct BroadcastResult: Sendable, Equatable {
+    public let success: Bool
+    public let clientCount: Int
+}
+
+/// Event emitted when broadcast is requested
+public struct BroadcastRequestedEvent: RuntimeEvent {
+    public static var eventType: String { "broadcast.requested" }
+    public let timestamp: Date
+    public let data: String
+
+    public init(data: String) {
+        self.timestamp = Date()
+        self.data = data
+    }
+}
+
+/// Closes a connection or server
+///
+/// The Close action terminates a socket connection or stops a server.
+///
+/// ## Example
+/// ```
+/// <Close> the <connection>.
+/// <Close> the <socket-server>.
+/// ```
+public struct CloseAction: ActionImplementation {
+    public static let role: ActionRole = .own
+    public static let verbs: Set<String> = ["close", "disconnect", "terminate"]
+    public static let validPrepositions: Set<Preposition> = [.with, .from]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        // Get what to close from result
+        let target = result.base.lowercased()
+
+        #if !os(Windows)
+        switch target {
+        case "socket-server", "socketserver", "server":
+            // Close socket server
+            if let socketServer = context.service(SocketServerService.self) {
+                try await socketServer.stop()
+                return CloseResult(target: target, success: true)
+            }
+
+        case "connection":
+            // Close a specific connection
+            if let connectionId: String = context.resolve(object.base) {
+                if let socketServer = context.service(SocketServerService.self) {
+                    if let server = socketServer as? AROSocketServer {
+                        try await server.disconnect(connectionId)
+                        return CloseResult(target: connectionId, success: true)
+                    }
+                }
+            }
+
+        default:
+            // Try to resolve as connection ID and disconnect
+            if let connectionId: String = context.resolve(result.base) {
+                if let socketServer = context.service(SocketServerService.self) {
+                    if let server = socketServer as? AROSocketServer {
+                        try await server.disconnect(connectionId)
+                        return CloseResult(target: connectionId, success: true)
+                    }
+                }
+            }
+        }
+        #endif
+
+        // Emit close event
+        context.emit(CloseRequestedEvent(target: target))
+
+        return CloseResult(target: target, success: true)
+    }
+}
+
+/// Result of a close operation
+public struct CloseResult: Sendable, Equatable {
+    public let target: String
+    public let success: Bool
+}
+
+/// Event emitted when close is requested
+public struct CloseRequestedEvent: RuntimeEvent {
+    public static var eventType: String { "close.requested" }
+    public let timestamp: Date
+    public let target: String
+
+    public init(target: String) {
+        self.timestamp = Date()
+        self.target = target
     }
 }
 

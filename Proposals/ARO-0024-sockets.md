@@ -2,7 +2,7 @@
 
 * Proposal: ARO-0024
 * Author: ARO Language Team
-* Status: **Draft**
+* Status: **Implemented**
 * Requires: ARO-0020, ARO-0012
 
 ## Abstract
@@ -22,12 +22,13 @@ Applications often need real-time bidirectional communication:
 
 ### 1. Socket Server
 
-Start a TCP socket server:
+Start a TCP socket server using the `<Start>` action:
 
 ```aro
 (Application-Start: Echo Server) {
-    <Log> the <startup: message> for the <console> with "Starting socket server".
-    <Listen> on port 9000 as <socket-server>.
+    <Log> the <message> for the <console> with "Starting socket server".
+    <Start> the <socket-server> on <port> with 9000.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 ```
@@ -184,19 +185,20 @@ host_reference = "host:" , string_literal ;
 ## Complete Example
 
 ```aro
-(* Echo Socket Server *)
+(* Echo Socket Server - Bidirectional TCP communication *)
 
 (Application-Start: Echo Socket) {
-    <Log> the <startup: message> for the <console> with "Starting echo socket on port 9000".
-    <Listen> on port 9000 as <socket-server>.
-    <Log> the <ready: message> for the <console> with "Socket server listening on port 9000".
+    <Log> the <message> for the <console> with "Starting echo socket on port 9000".
+    <Start> the <socket-server> on <port> with 9000.
+    <Log> the <message> for the <console> with "Socket server listening on port 9000".
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
 (Handle Client Connected: Socket Event Handler) {
     <Extract> the <client-id> from the <connection: id>.
     <Extract> the <remote-address> from the <connection: remoteAddress>.
-    <Log> the <connection: info> for the <console> with <remote-address>.
+    <Log> the <message> for the <console> with "Client connected".
     <Return> an <OK: status> for the <connection>.
 }
 
@@ -207,13 +209,13 @@ host_reference = "host:" , string_literal ;
     (* Echo back the received data *)
     <Send> the <data> to the <client>.
 
-    <Log> the <echo: complete> for the <console> with "Echoed data back to client".
+    <Log> the <message> for the <console> with "Echoed data back to client".
     <Return> an <OK: status> for the <packet>.
 }
 
 (Handle Client Disconnected: Socket Event Handler) {
     <Extract> the <client-id> from the <event: connectionId>.
-    <Log> the <disconnection: info> for the <console> with <client-id>.
+    <Log> the <message> for the <console> with "Client disconnected".
     <Return> an <OK: status> for the <event>.
 }
 ```
@@ -227,6 +229,26 @@ host_reference = "host:" , string_literal ;
 - Thread-safe connection storage
 - Events published for all connection lifecycle stages
 - Supports binary and text data
+- Use `<Keepalive>` action to keep the application running for socket events
+
+---
+
+## Implementation Location
+
+The socket communication system is implemented in:
+
+- `Sources/ARORuntime/Sockets/SocketServer.swift` - `AROSocketServer` and `AROSocketClient` classes
+- `Sources/ARORuntime/Actions/BuiltIn/ServerActions.swift` - Socket actions (`Start`, `Listen`, `Connect`, `Broadcast`, `Close`)
+- `Sources/ARORuntime/Actions/BuiltIn/ResponseActions.swift` - `Send` action for socket data
+
+Socket events are defined in:
+- `Sources/ARORuntime/Sockets/SocketServer.swift` - `ClientConnectedEvent`, `ClientDisconnectedEvent`, `DataReceivedEvent`, etc.
+- `Sources/ARORuntime/Events/EventTypes.swift` - Event type definitions
+
+Example:
+- `Examples/EchoSocket/` - Complete echo server example
+
+See also `Documentation/LanguageGuide/Sockets.md` for comprehensive documentation.
 
 ---
 
@@ -235,3 +257,4 @@ host_reference = "host:" , string_literal ;
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2024-12 | Initial specification |
+| 1.1 | 2024-12 | Implemented with SwiftNIO, added Connect/Broadcast/Close actions |
