@@ -1,580 +1,304 @@
-# ARO-0007: Modules and Imports
+# ARO-0007: Application Imports
 
 * Proposal: ARO-0007
 * Author: ARO Language Team
-* Status: **Draft**
-* Requires: ARO-0001, ARO-0003, ARO-0006
+* Status: **Accepted**
+* Requires: ARO-0001, ARO-0003
 
 ## Abstract
 
-This proposal introduces a module system to ARO, enabling code organization across multiple files, reusable components, and controlled visibility.
+This proposal defines how ARO applications can import other ARO applications. When imported, all feature sets and types from the imported application become accessible. This enables composition of small, distributable services into larger systems.
 
-## Motivation
+## Philosophy
 
-Large specifications need:
+ARO rejects traditional visibility modifiers. There is no `public`, `private`, or `internal`.
 
-1. **Organization**: Split code across files
-2. **Reusability**: Share common definitions
-3. **Encapsulation**: Hide implementation details
-4. **Namespacing**: Avoid name collisions
+**The fundamental principle**: Everything created in a feature set is valid within that feature set. To share data outside the feature set, use the `<Publish>` action (see ARO-0003). To use another application's feature sets and types, simply import it.
 
-## Proposed Solution
-
-A module system with explicit imports and exports.
+This reflects how project managers think: applications are black boxes that do things. If you need what another application does, you import it. No access control configuration, no visibility declarations, no module boundaries to navigate.
 
 ---
 
-### 1. Module Declaration
+## How It Works
 
-#### 1.1 Module Header
+### 1. Single Application (No Imports)
 
-Each file begins with an optional module declaration:
+An ARO application is a directory containing `.aro` files:
+
+```
+MyApp/
+├── main.aro           # Contains Application-Start
+├── users.aro          # User feature sets
+└── orders.aro         # Order feature sets
+```
+
+Within a single application:
+- All `.aro` files are automatically discovered
+- All feature sets are globally visible
+- No imports needed between files in the same directory
+
+### 2. Importing Another Application
+
+To use another application's feature sets and types:
+
+```aro
+import ../user-service
+import ../payment-gateway
+import ../../shared/auth
+```
+
+**That's it.** After the import:
+- All feature sets from the imported application are accessible
+- All types from the imported application are accessible
+- Published variables from the imported application are accessible
+
+---
+
+## Import Syntax
 
 ```ebnf
-module_declaration = "module" , module_path , ";" ;
-
-module_path = identifier , { "." , identifier } ;
-```
-
-**Example:**
-```
-module com.example.auth;
-
-(User Authentication: Security) {
-    // ...
-}
-```
-
-#### 1.2 File as Module
-
-If no module declaration, the filename determines the module:
-
-```
-// File: auth/login.aro
-// Implicit module: auth.login
-```
-
----
-
-### 2. Import Statements
-
-#### 2.1 Basic Import
-
-```ebnf
-import_statement = "import" , import_path , [ import_alias ] , ";" ;
-
-import_path = module_path , [ "." , ( "*" | "{" , import_list , "}" ) ] ;
-
-import_list = identifier , { "," , identifier } ;
-
-import_alias = "as" , identifier ;
-```
-
-#### 2.2 Import Forms
-
-##### Import Entire Module
-
-```
-import com.example.auth;
-
-// Access as: auth.User, auth.authenticate
-```
-
-##### Import with Alias
-
-```
-import com.example.auth as authentication;
-
-// Access as: authentication.User
-```
-
-##### Import Specific Items
-
-```
-import com.example.auth.{ User, Role, authenticate };
-
-// Access directly: User, Role, authenticate
-```
-
-##### Import All (Wildcard)
-
-```
-import com.example.auth.*;
-
-// All public symbols available directly
-```
-
-#### 2.3 Import Examples
-
-```
-module com.example.orders;
-
-import com.example.auth.{ User, AuthResult };
-import com.example.products.{ Product, Inventory };
-import com.example.common.*;
-
-(Order Processing: E-Commerce) {
-    // Can use User, Product, etc. directly
-    <Retrieve> the <user: User> from the <auth-context>.
-    <Retrieve> the <products: List<Product>> from the <cart>.
-}
-```
-
----
-
-### 3. Export Control
-
-#### 3.1 Visibility Modifiers
-
-```ebnf
-visibility_modifier = "public" | "internal" | "private" ;
-```
-
-| Modifier | Visibility |
-|----------|------------|
-| `public` | Accessible from any module |
-| `internal` | Accessible within same module (default) |
-| `private` | Accessible only in same file |
-
-#### 3.2 Applying Modifiers
-
-##### To Types
-
-```
-public type User {
-    id: String;
-    email: String;
-    internal passwordHash: String;  // Not exported
-}
-
-private type InternalCache {
-    // Only visible in this file
-}
-```
-
-##### To Feature Sets
-
-```
-public (User Authentication: Security) {
-    // Exported, can be imported
-}
-
-internal (Helper Functions: Utilities) {
-    // Only within this module
-}
-```
-
-##### To Published Variables
-
-```
-<Publish> public as <authenticated-user> <user>.
-<Publish> internal as <session-cache> <cache>.
-```
-
----
-
-### 4. Module Structure
-
-#### 4.1 Recommended Layout
-
-```
-project/
-├── aro.config                    # Project configuration
-├── src/
-│   ├── main.aro                  # Entry point
-│   ├── common/
-│   │   ├── types.aro             # Shared types
-│   │   └── utils.aro             # Utilities
-│   ├── auth/
-│   │   ├── module.aro            # Module definition
-│   │   ├── login.aro
-│   │   ├── logout.aro
-│   │   └── types.aro
-│   ├── orders/
-│   │   ├── module.aro
-│   │   ├── create.aro
-│   │   └── process.aro
-│   └── products/
-│       └── ...
-└── tests/
-    └── ...
-```
-
-#### 4.2 Module Definition File
-
-`module.aro` defines the public interface:
-
-```
-// auth/module.aro
-module com.example.auth;
-
-// Re-export from submodules
-public import ./login.{ LoginFeature };
-public import ./logout.{ LogoutFeature };
-public import ./types.{ User, Role, AuthResult };
-
-// Module-level exports
-public type AuthConfig {
-    tokenExpiry: Duration;
-    maxAttempts: Int;
-}
-```
-
----
-
-### 5. Relative Imports
-
-#### 5.1 Syntax
-
-```ebnf
-relative_import = "import" , relative_path , ";" ;
+import_statement = "import" , relative_path ;
 
 relative_path = "./" , path_segment , { "/" , path_segment }
               | "../" , { "../" } , path_segment , { "/" , path_segment } ;
 ```
 
-#### 5.2 Examples
+### Examples
 
-```
-// In: auth/login.aro
-import ./types.{ User };           // auth/types.aro
-import ../common/utils.*;          // common/utils.aro
-import ../../shared/constants;     // Up two levels
-```
+```aro
+(* Import sibling application *)
+import ../auth-service
 
----
+(* Import application two levels up *)
+import ../../shared/common
 
-### 6. Conditional Imports
-
-#### 6.1 Platform-Specific Imports
-
-```ebnf
-conditional_import = "import" , import_path , "if" , condition , ";" ;
-```
-
-**Example:**
-```
-import platform.ios.push if platform is "ios";
-import platform.android.push if platform is "android";
-import platform.web.push if platform is "web";
-```
-
-#### 6.2 Feature Flags
-
-```
-import features.experimental.ai if feature("ai-enabled");
+(* Import from same parent *)
+import ./utilities
 ```
 
 ---
 
-### 7. Namespaces
+## Imported Application Structure
 
-#### 7.1 Namespace Access
+When you import an application, ARO:
 
-```
-// Full qualification
-<Retrieve> the <user: com.example.auth.User> from the <repository>.
-
-// With import alias
-import com.example.auth as auth;
-<Retrieve> the <user: auth.User> from the <repository>.
-```
-
-#### 7.2 Namespace Conflicts
-
-When names collide, use full qualification:
+1. Finds the directory at the specified path
+2. Discovers all `.aro` files in that directory
+3. Makes all feature sets accessible
+4. Makes all types accessible
+5. Makes all published variables accessible
 
 ```
-import com.example.orders.{ Item };
-import com.example.inventory.{ Item as InventoryItem };
-
-<Process> the <order-item: Item> for the <order>.
-<Check> the <stock-item: InventoryItem> in the <warehouse>.
+workspace/
+├── user-service/           # Can import ../payment-service
+│   ├── main.aro
+│   └── users.aro
+├── payment-service/        # Can import ../user-service
+│   ├── main.aro
+│   └── payments.aro
+└── api-gateway/            # Can import both
+    └── main.aro
 ```
 
----
+**api-gateway/main.aro:**
+```aro
+import ../user-service
+import ../payment-service
 
-### 8. Circular Dependencies
-
-#### 8.1 Detection
-
-The compiler detects circular imports:
-
-```
-// A.aro
-import B;  // B imports A -> Error
-
-// B.aro  
-import A;
-```
-
-**Error:**
-```
-Circular dependency detected: A -> B -> A
-```
-
-#### 8.2 Resolution Strategies
-
-1. **Extract Common**: Move shared types to a third module
-2. **Interface Modules**: Use protocols/interfaces
-3. **Lazy Imports**: Import only when needed (runtime)
-
-```
-// common/types.aro
-public type SharedEntity { ... }
-
-// A.aro
-import common.types.{ SharedEntity };
-
-// B.aro
-import common.types.{ SharedEntity };
-```
-
----
-
-### 9. Package Management
-
-#### 9.1 Package Manifest
-
-`aro.config`:
-
-```yaml
-name: my-project
-version: 1.0.0
-main: src/main.aro
-
-dependencies:
-  aro-stdlib: ^1.0.0
-  aro-http: ^2.1.0
-  company-shared:
-    git: https://github.com/company/shared.git
-    tag: v1.2.3
-
-devDependencies:
-  aro-test: ^1.0.0
-```
-
-#### 9.2 External Package Import
-
-```
-import aro.http.{ Request, Response, Client };
-import company.shared.{ Logger, Config };
-```
-
----
-
-### 10. Standard Library
-
-#### 10.1 Built-in Modules
-
-| Module | Contents |
-|--------|----------|
-| `aro.core` | Basic types, utilities |
-| `aro.collections` | List, Map, Set operations |
-| `aro.text` | String manipulation |
-| `aro.time` | DateTime, Duration |
-| `aro.math` | Mathematical functions |
-| `aro.io` | Input/output |
-| `aro.http` | HTTP client/server |
-| `aro.json` | JSON parsing |
-| `aro.crypto` | Cryptographic functions |
-
-#### 10.2 Implicit Imports
-
-`aro.core` is implicitly imported:
-
-```
-// These are always available without import:
-// String, Int, Float, Bool, List, Map, Set, Optional
-```
-
----
-
-### 11. Complete Grammar Extension
-
-```ebnf
-(* Module System Grammar *)
-
-(* File Structure *)
-source_file = [ module_declaration ] ,
-              { import_statement } ,
-              { top_level_declaration } ;
-
-(* Module Declaration *)
-module_declaration = "module" , module_path , ";" ;
-module_path = identifier , { "." , identifier } ;
-
-(* Import Statement *)
-import_statement = [ visibility_modifier ] , 
-                   "import" , import_source , 
-                   [ import_items ] ,
-                   [ import_alias ] ,
-                   [ import_condition ] ,
-                   ";" ;
-
-import_source = module_path | relative_path ;
-
-relative_path = ( "./" | { "../" } ) , 
-                identifier , { "/" , identifier } ;
-
-import_items = "." , ( "*" | "{" , identifier_list , "}" ) ;
-identifier_list = import_item , { "," , import_item } ;
-import_item = identifier , [ "as" , identifier ] ;
-
-import_alias = "as" , identifier ;
-import_condition = "if" , condition ;
-
-(* Visibility *)
-visibility_modifier = "public" | "internal" | "private" ;
-
-(* Top-Level Declarations *)
-top_level_declaration = [ visibility_modifier ] , 
-                        ( type_definition 
-                        | feature_set 
-                        | constant_declaration ) ;
-
-constant_declaration = "const" , identifier , ":" , type_expr , 
-                       "=" , expression , ";" ;
-```
-
----
-
-### 12. Complete Examples
-
-#### Multi-File Project
-
-**common/types.aro:**
-```
-module com.example.common;
-
-public type EntityId = String;
-
-public type Timestamped {
-    createdAt: DateTime;
-    updatedAt: DateTime?;
+(Application-Start: API Gateway) {
+    <Log> the <startup: message> for the <console> with "Gateway starting...".
+    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status> for the <startup>.
 }
 
-public protocol Repository<T> {
-    find: (id: EntityId) -> T?;
-    save: (entity: T) -> T;
-    delete: (id: EntityId) -> Bool;
+(* Can now use feature sets from both imported applications *)
+(Handle User Request: HTTP Handler) {
+    (* Uses user-service feature sets and types *)
+    <Invoke> the <Get User> with <request>.
+    <Return> an <OK: status> with <response>.
 }
 ```
 
-**auth/types.aro:**
+---
+
+## No Visibility Modifiers
+
+ARO explicitly rejects visibility modifiers:
+
+| Traditional | ARO |
+|-------------|-----|
+| `public` | Not needed - everything is accessible after import |
+| `private` | Not needed - don't export what you don't want shared |
+| `internal` | Not needed - feature set scope handles this |
+| `protected` | Not needed - no inheritance hierarchy |
+
+### Why No Visibility?
+
+1. **Simplicity**: Project managers don't think about access control
+2. **Trust**: If you import an application, you trust it
+3. **Clarity**: The code says what it does, not what it hides
+4. **ARO-0003**: Variable scoping already handles encapsulation within feature sets
+
+---
+
+## Sharing Data Between Applications
+
+Use `<Publish>` (ARO-0003) to share data:
+
+**user-service/users.aro:**
+```aro
+(Authenticate User: Security) {
+    <Extract> the <credentials> from the <request: body>.
+    <Retrieve> the <user> from the <user-repository> where credentials = <credentials>.
+    <Publish> as <authenticated-user> <user>.
+    <Return> an <OK: status> with <user>.
+}
 ```
-module com.example.auth;
 
-import ../common/types.{ EntityId, Timestamped };
+**api-gateway/main.aro:**
+```aro
+import ../user-service
 
-public type User: Timestamped {
-    id: EntityId;
+(Process Request: API Gateway) {
+    (* Access published variable from imported application *)
+    <Use> the <authenticated-user> in the <authorization-check>.
+    <Return> an <OK: status> for the <request>.
+}
+```
+
+---
+
+## Distributed Services Pattern
+
+ARO applications are designed as small, distributable services:
+
+```
+microservices/
+├── auth/                   # Authentication service
+│   ├── main.aro
+│   └── openapi.yaml
+├── users/                  # User management service
+│   ├── main.aro
+│   └── openapi.yaml
+├── orders/                 # Order processing service
+│   ├── main.aro
+│   └── openapi.yaml
+└── gateway/                # API gateway
+    ├── main.aro
+    └── openapi.yaml        # Aggregated API
+```
+
+Each service:
+- Has its own `Application-Start`
+- Can run independently
+- Can be imported by other services
+- Shares through published variables
+
+---
+
+## Circular Imports
+
+Circular imports are allowed but should be avoided:
+
+```aro
+(* A imports B, B imports A - this works but is confusing *)
+```
+
+The compiler handles circular imports by:
+1. Loading all files from all imported applications
+2. Building a unified symbol table
+3. Resolving references across all loaded feature sets
+
+However, circular dependencies often indicate poor architecture. Consider extracting shared code to a common application.
+
+---
+
+## Non-Goals
+
+ARO explicitly does **not** provide:
+
+- Module declarations (`module com.example.foo`)
+- Namespace qualifiers (`com.example.foo.MyType`)
+- Selective imports (`import { User, Order } from ./users`)
+- Import aliases (`import ./users as u`)
+- Package manifests (`aro.config`, `Package.yaml`)
+- Version constraints (`^1.0.0`, `~2.1.0`)
+- Remote package repositories
+
+These are implementation concerns. ARO applications are directories. If you need versioning, use git. If you need remote packages, use git submodules or symbolic links.
+
+---
+
+## Examples
+
+### Basic Import
+
+**shared/types.aro:**
+```aro
+(* Type definitions - no Application-Start, just types *)
+
+type User {
+    id: String;
     email: String;
-    roles: List<Role>;
+    name: String;
 }
 
-public enum Role {
-    Admin,
-    User,
-    Guest
-}
-
-public type AuthResult {
-    user: User;
-    token: String;
-    expiresAt: DateTime;
+type Order {
+    id: String;
+    userId: String;
+    total: Decimal;
 }
 ```
 
-**auth/login.aro:**
-```
-module com.example.auth;
+**order-service/main.aro:**
+```aro
+import ../shared
 
-import ./types.{ User, AuthResult };
-import ../common/types.{ Repository };
-import aro.crypto.{ hash, verify };
+(Application-Start: Order Service) {
+    <Log> the <startup: message> for the <console> with "Starting...".
+    <Return> an <OK: status> for the <startup>.
+}
 
-public (Login: Authentication) {
-    <Require> <request: Request> from framework.
-    <Require> <user-repo: Repository<User>> from framework.
-    
-    <Extract> the <email: String> from the <request: body>.
-    <Extract> the <password: String> from the <request: body>.
-    
-    <Retrieve> the <user: User?> from the <user-repo> 
-        with { email: <email> }.
-    
-    if <user> is null then {
-        <Return> an <Unauthorized> for the <request>.
-    }
-    
-    <Verify> the <valid: Bool> from verify(<password>, <user>.passwordHash).
-    
-    if <valid> then {
-        <Create> the <result: AuthResult> for the <user>.
-        <Publish> public as <auth-result> <result>.
-        <Return> the <result> for the <request>.
-    } else {
-        <Return> an <Unauthorized> for the <request>.
-    }
+(Create Order: Order API) {
+    (* Uses User and Order types from imported application *)
+    <Extract> the <user: User> from the <context: authenticated-user>.
+    <Create> the <order: Order> with <user: id>.
+    <Return> a <Created: status> with <order>.
 }
 ```
 
-**main.aro:**
-```
-module com.example.app;
+### Service Composition
 
-import com.example.auth.{ Login, Logout };
-import com.example.orders.{ CreateOrder, ProcessOrder };
-import com.example.products.{ ProductCatalog };
+**api/main.aro:**
+```aro
+import ../auth
+import ../users
+import ../orders
+import ../notifications
 
-public (Application: Main) {
-    <Register> the <Login> at "/auth/login".
-    <Register> the <Logout> at "/auth/logout".
-    <Register> the <CreateOrder> at "/orders".
-    <Register> the <ProcessOrder> at "/orders/process".
-    <Register> the <ProductCatalog> at "/products".
+(Application-Start: API) {
+    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status> for the <startup>.
 }
+
+(* All feature sets from all imported applications are now accessible *)
+(* Routes are registered based on openapi.yaml as per ARO-0027 *)
 ```
 
 ---
 
-## Implementation Notes
+## Summary
 
-### Module Resolution
+ARO's import system is radically simple:
 
-```swift
-public struct ModuleResolver {
-    let searchPaths: [URL]
-    let packageManifest: PackageManifest?
-    
-    func resolve(_ importPath: String, from: SourceLocation) -> Result<ModuleInfo, ImportError>
-    func loadModule(_ info: ModuleInfo) -> Result<ParsedModule, LoadError>
-}
+1. **`import ../path`** - Import another application
+2. **Everything accessible** - All feature sets, types, published variables
+3. **No visibility modifiers** - Trust and simplicity over access control
+4. **Small services** - Compose applications from focused, distributable units
 
-public struct ModuleInfo {
-    let path: ModulePath
-    let fileURL: URL
-    let isExternal: Bool
-}
-
-public struct ParsedModule {
-    let path: ModulePath
-    let exports: [String: Symbol]
-    let dependencies: [ModulePath]
-}
-```
-
-### Dependency Graph
-
-```swift
-public struct DependencyGraph {
-    let modules: [ModulePath: ParsedModule]
-    
-    func topologicalSort() -> Result<[ModulePath], CycleError>
-    func detectCycles() -> [Cycle]
-}
-```
+This isn't enterprise-grade module management. It's application composition for humans who want to build systems from small, understandable pieces.
 
 ---
 
@@ -582,4 +306,5 @@ public struct DependencyGraph {
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2024-01 | Initial specification |
+| 1.0 | 2024-01 | Initial specification with full module system |
+| 2.0 | 2024-12 | Complete rewrite: simplified import system, no visibility modifiers |
