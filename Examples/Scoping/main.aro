@@ -1,0 +1,28 @@
+(*
+ * ARO-0003 Variable Scoping Example
+ * Demonstrates variable visibility, publishing, and dependencies
+ *)
+
+(Application-Start: Scoping Demo) {
+    (* Explicit external dependency declaration *)
+    <Require> the <console> from the <framework>.
+
+    (* Create internal variables *)
+    <Create> the <app-name> with "Scoping Demo".
+    <Create> the <version> with "1.0".
+
+    (* Log startup *)
+    <Log> the <startup-message> for the <console> with <app-name>.
+
+    (* Publish for other feature sets in the event chain *)
+    <Publish> as <application-name> <app-name>.
+    <Publish> as <application-version> <version>.
+
+    (* Emit event to trigger handlers *)
+    <Emit> a <StartupComplete: event> for the <application>.
+
+    (* Keep application running *)
+    <Keepalive> the <application> for the <events>.
+
+    <Return> an <OK: status> for the <startup>.
+}

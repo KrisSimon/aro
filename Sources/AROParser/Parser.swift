@@ -93,15 +93,20 @@ public final class Parser {
     
     // MARK: - Statement Parsing
     
-    /// Parses a statement (ARO or Publish)
+    /// Parses a statement (ARO, Publish, or Require)
     private func parseStatement() throws -> Statement {
         let startToken = try expect(.leftAngle, message: "'<'")
-        
+
         // Check if this is a publish statement
         if check(.publish) {
             return try parsePublishStatement(startToken: startToken)
         }
-        
+
+        // Check if this is a require statement (ARO-0003)
+        if check(.require) {
+            return try parseRequireStatement(startToken: startToken)
+        }
+
         return try parseAROStatement(startToken: startToken)
     }
     
@@ -275,7 +280,56 @@ public final class Parser {
             span: startToken.span.merged(with: endToken.span)
         )
     }
-    
+
+    /// Parses: "<Require>" [article] "<" variable ">" "from" [article] "<" source ">" "."
+    private func parseRequireStatement(startToken: Token) throws -> RequireStatement {
+        advance() // consume 'Require'
+        try expect(.rightAngle, message: "'>'")
+
+        // Skip optional article before variable
+        if case .article = peek().kind {
+            advance()
+        }
+
+        try expect(.leftAngle, message: "'<'")
+        let variableName = try parseCompoundIdentifier()
+        try expect(.rightAngle, message: "'>'")
+
+        // Expect 'from' preposition
+        guard case .preposition(.from) = peek().kind else {
+            throw ParserError.unexpectedToken(expected: "'from'", got: peek())
+        }
+        advance()
+
+        // Skip optional article before source
+        if case .article = peek().kind {
+            advance()
+        }
+
+        try expect(.leftAngle, message: "'<'")
+        let sourceName = try parseCompoundIdentifier()
+        try expect(.rightAngle, message: "'>'")
+
+        let endToken = try expect(.dot, message: "'.'")
+
+        // Determine source type
+        let source: RequireSource
+        switch sourceName.lowercased() {
+        case "framework":
+            source = .framework
+        case "environment":
+            source = .environment
+        default:
+            source = .featureSet(sourceName)
+        }
+
+        return RequireStatement(
+            variableName: variableName,
+            source: source,
+            span: startToken.span.merged(with: endToken.span)
+        )
+    }
+
     // MARK: - Qualified Noun Parsing
     
     /// Parses: base [ ":" specifier { specifier } ]

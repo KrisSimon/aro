@@ -44,6 +44,7 @@ public enum TokenKind: Sendable, Equatable, CustomStringConvertible {
 
     // Keywords - Core
     case publish            // Publish
+    case require            // Require (ARO-0003)
     case `as`               // as
 
     // Keywords - Control Flow (ARO-0004)
@@ -149,6 +150,7 @@ public enum TokenKind: Sendable, Equatable, CustomStringConvertible {
         case .lessEqual: return "<="
         case .greaterEqual: return ">="
         case .publish: return "Publish"
+        case .require: return "Require"
         case .as: return "as"
         case .if: return "if"
         case .then: return "then"

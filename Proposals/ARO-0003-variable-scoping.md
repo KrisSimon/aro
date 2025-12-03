@@ -2,7 +2,7 @@
 
 * Proposal: ARO-0003
 * Author: ARO Language Team
-* Status: **Draft**
+* Status: **Accepted**
 * Requires: ARO-0001
 
 ## Abstract
@@ -22,7 +22,7 @@ Clear scoping rules are essential for:
 
 ### 1. Scope Hierarchy
 
-ARO has three scope levels:
+ARO has two scope levels:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -76,30 +76,18 @@ Variables are implicitly defined by ARO statements:
 | Response | — (no variable) | Must exist |
 | Export | Creates alias | Must exist |
 
-#### 3.3 Redefinition (Shadowing)
+#### 3.3 Redefinition
 
-Within the same scope, redefining a variable **overwrites** it:
+Within a feature set, redefining a variable **overwrites** it:
 
-```
+```aro
 (Example: Demo) {
     <Extract> the <user> from the <request>.   // user = extracted value
     <Transform> the <user> from the <user>.    // user = transformed value (overwritten)
 }
 ```
 
-In nested scopes, redefinition **do not shadow** the outer variable:
-
-```
-(Example: Demo) {
-    <Set> the <count> to 10.
-    
-    if <condition> is true then {
-        <Set> the <count> to 20.    // use outer count
-        // count == 20 here
-    }
-    // count == 20 here (outer variable changed)
-}
-```
+All variables are visible throughout the entire feature set scope.
 
 ---
 
@@ -113,21 +101,17 @@ variable_reference = "<" , qualified_noun , ">" ;
 
 #### 4.2 Resolution Order
 
-When resolving a variable reference, the compiler searches:
+When resolving a variable reference, the runtime searches:
 
-1. **Feature set scope**
-2. **Published/external scope** (global)
+1. **Feature set scope** (local variables)
+2. **Global scope** (published and external variables)
 
-```
+```aro
 (Example: Scoping) {
-    <Set> the <x> to 1.                    // Feature set scope
-    
-    if <condition> then {
-        <Set> the <y> to 2.                // Block scope
-        <Compute> the <z> from <x> + <y>.  // x from outer, y from current
-    }
-    
-    // <y> is accessible here (block scope ending does not change the feature scope)
+    <Create> the <x> with 1.
+    <Create> the <y> with 2.
+    <Compute> the <z> from <x> + <y>.
+    <Return> an <OK: status> with <z>.
 }
 ```
 
@@ -164,23 +148,23 @@ Some variables are provided by the runtime:
 
 #### 6.2 Require Statement
 
-Explicitly declare external dependencies:
+Explicitly declare external dependencies using standard ARO syntax:
 
 ```ebnf
-require_statement = "<Require>" , "<" , variable_name , ">" , 
-                    "from" , source , "." ;
-source            = "framework" | "environment" | feature_set_name ;
+require_statement = "<Require>" , article , "<" , variable_name , ">" ,
+                    "from" , article , "<" , source , ">" , "." ;
+source            = "framework" | "environment" | identifier ;
 ```
 
 **Example:**
-```
+```aro
 (User Authentication: Security) {
-    <Require> <request> from framework.
-    <Require> <database> from framework.
-    <Require> <jwt-secret> from environment.
-    
+    <Require> the <request> from the <framework>.
+    <Require> the <database> from the <framework>.
+    <Require> the <jwt-secret> from the <environment>.
+
     <Extract> the <token> from the <request: headers>.
-    // ...
+    <Return> an <OK: status> for the <authentication>.
 }
 ```
 
@@ -199,7 +183,6 @@ source            = "framework" | "environment" | feature_set_name ;
 
 1. Variables must be defined before use
 2. Use of undefined variable is a compile-time error
-3. Conditional definition requires all paths to define (see ARO-0004)
 
 **Valid:**
 ```
@@ -337,21 +320,16 @@ The compiler builds a dependency graph between feature sets:
 └─────────────────┘    └─────────────────┘
 ```
 
-#### 10.3 Circular Dependency Detection
+#### 10.3 Execution Order
 
-Circular dependencies are compile-time errors:
+Published variables are resolved at runtime within the same execution context. If a feature set accesses a published variable that hasn't been set yet, the runtime will report an error:
 
 ```
-(A: Demo) {
-    <Require> <x> from B.
-    <Publish> as <y> <something>.
-}
-
-(B: Demo) {
-    <Require> <y> from A.      // Error: Circular dependency A <-> B
-    <Publish> as <x> <other>.
-}
+Error: Variable 'authenticated-user' is not available.
+It may need to be published by another feature set earlier in the event chain.
 ```
+
+This follows ARO's "Code Is The Error Message" philosophy - the error clearly indicates what's missing and suggests the solution.
 
 ---
 
@@ -361,21 +339,16 @@ Circular dependencies are compile-time errors:
 (* Extends ARO-0001 *)
 
 (* Require Statement *)
-require_statement = "<Require>" , "<" , compound_identifier , ">" ,
-                    "from" , source , "." ;
+require_statement = "<Require>" , article , "<" , compound_identifier , ">" ,
+                    "from" , article , "<" , source , ">" , "." ;
 
-source            = "framework" 
-                  | "environment" 
-                  | identifier_sequence ;
-
-(* Scoped Reference *)
-scoped_reference  = [ scope_qualifier , "::" ] , variable_reference ;
-
-scope_qualifier   = "global" | "local" | identifier_sequence ;
+source            = "framework"
+                  | "environment"
+                  | identifier ;
 
 (* Updated Statement *)
-statement         = aro_statement 
-                  | publish_statement 
+statement         = aro_statement
+                  | publish_statement
                   | require_statement ;
 ```
 
@@ -385,40 +358,34 @@ statement         = aro_statement
 
 ### Complete Scoping Example
 
-```
-(* 
- * Demonstrates all scoping concepts 
+```aro
+(*
+ * Demonstrates all scoping concepts
  *)
 
 (User Service: User Management) {
-    // External dependency
-    <Require> <database> from framework.
-    <Require> <request> from framework.
-    
-    // Internal variables
+    (* External dependencies *)
+    <Require> the <database> from the <framework>.
+    <Require> the <request> from the <framework>.
+
+    (* Internal variables *)
     <Extract> the <user-id> from the <request: parameters>.
     <Retrieve> the <user: record> from the <database>.
-    
-    // Conditional block scope
-    if <user: status> is "active" then {
-        <Set> the <access-level> to "full".     // Block scope
-        <Compute> the <permissions> for the <user: role>.
-    } else {
-        <Set> the <access-level> to "limited".  // Different block
-    }
-    // access-level is defined in both branches, so accessible here
-    
-    // Publish for other features
+    <Create> the <access-level> with "full".
+
+    (* Publish for other features *)
     <Publish> as <current-user> <user>.
-    <Publish> as <user-permissions> <permissions>.
+    <Return> an <OK: status> with <user>.
 }
 
-(Audit Service: Compliance) {
-    // Access published variables
+(Audit Service: Compliance Handler) {
+    (* Access published variable from event chain *)
     <Log> the <action> for the <current-user>.
-    <Store> the <audit-record> with the <user-permissions>.
+    <Return> an <OK: status> for the <audit>.
 }
 ```
+
+**Note:** Published variables are available within the same execution context (event chain). When `User Service` publishes `<current-user>`, any feature set triggered in the same event chain can access it.
 
 ---
 
@@ -446,7 +413,8 @@ statement         = aro_statement
 
 ## Revision History
 
-| Version | Date    | Changes               |
-|---------|---------|-----------------------|
-| 1.0     | 2025-12 | Initial specification |
-| 1.1     | 2025-12 | Simplify scope        |
+| Version | Date    | Changes                                              |
+|---------|---------|------------------------------------------------------|
+| 1.0     | 2025-12 | Initial specification                                |
+| 1.1     | 2025-12 | Simplify to two scope levels (Global + Feature Set)  |
+| 1.2     | 2025-12 | Remove block scopes, `::` syntax; fix Require syntax |

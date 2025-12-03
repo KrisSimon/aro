@@ -130,15 +130,43 @@ public final class SemanticAnalyzer {
             )
             dataFlows.append(flow)
             dependencies.formUnion(newDeps)
-            
+
             if let publish = statement as? PublishStatement {
                 exports.insert(publish.externalName)
             }
+
+            // Handle RequireStatement (ARO-0003)
+            if let require = statement as? RequireStatement {
+                dependencies.insert(require.variableName)
+            }
         }
-        
+
+        // Detect unused variables (ARO-0003)
+        let symbolTable = builder.build()
+        var usedVariables: Set<String> = []
+        for flow in dataFlows {
+            usedVariables.formUnion(flow.inputs)
+        }
+
+        for (name, symbol) in symbolTable.symbols {
+            // Skip published variables (they're used externally)
+            if symbol.visibility == .published { continue }
+            // Skip aliases (the original is tracked)
+            if case .alias = symbol.source { continue }
+            // Skip external dependencies
+            if symbol.visibility == .external { continue }
+
+            if !usedVariables.contains(name) {
+                diagnostics.warning(
+                    "Variable '\(name)' is defined but never used",
+                    at: symbol.definedAt.start
+                )
+            }
+        }
+
         return AnalyzedFeatureSet(
             featureSet: featureSet,
-            symbolTable: builder.build(),
+            symbolTable: symbolTable,
             dataFlows: dataFlows,
             dependencies: dependencies,
             exports: exports
@@ -160,7 +188,11 @@ public final class SemanticAnalyzer {
         if let publish = statement as? PublishStatement {
             return analyzePublishStatement(publish, builder: builder, definedSymbols: definedSymbols)
         }
-        
+
+        if let require = statement as? RequireStatement {
+            return analyzeRequireStatement(require, builder: builder)
+        }
+
         return (DataFlowInfo(), [])
     }
     
@@ -299,7 +331,26 @@ public final class SemanticAnalyzer {
             []
         )
     }
-    
+
+    private func analyzeRequireStatement(
+        _ statement: RequireStatement,
+        builder: SymbolTableBuilder
+    ) -> (DataFlowInfo, Set<String>) {
+        // Register as an external dependency
+        builder.define(
+            name: statement.variableName,
+            definedAt: statement.span,
+            visibility: .external,
+            source: .extracted(from: "\(statement.source)")
+        )
+
+        // The variable is treated as an input from external source
+        return (
+            DataFlowInfo(inputs: [], outputs: [statement.variableName]),
+            [statement.variableName]
+        )
+    }
+
     // MARK: - Dependency Verification
     
     private func verifyDependencies(_ analyzed: AnalyzedFeatureSet) {

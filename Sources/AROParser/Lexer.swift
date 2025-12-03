@@ -19,6 +19,7 @@ public final class Lexer: @unchecked Sendable {
     private static let keywords: [String: TokenKind] = [
         // Core
         "publish": .publish,
+        "require": .require,
         "as": .as,
 
         // Control Flow (ARO-0004)

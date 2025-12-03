@@ -128,6 +128,44 @@ public struct PublishStatement: Statement {
     }
 }
 
+// MARK: - Require Statement (ARO-0003)
+
+/// Source for a required dependency
+public enum RequireSource: Sendable, Equatable, CustomStringConvertible {
+    case framework
+    case environment
+    case featureSet(String)
+
+    public var description: String {
+        switch self {
+        case .framework: return "framework"
+        case .environment: return "environment"
+        case .featureSet(let name): return name
+        }
+    }
+}
+
+/// Statement for declaring external dependencies: <Require> the <variable> from the <source>.
+public struct RequireStatement: Statement {
+    public let variableName: String
+    public let source: RequireSource
+    public let span: SourceSpan
+
+    public init(variableName: String, source: RequireSource, span: SourceSpan) {
+        self.variableName = variableName
+        self.source = source
+        self.span = span
+    }
+
+    public var description: String {
+        "<Require> the <\(variableName)> from the <\(source)>."
+    }
+
+    public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
+        try visitor.visit(self)
+    }
+}
+
 // MARK: - Action
 
 /// Represents an action verb with semantic classification
@@ -577,6 +615,7 @@ public protocol ASTVisitor {
     func visit(_ node: FeatureSet) throws -> Result
     func visit(_ node: AROStatement) throws -> Result
     func visit(_ node: PublishStatement) throws -> Result
+    func visit(_ node: RequireStatement) throws -> Result
 
     // Expression visitors (ARO-0002)
     func visit(_ node: LiteralExpression) throws -> Result
@@ -609,6 +648,7 @@ public extension ASTVisitor where Result == Void {
 
     func visit(_ node: AROStatement) throws {}
     func visit(_ node: PublishStatement) throws {}
+    func visit(_ node: RequireStatement) throws {}
 
     // Expression default implementations
     func visit(_ node: LiteralExpression) throws {}
@@ -703,6 +743,13 @@ public struct ASTPrinter: ASTVisitor {
         var result = "\(indentation())PublishStatement\n"
         result += "\(indentation())  External: \(node.externalName)\n"
         result += "\(indentation())  Internal: \(node.internalVariable)\n"
+        return result
+    }
+
+    public func visit(_ node: RequireStatement) -> String {
+        var result = "\(indentation())RequireStatement\n"
+        result += "\(indentation())  Variable: \(node.variableName)\n"
+        result += "\(indentation())  Source: \(node.source)\n"
         return result
     }
 
