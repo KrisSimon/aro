@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Disclaimer - ARO Programming Language</title>
+{{head}}
+    <style>
+        .disclaimer-hero {
+            padding: 160px 24px 60px;
+            text-align: center;
+            background:
+                radial-gradient(ellipse at 50% 0%, rgba(239, 68, 68, 0.15) 0%, transparent 50%),
+                var(--color-bg);
+        }
+
+        .disclaimer-hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .disclaimer-hero .lead {
+            font-size: 1.2rem;
+            color: var(--color-text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .disclaimer-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        .warning-banner {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(245, 158, 11, 0.1));
+            border: 2px solid rgba(239, 68, 68, 0.5);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            margin-bottom: 48px;
+            text-align: center;
+        }
+
+        .warning-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .warning-banner h2 {
+            font-size: 1.5rem;
+            color: #ef4444;
+            margin-bottom: 12px;
+        }
+
+        .warning-banner p {
+            color: var(--color-text-muted);
+            font-size: 1.1rem;
+        }
+
+        .disclaimer-section {
+            margin-bottom: 48px;
+            padding: 32px;
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-lg);
+            border-left: 4px solid var(--color-accent);
+        }
+
+        .disclaimer-section h3 {
+            font-size: 1.4rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .disclaimer-section p {
+            color: var(--color-text-muted);
+            font-size: 1.05rem;
+            line-height: 1.8;
+            margin-bottom: 0;
+        }
+
+        .section-icon {
+            font-size: 1.5rem;
+        }
+
+        .key-points {
+            display: grid;
+            gap: 24px;
+            margin-top: 48px;
+        }
+
+        .key-point {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .key-point-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .key-point-content h4 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .key-point-content p {
+            color: var(--color-text-muted);
+            margin-bottom: 0;
+        }
+
+        .final-note {
+            text-align: center;
+            padding: 40px;
+            margin-top: 48px;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(6, 182, 212, 0.1));
+            border-radius: var(--radius-lg);
+        }
+
+        .final-note h3 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+        }
+
+        .final-note p {
+            color: var(--color-text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-content">
+            <a href="/aro/" class="logo">
+                <span class="logo-aro">ARO</span>
+            </a>
+            <div class="nav-links">
+                <a href="fdd.html">The FDD Story</a>
+                <a href="getting-started.html">Get Started</a>
+                <a href="docs.html">Docs</a>
+                <a href="https://github.com/KrisSimon/aro" class="nav-github">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="disclaimer-hero">
+        <h1 class="gradient-text">Disclaimer</h1>
+        <p class="lead">
+            Important information about ARO and its intended use.
+        </p>
+    </header>
+
+    <main class="disclaimer-content">
+        <div class="warning-banner">
+            <div class="warning-icon">&#x26A0;</div>
+            <h2>Experimental Project</h2>
+            <p>
+                ARO is an experimental programming language created for research and learning purposes.
+                It is not intended for production use.
+            </p>
+        </div>
+
+        <div class="disclaimer-section">
+            <h3><span class="section-icon">&#x1F9EA;</span> Experimentation Only</h3>
+            <p>
+                ARO is designed purely for experimentation, learning, and exploring new ideas in
+                programming language design. It serves as a proof-of-concept for AI-native language
+                development and Feature-Driven Development (FDD) principles. Use it to learn,
+                experiment, and have fun—but not for anything that matters.
+            </p>
+        </div>
+
+        <div class="disclaimer-section">
+            <h3><span class="section-icon">&#x1F6AB;</span> Not for Production</h3>
+            <p>
+                This language is explicitly <strong>not intended for production use</strong>.
+                It lacks the security hardening, thorough testing, performance optimization,
+                and stability guarantees required for production systems. Do not use ARO to build
+                applications that handle real user data, financial transactions, or any
+                mission-critical operations.
+            </p>
+        </div>
+
+        <div class="disclaimer-section">
+            <h3><span class="section-icon">&#x1F916;</span> 100% AI-Generated Code</h3>
+            <p>
+                Every single line of code in this project—the compiler, runtime, documentation,
+                and this website—has been generated entirely by AI. This includes the parser,
+                semantic analyzer, execution engine, HTTP server, and all supporting infrastructure.
+                The entire codebase is the product of AI-assisted development.
+            </p>
+        </div>
+
+        <div class="disclaimer-section">
+            <h3><span class="section-icon">&#x1F440;</span> No Human Review</h3>
+            <p>
+                The AI-generated code has not undergone formal human code review. While the code
+                functions and demonstrates the intended concepts, it has not been audited for
+                security vulnerabilities, edge cases, or production-readiness. There may be bugs,
+                security issues, or unexpected behaviors that human review would typically catch.
+            </p>
+        </div>
+
+        <div class="key-points">
+            <div class="key-point">
+                <div class="key-point-icon">&#x2705;</div>
+                <div class="key-point-content">
+                    <h4>What ARO IS Good For</h4>
+                    <p>Learning about language design, exploring AI-native programming concepts,
+                    understanding FDD principles, experimenting with new ideas, and having fun
+                    with code.</p>
+                </div>
+            </div>
+            <div class="key-point">
+                <div class="key-point-icon">&#x274C;</div>
+                <div class="key-point-content">
+                    <h4>What ARO IS NOT Good For</h4>
+                    <p>Production applications, handling sensitive data, financial systems,
+                    healthcare applications, or any use case where reliability, security,
+                    or correctness is critical.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="final-note">
+            <h3>Use at Your Own Risk</h3>
+            <p>
+                By using ARO, you acknowledge that this is an experimental project with no
+                warranties or guarantees. The authors and contributors accept no liability
+                for any issues that may arise from its use.
+            </p>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-aro">ARO</span>
+                    <p>The ARO Programming Language</p>
+                    <p class="footer-tagline">Speak Business. Write Code.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-col">
+                        <h4>Learn</h4>
+                        <a href="getting-started.html">Getting Started</a>
+                        <a href="docs.html">Documentation</a>
+                        <a href="fdd.html">FDD History</a>
+                    </div>
+                    <div class="footer-col">
+                        <h4>Community</h4>
+                        <a href="https://github.com/KrisSimon/aro">GitHub</a>
+                        <a href="https://github.com/KrisSimon/aro/issues">Issues</a>
+                        <a href="disclaimer.html">Disclaimer</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>Sometime this page should build with ARO. Obviously.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
