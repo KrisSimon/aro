@@ -227,7 +227,7 @@ public final class Parser {
         // 1. [article] <object> [with literal/expression] - standard syntax
         // 2. expression - for computed values like `from <x> * <y>` or `to 30`
         var objectNoun: QualifiedNoun
-        var literalValue: LiteralValue? = nil
+        let literalValue: LiteralValue? = nil
         var expression: (any Expression)? = nil
 
         // Check if we should parse an expression after the preposition
@@ -857,7 +857,7 @@ extension Parser {
         // Handle postfix existence check: <expr> exists
         if check(.exists) {
             advance()
-            let span = (left as? any Locatable)?.span ?? SourceSpan.unknown
+            let span = left.span
             left = ExistenceExpression(expression: left, span: span)
         }
 
@@ -916,14 +916,14 @@ extension Parser {
         case .hyphen, .minus:
             advance()
             let operand = try parsePrecedence(.unary)
-            let span = token.span.merged(with: (operand as? any Locatable)?.span ?? token.span)
+            let span = token.span.merged(with: operand.span)
             return UnaryExpression(op: .negate, operand: operand, span: span)
 
         // Unary not: not expr
         case .not:
             advance()
             let operand = try parsePrecedence(.unary)
-            let span = token.span.merged(with: (operand as? any Locatable)?.span ?? token.span)
+            let span = token.span.merged(with: operand.span)
             return UnaryExpression(op: .not, operand: operand, span: span)
 
         // String interpolation tokens
@@ -985,7 +985,7 @@ extension Parser {
         case .dot:
             advance()
             let memberToken = try expectIdentifier(message: "member name")
-            let span = (left as? any Locatable)?.span.merged(with: memberToken.span) ?? memberToken.span
+            let span = left.span.merged(with: memberToken.span)
             return MemberAccessExpression(base: left, member: memberToken.lexeme, span: span)
 
         // Subscript: [index]
@@ -993,7 +993,7 @@ extension Parser {
             advance()
             let index = try parseExpression()
             let endToken = try expect(.rightBracket, message: "']'")
-            let span = (left as? any Locatable)?.span.merged(with: endToken.span) ?? endToken.span
+            let span = left.span.merged(with: endToken.span)
             return SubscriptExpression(base: left, index: index, span: span)
 
         // Binary operators
@@ -1017,7 +1017,7 @@ extension Parser {
                 case .true, .false, .nil, .null:
                     // Treat as equality comparison: <expr> == true/false/nil
                     let right = try parsePrefix()
-                    let span = (left as? any Locatable)?.span.merged(with: (right as? any Locatable)?.span ?? token.span) ?? token.span
+                    let span = left.span.merged(with: right.span)
                     let compOp: BinaryOperator = (actualOp == .isNot) ? .notEqual : .equal
                     return BinaryExpression(left: left, op: compOp, right: right, span: span)
                 default:
@@ -1034,7 +1034,7 @@ extension Parser {
 
                 // Parse type name
                 let typeToken = try expectIdentifier(message: "type name")
-                let span = (left as? any Locatable)?.span.merged(with: typeToken.span) ?? typeToken.span
+                let span = left.span.merged(with: typeToken.span)
 
                 if actualOp == .isNot {
                     // "is not" followed by type is a negated type check
@@ -1047,7 +1047,7 @@ extension Parser {
 
             // Parse right operand with higher precedence (left-associative)
             let right = try parsePrecedence(precedence)
-            let span = (left as? any Locatable)?.span.merged(with: (right as? any Locatable)?.span ?? token.span) ?? token.span
+            let span = left.span.merged(with: right.span)
 
             return BinaryExpression(left: left, op: actualOp, right: right, span: span)
         }
@@ -1144,7 +1144,7 @@ extension Parser {
         try expect(.colon, message: "':'")
         let value = try parseExpression()
 
-        return MapEntry(key: key, value: value, span: keyToken.span.merged(with: (value as? any Locatable)?.span ?? keyToken.span))
+        return MapEntry(key: key, value: value, span: keyToken.span.merged(with: value.span))
     }
 
     /// Parses a grouped (parenthesized) expression: (expr)

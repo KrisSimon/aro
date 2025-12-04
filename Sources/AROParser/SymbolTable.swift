@@ -348,7 +348,7 @@ public final class SymbolTableBuilder {
     /// Updates a symbol's visibility
     @discardableResult
     public func updateVisibility(name: String, to visibility: Visibility) -> Self {
-        if var symbol = symbols[name] {
+        if let symbol = symbols[name] {
             symbols[name] = Symbol(
                 name: symbol.name,
                 definedAt: symbol.definedAt,
