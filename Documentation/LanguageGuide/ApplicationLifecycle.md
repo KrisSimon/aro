@@ -342,18 +342,30 @@ When an unhandled error occurs:
 
 ## Health Checks
 
-Set up health check endpoints during initialization:
+Set up health check endpoints using contract-first HTTP. Define routes in `openapi.yaml`:
 
+**openapi.yaml:**
+```yaml
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+  /ready:
+    get:
+      operationId: readinessCheck
+```
+
+**main.aro:**
 ```aro
 (Application-Start: Healthy App) {
     <Set> the <startup-time> to <current-time>.
     <Publish> as <app-startup-time> <startup-time>.
 
-    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
-(GET /health: Health Check) {
+(healthCheck: Health API) {
     <Create> the <health> with {
         status: "healthy",
         uptime: <current-time> - <app-startup-time>,
@@ -362,7 +374,7 @@ Set up health check endpoints during initialization:
     <Return> an <OK: status> with <health>.
 }
 
-(GET /ready: Readiness Check) {
+(readinessCheck: Health API) {
     (* Check dependencies *)
     <Check> the <database-connection>.
     <Check> the <cache-connection>.

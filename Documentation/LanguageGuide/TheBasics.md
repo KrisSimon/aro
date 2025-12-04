@@ -8,6 +8,7 @@ ARO source files use the `.aro` extension. An application is a directory contain
 
 ```
 MyApp/
+├── openapi.yaml   # API contract (required for HTTP)
 ├── main.aro
 ├── users.aro
 └── events.aro
@@ -43,7 +44,6 @@ import ../user-service
 import ../payment-service
 
 (Application-Start: API Gateway) {
-    <Start> the <http-server> on port 8080.
     <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
@@ -122,7 +122,7 @@ Every statement in ARO follows the **Action-Result-Object** pattern:
 Every statement ends with a period (`.`):
 
 ```aro
-<Extract> the <user-id> from the <request: parameters>.
+<Extract> the <user-id> from the <pathParameters: id>.
 <Retrieve> the <user> from the <user-repository>.
 <Return> an <OK: status> with <user>.
 ```
@@ -179,7 +179,7 @@ ARO uses English articles (`a`, `an`, `the`) for readability:
 ```aro
 <Return> an <OK: status> for the <request>.
 <Create> a <user> with <user-data>.
-<Extract> the <id> from the <request: parameters>.
+<Extract> the <id> from the <pathParameters: id>.
 ```
 
 Articles are syntactically required but don't affect semantics.
@@ -202,7 +202,6 @@ Prepositions define the relationship between result and object:
 | `with` | Accompaniment | `<Create> the <user> with <data>` |
 | `into` | Storage target | `<Store> the <user> into the <repository>` |
 | `against` | Comparison | `<Compare> the <a> against the <b>` |
-| `via` | Method/channel | `<Call> the <result> via <POST /api>` |
 | `on` | Location/port | `<Start> the <server> on port 8080` |
 | `as` | Alias/role | `<Publish> as <alias> <variable>` |
 
@@ -293,6 +292,7 @@ The required entry point:
 ```aro
 (Application-Start: My Application) {
     (* Initialization code *)
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 ```
@@ -313,15 +313,19 @@ Optional exit handlers:
 }
 ```
 
-### HTTP Routes
+### HTTP Route Handlers (Contract-First)
 
-Feature sets with HTTP method prefixes:
+Feature sets are named after `operationId` values from `openapi.yaml`:
 
 ```aro
-(GET /users: User API) { ... }
-(POST /users: User API) { ... }
-(PUT /users/{id}: User API) { ... }
-(DELETE /users/{id}: User API) { ... }
+(* openapi.yaml defines: GET /users -> operationId: listUsers *)
+(listUsers: User API) { ... }
+
+(* openapi.yaml defines: POST /users -> operationId: createUser *)
+(createUser: User API) { ... }
+
+(* openapi.yaml defines: GET /users/{id} -> operationId: getUser *)
+(getUser: User API) { ... }
 ```
 
 ### Event Handlers
@@ -329,9 +333,9 @@ Feature sets with HTTP method prefixes:
 Feature sets with "Handler" in the business activity:
 
 ```aro
-(Send Email: UserCreated Handler) { ... }
 (Process File: FileCreated Handler) { ... }
 (Log Connection: ClientConnected Handler) { ... }
+(Echo Data: DataReceived Handler) { ... }
 ```
 
 ## Whitespace and Formatting
@@ -340,10 +344,10 @@ ARO is whitespace-insensitive. These are equivalent:
 
 ```aro
 (* Compact *)
-(GET /users: API) { <Retrieve> the <users> from the <repository>. <Return> an <OK: status> with <users>. }
+(listUsers: API) { <Retrieve> the <users> from the <repository>. <Return> an <OK: status> with <users>. }
 
 (* Expanded *)
-(GET /users: API) {
+(listUsers: API) {
     <Retrieve> the <users> from the <repository>.
     <Return> an <OK: status> with <users>.
 }
@@ -362,7 +366,7 @@ The following words have special meaning in ARO:
 
 **Articles**: `a`, `an`, `the`
 
-**Prepositions**: `from`, `to`, `for`, `with`, `into`, `against`, `via`, `on`, `as`
+**Prepositions**: `from`, `to`, `for`, `with`, `into`, `against`, `on`, `as`
 
 **Control Flow**: `if`, `then`, `else`, `when`, `where`, `and`, `or`, `not`, `is`
 

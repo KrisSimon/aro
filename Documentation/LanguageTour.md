@@ -45,7 +45,7 @@ ARO statements follow the **Action-Result-Object** pattern:
 For example:
 
 ```aro
-<Extract> the <user-id> from the <request: parameters>.
+<Extract> the <user-id> from the <pathParameters: id>.
 <Retrieve> the <user> from the <user-repository>.
 <Create> the <response> with <user>.
 <Return> an <OK: status> with <response>.
@@ -110,7 +110,6 @@ Publish data or send to external systems:
 <Publish> as <current-user> <user>.
 <Log> the <message> for the <console>.
 <Send> the <email> to the <user: email>.
-<Emit> a <UserCreated: event> with <user>.
 ```
 
 ## Prepositions
@@ -125,7 +124,6 @@ Different prepositions convey different relationships:
 | `into` | Storage destination | `<Store> the <user> into the <repository>` |
 | `to` | Recipient | `<Send> the <message> to the <user>` |
 | `against` | Comparison target | `<Compare> the <hash> against the <stored-hash>` |
-| `via` | Method/channel | `<Call> the <api> via <POST /users>` |
 
 ## Application Lifecycle
 
@@ -139,9 +137,8 @@ The entry point - exactly one per application:
 (Application-Start: My Application) {
     <Log> the <startup: message> for the <console> with "Starting...".
 
-    (* Initialize services *)
-    <Start> the <http-server> on port 8080.
-    <Watch> the <directory: "./uploads"> as <file-monitor>.
+    (* Keep the application running to process events *)
+    <Keepalive> the <application> for the <events>.
 
     <Return> an <OK: status> for the <startup>.
 }
@@ -154,8 +151,7 @@ Optional exit handlers for cleanup:
 ```aro
 (* Called on graceful shutdown *)
 (Application-End: Success) {
-    <Stop> the <http-server>.
-    <Close> the <database-connections>.
+    <Log> the <shutdown: message> for the <console> with "Shutting down...".
     <Return> an <OK: status> for the <shutdown>.
 }
 
@@ -163,7 +159,6 @@ Optional exit handlers for cleanup:
 (Application-End: Error) {
     <Extract> the <error> from the <shutdown: error>.
     <Log> the <error: message> for the <console> with <error>.
-    <Send> the <alert> to the <ops-team>.
     <Return> an <OK: status> for the <error-handling>.
 }
 ```
@@ -172,55 +167,48 @@ Optional exit handlers for cleanup:
 
 Feature sets don't call each other directly. Instead, they respond to **events**:
 
-### HTTP Events
+### HTTP Events (Contract-First)
 
-Feature sets with route patterns respond to HTTP requests:
+ARO uses **contract-first** HTTP development. Routes are defined in an `openapi.yaml` file, and feature sets are named after the `operationId` values.
 
+**openapi.yaml:**
+```yaml
+openapi: 3.0.3
+info:
+  title: User API
+  version: 1.0.0
+
+paths:
+  /users:
+    get:
+      operationId: listUsers       # Feature set name
+    post:
+      operationId: createUser
+  /users/{id}:
+    get:
+      operationId: getUser
+```
+
+**handlers.aro:**
 ```aro
-(GET /users: User API) {
+(* Feature sets are named after operationId values *)
+
+(listUsers: User API) {
     <Retrieve> the <users> from the <user-repository>.
     <Return> an <OK: status> with <users>.
 }
 
-(GET /users/{id}: User API) {
-    <Extract> the <user-id> from the <request: parameters>.
+(getUser: User API) {
+    <Extract> the <user-id> from the <pathParameters: id>.
     <Retrieve> the <user> from the <user-repository> where id = <user-id>.
     <Return> an <OK: status> with <user>.
 }
 
-(POST /users: User API) {
+(createUser: User API) {
     <Extract> the <user-data> from the <request: body>.
     <Create> the <user> with <user-data>.
     <Store> the <user> into the <user-repository>.
-    <Emit> a <UserCreated: event> with <user>.
     <Return> a <Created: status> with <user>.
-}
-```
-
-### Domain Events
-
-Feature sets can emit and handle custom events:
-
-```aro
-(* Emitting an event *)
-(POST /orders: Order API) {
-    <Create> the <order> with <order-data>.
-    <Store> the <order> into the <order-repository>.
-    <Emit> an <OrderPlaced: event> with <order>.
-    <Return> a <Created: status> with <order>.
-}
-
-(* Handling an event *)
-(Send Confirmation: OrderPlaced Handler) {
-    <Extract> the <order> from the <event: order>.
-    <Extract> the <customer-email> from the <order: customerEmail>.
-    <Create> the <email> with {
-        to: <customer-email>,
-        subject: "Order Confirmation",
-        body: "Your order has been placed..."
-    }.
-    <Send> the <email> to the <email-service>.
-    <Return> an <OK: status> for the <notification>.
 }
 ```
 
@@ -264,8 +252,8 @@ ARO supports conditional logic:
 ### If-Then-Else
 
 ```aro
-(GET /users/{id}: User API) {
-    <Extract> the <user-id> from the <request: parameters>.
+(getUser: User API) {
+    <Extract> the <user-id> from the <pathParameters: id>.
     <Retrieve> the <user> from the <user-repository> where id = <user-id>.
 
     if <user> is empty then {
@@ -279,8 +267,8 @@ ARO supports conditional logic:
 ### Guards
 
 ```aro
-(Update User: User API) {
-    <Extract> the <user-id> from the <request: parameters>.
+(updateUser: User API) {
+    <Extract> the <user-id> from the <pathParameters: id>.
     <Extract> the <updates> from the <request: body>.
 
     when <user-id> is empty {
@@ -304,6 +292,7 @@ ARO applications can span multiple files without imports:
 
 ```
 MyApp/
+├── openapi.yaml       # API contract (required for HTTP)
 ├── main.aro           # Application-Start, Application-End
 ├── users.aro          # User feature sets
 ├── orders.aro         # Order feature sets
@@ -331,22 +320,66 @@ All feature sets are automatically visible to each other. Published variables ar
 }
 ```
 
-## HTTP Server
+## Contract-First HTTP Server
 
-ARO has built-in HTTP server capabilities:
+ARO uses **contract-first** API development where your API is defined in `openapi.yaml` before any code:
+
+### Application Structure
+
+```
+MyAPI/
+├── openapi.yaml      # Required: Defines all HTTP routes
+├── main.aro          # Application entry point
+└── handlers.aro      # Feature sets matching operationIds
+```
+
+### openapi.yaml
+
+```yaml
+openapi: 3.0.3
+info:
+  title: Product API
+  version: 1.0.0
+
+paths:
+  /products:
+    get:
+      operationId: listProducts
+    post:
+      operationId: createProduct
+  /products/{id}:
+    get:
+      operationId: getProduct
+    put:
+      operationId: updateProduct
+    delete:
+      operationId: deleteProduct
+```
+
+### main.aro
 
 ```aro
-(Application-Start: REST API) {
-    <Start> the <http-server> on port 8080.
+(Application-Start: Product API) {
+    <Log> the <startup: message> for the <console> with "Product API starting...".
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
-(GET /api/products: Product API) {
+(Application-End: Success) {
+    <Log> the <shutdown: message> for the <console> with "Shutting down...".
+    <Return> an <OK: status> for the <shutdown>.
+}
+```
+
+### handlers.aro
+
+```aro
+(listProducts: Product API) {
     <Retrieve> the <products> from the <product-repository>.
     <Return> an <OK: status> with <products>.
 }
 
-(POST /api/products: Product API) {
+(createProduct: Product API) {
     <Extract> the <product-data> from the <request: body>.
     <Validate> the <product-data> for the <product-schema>.
     <Create> the <product> with <product-data>.
@@ -354,8 +387,14 @@ ARO has built-in HTTP server capabilities:
     <Return> a <Created: status> with <product>.
 }
 
-(PUT /api/products/{id}: Product API) {
-    <Extract> the <product-id> from the <request: parameters>.
+(getProduct: Product API) {
+    <Extract> the <product-id> from the <pathParameters: id>.
+    <Retrieve> the <product> from the <product-repository> where id = <product-id>.
+    <Return> an <OK: status> with <product>.
+}
+
+(updateProduct: Product API) {
+    <Extract> the <product-id> from the <pathParameters: id>.
     <Extract> the <updates> from the <request: body>.
     <Retrieve> the <product> from the <product-repository> where id = <product-id>.
     <Transform> the <updated> from the <product> with <updates>.
@@ -363,8 +402,8 @@ ARO has built-in HTTP server capabilities:
     <Return> an <OK: status> with <updated>.
 }
 
-(DELETE /api/products/{id}: Product API) {
-    <Extract> the <product-id> from the <request: parameters>.
+(deleteProduct: Product API) {
+    <Extract> the <product-id> from the <pathParameters: id>.
     <Delete> the <product> from the <product-repository> where id = <product-id>.
     <Return> a <NoContent: status> for the <deletion>.
 }
@@ -376,7 +415,7 @@ Make outgoing HTTP requests:
 
 ```aro
 (Fetch Weather: External API) {
-    <Extract> the <city> from the <request: query city>.
+    <Extract> the <city> from the <queryParameters: city>.
     <Fetch> the <weather-data> from "https://api.weather.com/v1/weather?city=${city}".
     <Return> an <OK: status> with <weather-data>.
 }
@@ -437,45 +476,60 @@ ARO maps return statuses to HTTP status codes:
 
 ## Complete Example
 
-Here's a complete multi-file application:
+Here's a complete multi-file application with contract-first HTTP:
+
+### openapi.yaml
+```yaml
+openapi: 3.0.3
+info:
+  title: Task Manager API
+  version: 1.0.0
+
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+    post:
+      operationId: createTask
+  /tasks/{id}/complete:
+    put:
+      operationId: completeTask
+```
 
 ### main.aro
 ```aro
 (Application-Start: Task Manager) {
     <Log> the <startup: message> for the <console> with "Starting Task Manager...".
-    <Start> the <http-server> on port 3000.
-    <Log> the <ready: message> for the <console> with "Task Manager running on port 3000".
+    <Log> the <ready: message> for the <console> with "Task Manager running on port 8080".
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
 (Application-End: Success) {
     <Log> the <shutdown: message> for the <console> with "Shutting down...".
-    <Stop> the <http-server>.
     <Return> an <OK: status> for the <shutdown>.
 }
 ```
 
 ### tasks.aro
 ```aro
-(GET /tasks: Task API) {
+(listTasks: Task API) {
     <Retrieve> the <tasks> from the <task-repository>.
     <Return> an <OK: status> with <tasks>.
 }
 
-(POST /tasks: Task API) {
+(createTask: Task API) {
     <Extract> the <task-data> from the <request: body>.
     <Create> the <task> with <task-data>.
     <Store> the <task> into the <task-repository>.
-    <Emit> a <TaskCreated: event> with <task>.
     <Return> a <Created: status> with <task>.
 }
 
-(PUT /tasks/{id}/complete: Task API) {
-    <Extract> the <task-id> from the <request: parameters>.
+(completeTask: Task API) {
+    <Extract> the <task-id> from the <pathParameters: id>.
     <Retrieve> the <task> from the <task-repository> where id = <task-id>.
     <Transform> the <completed-task> from the <task> with { completed: true }.
     <Store> the <completed-task> into the <task-repository>.
-    <Emit> a <TaskCompleted: event> with <completed-task>.
     <Return> an <OK: status> with <completed-task>.
 }
 ```

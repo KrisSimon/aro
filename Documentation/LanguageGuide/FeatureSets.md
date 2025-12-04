@@ -44,14 +44,13 @@ These special feature sets manage the application lifecycle:
 (* Entry point - exactly one per application *)
 (Application-Start: My Application) {
     <Log> the <message> for the <console> with "Starting...".
-    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
 (* Called on graceful shutdown - optional, at most one *)
 (Application-End: Success) {
-    <Stop> the <http-server>.
-    <Close> the <database-connections>.
+    <Log> the <message> for the <console> with "Shutting down...".
     <Return> an <OK: status> for the <shutdown>.
 }
 
@@ -63,28 +62,58 @@ These special feature sets manage the application lifecycle:
 }
 ```
 
-### HTTP Route Handlers
+### HTTP Route Handlers (Contract-First)
 
-Feature sets prefixed with HTTP methods handle web requests:
+ARO uses **contract-first** HTTP development. Routes are defined in `openapi.yaml`, and feature sets are named after `operationId` values:
 
+**openapi.yaml:**
+```yaml
+openapi: 3.0.3
+info:
+  title: User API
+  version: 1.0.0
+
+paths:
+  /users:
+    get:
+      operationId: listUsers
+    post:
+      operationId: createUser
+  /users/{id}:
+    get:
+      operationId: getUser
+    put:
+      operationId: updateUser
+    delete:
+      operationId: deleteUser
+```
+
+**handlers.aro:**
 ```aro
-(* GET request *)
-(GET /users: User API) {
+(* GET /users *)
+(listUsers: User API) {
     <Retrieve> the <users> from the <user-repository>.
     <Return> an <OK: status> with <users>.
 }
 
-(* POST request *)
-(POST /users: User API) {
+(* POST /users *)
+(createUser: User API) {
     <Extract> the <user-data> from the <request: body>.
     <Create> the <user> with <user-data>.
     <Store> the <user> into the <user-repository>.
     <Return> a <Created: status> with <user>.
 }
 
-(* PUT request with path parameter *)
-(PUT /users/{id}: User API) {
-    <Extract> the <user-id> from the <request: parameters>.
+(* GET /users/{id} *)
+(getUser: User API) {
+    <Extract> the <user-id> from the <pathParameters: id>.
+    <Retrieve> the <user> from the <user-repository> where id = <user-id>.
+    <Return> an <OK: status> with <user>.
+}
+
+(* PUT /users/{id} *)
+(updateUser: User API) {
+    <Extract> the <user-id> from the <pathParameters: id>.
     <Extract> the <updates> from the <request: body>.
     <Retrieve> the <user> from the <user-repository> where id = <user-id>.
     <Transform> the <updated-user> from the <user> with <updates>.
@@ -92,32 +121,23 @@ Feature sets prefixed with HTTP methods handle web requests:
     <Return> an <OK: status> with <updated-user>.
 }
 
-(* DELETE request *)
-(DELETE /users/{id}: User API) {
-    <Extract> the <user-id> from the <request: parameters>.
+(* DELETE /users/{id} *)
+(deleteUser: User API) {
+    <Extract> the <user-id> from the <pathParameters: id>.
     <Delete> the <user> from the <user-repository> where id = <user-id>.
     <Return> a <NoContent: status> for the <deletion>.
-}
-
-(* PATCH request *)
-(PATCH /users/{id}: User API) {
-    <Extract> the <user-id> from the <request: parameters>.
-    <Extract> the <partial-update> from the <request: body>.
-    <Retrieve> the <user> from the <user-repository> where id = <user-id>.
-    <Transform> the <patched-user> from the <user> with <partial-update>.
-    <Store> the <patched-user> into the <user-repository>.
-    <Return> an <OK: status> with <patched-user>.
 }
 ```
 
 #### Path Parameters
 
-Use `{param}` syntax for dynamic path segments:
+Access path parameters via `<pathParameters: name>`:
 
 ```aro
-(GET /users/{userId}/orders/{orderId}: Order API) {
-    <Extract> the <user-id> from the <request: parameters userId>.
-    <Extract> the <order-id> from the <request: parameters orderId>.
+(* For /users/{userId}/orders/{orderId} *)
+(getUserOrder: Order API) {
+    <Extract> the <user-id> from the <pathParameters: userId>.
+    <Extract> the <order-id> from the <pathParameters: orderId>.
     <Retrieve> the <order> from the <order-repository>
         where userId = <user-id> and id = <order-id>.
     <Return> an <OK: status> with <order>.
@@ -129,14 +149,6 @@ Use `{param}` syntax for dynamic path segments:
 Feature sets with "Handler" in the business activity respond to events:
 
 ```aro
-(* Handle domain events *)
-(Send Welcome Email: UserCreated Handler) {
-    <Extract> the <user> from the <event: user>.
-    <Extract> the <email> from the <user: email>.
-    <Send> the <welcome-email> to the <email>.
-    <Return> an <OK: status> for the <notification>.
-}
-
 (* Handle file system events *)
 (Process Upload: FileCreated Handler) {
     <Extract> the <path> from the <event: path>.
@@ -162,8 +174,8 @@ Feature sets with "Handler" in the business activity respond to events:
 Feature sets are **never called directly**. They're triggered by:
 
 1. **Application start**: `Application-Start` runs once at startup
-2. **HTTP requests**: Route handlers match incoming requests
-3. **Events**: Event handlers respond to emitted events
+2. **HTTP requests**: Route handlers match incoming requests via operationId
+3. **Events**: Event handlers respond to file/socket events
 4. **Application shutdown**: `Application-End` runs during shutdown
 
 ### Execution Flow
@@ -171,7 +183,7 @@ Feature sets are **never called directly**. They're triggered by:
 Within a feature set, statements execute sequentially:
 
 ```aro
-(Process Order: Order Management) {
+(createOrder: Order Management) {
     (* 1. Extract data *)
     <Extract> the <order-data> from the <request: body>.
 
@@ -184,10 +196,7 @@ Within a feature set, statements execute sequentially:
     (* 4. Store *)
     <Store> the <order> into the <order-repository>.
 
-    (* 5. Emit event *)
-    <Emit> an <OrderCreated: event> with <order>.
-
-    (* 6. Return response *)
+    (* 5. Return response *)
     <Return> a <Created: status> with <order>.
 }
 ```
@@ -197,8 +206,8 @@ Within a feature set, statements execute sequentially:
 Use control flow to return early:
 
 ```aro
-(GET /users/{id}: User API) {
-    <Extract> the <user-id> from the <request: parameters>.
+(getUser: User API) {
+    <Extract> the <user-id> from the <pathParameters: id>.
     <Retrieve> the <user> from the <user-repository> where id = <user-id>.
 
     if <user> is empty then {
@@ -217,12 +226,12 @@ Organize related feature sets in files:
 
 ```
 MyApp/
+├── openapi.yaml       # API contract (required for HTTP)
 ├── main.aro           # Application lifecycle
 ├── users.aro          # User CRUD operations
 ├── orders.aro         # Order management
 ├── payments.aro       # Payment processing
-├── notifications.aro  # Email/SMS handlers
-└── events.aro         # Domain event handlers
+└── events.aro         # Event handlers
 ```
 
 ### By Domain
@@ -231,19 +240,19 @@ Group by business domain:
 
 **users.aro:**
 ```aro
-(GET /users: User API) { ... }
-(POST /users: User API) { ... }
-(GET /users/{id}: User API) { ... }
-(PUT /users/{id}: User API) { ... }
-(DELETE /users/{id}: User API) { ... }
+(listUsers: User API) { ... }
+(createUser: User API) { ... }
+(getUser: User API) { ... }
+(updateUser: User API) { ... }
+(deleteUser: User API) { ... }
 ```
 
 **orders.aro:**
 ```aro
-(GET /orders: Order API) { ... }
-(POST /orders: Order API) { ... }
-(GET /orders/{id}: Order API) { ... }
-(PUT /orders/{id}/status: Order API) { ... }
+(listOrders: Order API) { ... }
+(createOrder: Order API) { ... }
+(getOrder: Order API) { ... }
+(updateOrderStatus: Order API) { ... }
 ```
 
 ### By Concern
@@ -252,11 +261,9 @@ Group by technical concern:
 
 **events.aro:**
 ```aro
-(Log User Activity: UserCreated Handler) { ... }
-(Log User Activity: UserUpdated Handler) { ... }
-(Log User Activity: UserDeleted Handler) { ... }
-(Send Notification: OrderPlaced Handler) { ... }
-(Send Notification: OrderShipped Handler) { ... }
+(Log User Activity: FileCreated Handler) { ... }
+(Process Upload: FileCreated Handler) { ... }
+(Echo Data: DataReceived Handler) { ... }
 ```
 
 ## Cross-File Communication
@@ -274,30 +281,9 @@ Make variables available to other feature sets:
 }
 
 (* In any other file *)
-(GET /settings: Settings API) {
+(getSettings: Settings API) {
     <Extract> the <timeout> from the <app-config: timeout>.
     <Return> an <OK: status> with <timeout>.
-}
-```
-
-### Emitting Events
-
-Trigger other feature sets via events:
-
-```aro
-(* In orders.aro *)
-(POST /orders: Order API) {
-    <Create> the <order> with <order-data>.
-    <Store> the <order> into the <order-repository>.
-    <Emit> an <OrderCreated: event> with <order>.
-    <Return> a <Created: status> with <order>.
-}
-
-(* In notifications.aro - automatically triggered *)
-(Send Confirmation: OrderCreated Handler) {
-    <Extract> the <order> from the <event: order>.
-    <Send> the <confirmation-email> to the <order: customerEmail>.
-    <Return> an <OK: status> for the <notification>.
 }
 ```
 
@@ -341,7 +327,7 @@ Names should describe the action and context:
 Follow a consistent pattern:
 
 ```aro
-(Feature Name: Domain) {
+(featureName: Domain) {
     (* 1. Extract/validate inputs *)
     <Extract> the <input> from the <source>.
     <Validate> the <input> for the <schema>.
@@ -352,7 +338,6 @@ Follow a consistent pattern:
 
     (* 3. Side effects *)
     <Store> the <output> into the <repository>.
-    <Emit> an <Event: type> with <output>.
 
     (* 4. Return *)
     <Return> an <OK: status> with <output>.
