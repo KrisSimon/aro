@@ -27,7 +27,7 @@ function processHtmlFile(srcPath, destPath, stylesheetPath = 'style.css') {
 }
 
 // Process main HTML files (stylesheet at same level)
-const mainHtmlFiles = ['index.html', 'fdd.html', 'docs.html', 'getting-started.html', 'disclaimer.html'];
+const mainHtmlFiles = ['index.html', 'fdd.html', 'docs.html', 'getting-started.html', 'disclaimer.html', 'tutorial.html'];
 mainHtmlFiles.forEach(file => {
     processHtmlFile(`src/${file}`, `dist/${file}`, 'style.css');
 });
