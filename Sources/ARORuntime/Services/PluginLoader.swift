@@ -5,6 +5,10 @@
 
 import Foundation
 
+#if os(Windows)
+import WinSDK
+#endif
+
 // MARK: - Plugin Loader
 
 /// Loads and manages dynamic plugins for ARO
@@ -116,7 +120,14 @@ public final class PluginLoader: @unchecked Sendable {
     /// - Parameter sourceFile: Path to the .swift plugin file
     public func loadPlugin(from sourceFile: URL) throws {
         let pluginName = sourceFile.deletingPathExtension().lastPathComponent
-        let dylibPath = cacheDir.appendingPathComponent("\(pluginName).dylib")
+        #if os(Windows)
+        let libraryExtension = "dll"
+        #elseif os(Linux)
+        let libraryExtension = "so"
+        #else
+        let libraryExtension = "dylib"
+        #endif
+        let dylibPath = cacheDir.appendingPathComponent("\(pluginName).\(libraryExtension)")
 
         // Check if we need to recompile
         if shouldRecompile(source: sourceFile, dylib: dylibPath) {
@@ -209,7 +220,12 @@ public final class PluginLoader: @unchecked Sendable {
         print("[PluginLoader] Compiling plugin: \(source.lastPathComponent)")
 
         let process = Process()
+        #if os(Windows)
+        // On Windows, swiftc is in PATH
+        process.executableURL = URL(fileURLWithPath: "swiftc.exe")
+        #else
         process.executableURL = URL(fileURLWithPath: "/usr/bin/swiftc")
+        #endif
 
         // Build arguments for compiling to dylib
         var arguments = [
@@ -256,20 +272,42 @@ public final class PluginLoader: @unchecked Sendable {
             return
         }
 
-        // Load the dylib
+        // Load the library (platform-specific)
+        #if os(Windows)
+        let handle = path.path.withCString(encodedAs: UTF16.self) { LoadLibraryW($0) }
+        guard let handle = handle else {
+            let error = getWindowsError()
+            throw PluginError.loadFailed(name, message: error)
+        }
+        let rawHandle = UnsafeMutableRawPointer(handle)
+        #else
         guard let handle = dlopen(path.path, RTLD_NOW | RTLD_LOCAL) else {
             let error = String(cString: dlerror())
             throw PluginError.loadFailed(name, message: error)
         }
+        let rawHandle = handle
+        #endif
 
-        loadedPlugins[name] = handle
+        loadedPlugins[name] = rawHandle
 
         // Find the init function
-        guard let initSymbol = dlsym(handle, "aro_plugin_init") else {
+        #if os(Windows)
+        let initSymbol = GetProcAddress(handle, "aro_plugin_init")
+        #else
+        let initSymbol = dlsym(handle, "aro_plugin_init")
+        #endif
+
+        guard let initSymbol = initSymbol else {
             // No init function, try to load as simple service
             // Look for a function named after the plugin
             let serviceSymbol = "\(name.lowercased())_call"
-            if let callSymbol = dlsym(handle, serviceSymbol) {
+            #if os(Windows)
+            let callSymbol = GetProcAddress(handle, serviceSymbol)
+            #else
+            let callSymbol = dlsym(handle, serviceSymbol)
+            #endif
+
+            if let callSymbol = callSymbol {
                 let callFunc = unsafeBitCast(callSymbol, to: PluginCallFunction.self)
                 pluginFunctions[name.lowercased()] = callFunc
 
@@ -303,7 +341,13 @@ public final class PluginLoader: @unchecked Sendable {
                 continue
             }
 
-            guard let callSymbol = dlsym(handle, symbolName) else {
+            #if os(Windows)
+            let callSymbol = GetProcAddress(handle, symbolName)
+            #else
+            let callSymbol = dlsym(handle, symbolName)
+            #endif
+
+            guard let callSymbol = callSymbol else {
                 print("[PluginLoader] Warning: Symbol '\(symbolName)' not found in \(name)")
                 continue
             }
@@ -318,6 +362,28 @@ public final class PluginLoader: @unchecked Sendable {
             print("[PluginLoader] Registered plugin service: \(serviceName)")
         }
     }
+
+    #if os(Windows)
+    /// Get Windows error message
+    private func getWindowsError() -> String {
+        let errorCode = GetLastError()
+        var buffer: UnsafeMutablePointer<WCHAR>?
+        let length = FormatMessageW(
+            DWORD(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS),
+            nil,
+            errorCode,
+            0,
+            UnsafeMutablePointer<WCHAR>(OpaquePointer(&buffer)),
+            0,
+            nil
+        )
+        defer { LocalFree(buffer) }
+        if length > 0, let buffer = buffer {
+            return String(decodingCString: buffer, as: UTF16.self)
+        }
+        return "Error code: \(errorCode)"
+    }
+    #endif
 
     /// Convert Any to Sendable
     private func convertToSendable(_ value: Any) -> any Sendable {
@@ -362,7 +428,11 @@ public final class PluginLoader: @unchecked Sendable {
         defer { lock.unlock() }
 
         for (name, handle) in loadedPlugins {
+            #if os(Windows)
+            FreeLibrary(HMODULE(handle))
+            #else
             dlclose(handle)
+            #endif
             print("[PluginLoader] Unloaded plugin: \(name)")
         }
         loadedPlugins.removeAll()
