@@ -372,8 +372,8 @@ public struct BuiltInHTTPService: AROService {
         case let str as String:
             return str
         case let num as NSNumber:
-            // Check if it's a boolean (cross-platform)
-            #if canImport(CoreFoundation)
+            // Check if it's a boolean (Apple platforms have CFBoolean APIs)
+            #if canImport(Darwin)
             if CFGetTypeID(num) == CFBooleanGetTypeID() {
                 return num.boolValue
             }
