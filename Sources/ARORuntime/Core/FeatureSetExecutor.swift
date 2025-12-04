@@ -134,21 +134,30 @@ public final class FeatureSetExecutor: @unchecked Sendable {
             // For expressions, directly bind the result to the expression value
             // This handles cases like: <Set> the <x> to 30 * 2.
             // or: <Compute> the <total> from <price> * <quantity>.
+            // NOTE: We only do early return for simple assignment actions, NOT for
+            // comparison/assertion actions like Then/Assert that need to run.
             if statement.object.noun.base == "_expression_" {
-                context.bind(resultDescriptor.base, value: expressionValue)
+                // Check if the action needs to be executed (e.g., Then, Assert for testing)
+                // These actions need to compare values, not just bind them
+                let testVerbs: Set<String> = ["then", "assert"]
+                if !testVerbs.contains(verb.lowercased()) {
+                    context.bind(resultDescriptor.base, value: expressionValue)
 
-                // Still need to get the action for side effects (like Return, Log, etc.)
-                if let action = actionRegistry.action(for: verb) {
-                    // For response actions, execute them with the expression result
-                    if statement.action.semanticRole == .response {
-                        _ = try await action.execute(
-                            result: resultDescriptor,
-                            object: objectDescriptor,
-                            context: context
-                        )
+                    // Still need to get the action for side effects (like Return, Log, etc.)
+                    if let action = actionRegistry.action(for: verb) {
+                        // For response actions, execute them with the expression result
+                        if statement.action.semanticRole == .response {
+                            _ = try await action.execute(
+                                result: resultDescriptor,
+                                object: objectDescriptor,
+                                context: context
+                            )
+                        }
                     }
+                    return
                 }
-                return
+                // For test verbs (then, assert), fall through to normal execution
+                // The _expression_ binding is already set for ThenAction/AssertAction to use
             }
         }
 
@@ -186,6 +195,9 @@ public final class FeatureSetExecutor: @unchecked Sendable {
             if statement.action.semanticRole != .response {
                 context.bind(resultDescriptor.base, value: result)
             }
+        } catch let assertionError as AssertionError {
+            // Re-throw assertion errors directly for test framework
+            throw assertionError
         } catch let aroError as AROError {
             // Already an AROError, re-throw
             throw ActionError.statementFailed(aroError)

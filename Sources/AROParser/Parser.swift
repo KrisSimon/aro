@@ -959,7 +959,7 @@ extension Parser {
                 }
             }
             return .comparison
-        case .plus, .minus, .plusPlus: return .term
+        case .plus, .minus, .hyphen, .plusPlus: return .term
         case .star, .slash, .percent: return .factor
         case .leftBracket: return .postfix
         case .dot:
@@ -1057,7 +1057,7 @@ extension Parser {
     private func binaryOperator(from kind: TokenKind) -> BinaryOperator? {
         switch kind {
         case .plus: return .add
-        case .minus: return .subtract
+        case .minus, .hyphen: return .subtract
         case .star: return .multiply
         case .slash: return .divide
         case .percent: return .modulo

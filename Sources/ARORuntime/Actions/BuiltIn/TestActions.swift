@@ -121,14 +121,22 @@ public struct WhenAction: ActionImplementation {
         // Try to get the primary result value
         let resultValue: any Sendable
         if !response.data.isEmpty {
-            // Get the first value from response data
-            if let firstValue = response.data.values.first?.get() as (any Sendable)? {
+            // First try to get the value matching the result variable name
+            if let namedValue = response.data[result.base]?.get() as (any Sendable)? {
+                resultValue = namedValue
+            } else if let firstValue = response.data.values.first?.get() as (any Sendable)? {
+                // Then try the first value from response data
                 resultValue = firstValue
             } else {
                 resultValue = response
             }
         } else {
-            resultValue = response
+            // Fallback: try to get value from child context
+            if let childValue = childContext.resolveAny(result.base) {
+                resultValue = childValue
+            } else {
+                resultValue = response
+            }
         }
 
         // Bind result

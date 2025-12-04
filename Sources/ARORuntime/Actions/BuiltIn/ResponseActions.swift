@@ -35,6 +35,17 @@ public struct ReturnAction: ActionImplementation {
         // Gather any data to include in response
         var data: [String: AnySendable] = [:]
 
+        // Include object.base value (e.g., <sum> from "<Return> ... with <sum>")
+        if let value: String = context.resolve(object.base) {
+            data[object.base] = AnySendable(value)
+        } else if let value: Int = context.resolve(object.base) {
+            data[object.base] = AnySendable(value)
+        } else if let value: Bool = context.resolve(object.base) {
+            data[object.base] = AnySendable(value)
+        } else if let value: Double = context.resolve(object.base) {
+            data[object.base] = AnySendable(value)
+        }
+
         // Include object specifiers as data references
         for specifier in object.specifiers {
             if let value: String = context.resolve(specifier) {

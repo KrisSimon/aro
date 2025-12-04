@@ -5,17 +5,20 @@
 
 ## Overview
 
-ARO is a declarative language for specifying business features in a human-readable format 
+ARO is a declarative language for specifying business features in a human-readable format
 that can be compiled and executed. Features are expressed as Action-Result-Object statements.
 
 ### Key Features
 
 - **Event-Driven Execution**: Feature sets are triggered by events, not direct calls
 - **Application Lifecycle**: `Application-Start` (required), `Application-End: Success/Error` (optional)
+- **Contract-First APIs**: HTTP routes defined in `openapi.yaml`, handlers named after `operationId`
 - **HTTP Server**: Built-in web server using SwiftNIO
 - **HTTP Client**: Outgoing HTTP requests via AsyncHTTPClient
 - **File System**: File I/O and directory watching via FileMonitor
 - **Socket Communication**: TCP server and client support
+- **Testing Framework**: BDD-style tests with Given/When/Then actions
+- **Native Compilation**: Compile to native binaries with `aro build`
 - **Extensible Actions**: Plugin architecture for custom actions
 
 ### Example
@@ -23,7 +26,9 @@ that can be compiled and executed. Features are expressed as Action-Result-Objec
 ```aro
 (* Entry point - exactly one per application *)
 (Application-Start: My Service) {
-    <Start> the <http-server> on port 8080.
+    <Log> the <startup: message> for the <console> with "Starting service...".
+    <Start> the <http-server> on <port> with 8080.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 
@@ -33,8 +38,8 @@ that can be compiled and executed. Features are expressed as Action-Result-Objec
     <Return> an <OK: status> for the <shutdown>.
 }
 
-(* HTTP route handler - triggered by GET /users event *)
-(GET /users: User API) {
+(* HTTP route handler - matches operationId from openapi.yaml *)
+(listUsers: User API) {
     <Retrieve> the <users> from the <user-repository>.
     <Return> an <OK: status> with <users>.
 }
@@ -45,15 +50,22 @@ that can be compiled and executed. Features are expressed as Action-Result-Objec
     <Send> the <welcome-email> to the <user: email>.
     <Return> an <OK: status> for the <notification>.
 }
+
+(* Test feature set - run with: aro test *)
+(add-numbers-test: Calculator Test) {
+    <Given> the <a> with 5.
+    <Given> the <b> with 3.
+    <When> the <sum> from the <add-numbers>.
+    <Then> the <sum> with 8.
+}
 ```
 
 ## Project Structure
 
 ```
-AROParser/
+ARO-Lang/
 ├── Package.swift           # Swift package manifest
 ├── README.md               # This file
-├── TODO.md                 # Roadmap and feature tracking
 ├── Sources/
 │   ├── AROParser/          # Core parser library
 │   │   ├── SourceLocation.swift    # Position tracking
@@ -64,8 +76,7 @@ AROParser/
 │   │   ├── Parser.swift            # Recursive descent parser
 │   │   ├── SymbolTable.swift       # Symbol management
 │   │   ├── SemanticAnalyzer.swift  # Semantic analysis
-│   │   ├── Compiler.swift          # Main compilation pipeline
-│   │   └── Exports.swift           # Public API
+│   │   └── Compiler.swift          # Main compilation pipeline
 │   ├── ARORuntime/         # Runtime execution engine
 │   │   ├── Actions/                # Action system
 │   │   ├── Core/                   # Execution engine
@@ -73,31 +84,41 @@ AROParser/
 │   │   ├── HTTP/                   # HTTP server & client
 │   │   ├── FileSystem/             # File operations
 │   │   ├── Sockets/                # TCP communication
+│   │   ├── OpenAPI/                # Contract-first routing
+│   │   ├── Testing/                # Test framework
 │   │   └── Application/            # App lifecycle
+│   ├── AROCompiler/        # Native compilation (C code generation)
+│   ├── AROCRuntime/        # C-callable Swift runtime bridge
 │   └── AROCLI/             # Command-line interface
-│       ├── main.swift
-│       └── Commands/               # run, compile, check
+│       └── Commands/               # run, build, compile, check, test
 ├── Examples/               # Example applications
 │   ├── HelloWorld/         # Single-file example
 │   ├── HTTPServer/         # HTTP server example
 │   ├── FileWatcher/        # File monitoring example
 │   ├── EchoSocket/         # Socket example
-│   └── UserService/        # Multi-file application example
-│       ├── main.aro        # Application-Start entry point
-│       ├── users.aro       # HTTP route handlers
-│       └── events.aro      # Event handlers
+│   ├── Calculator/         # Test framework example
+│   ├── UserService/        # Multi-file application with OpenAPI
+│   │   ├── openapi.yaml    # API contract
+│   │   ├── main.aro        # Application-Start entry point
+│   │   ├── users.aro       # HTTP route handlers
+│   │   └── events.aro      # Event handlers
+│   └── ...                 # Additional examples
 ├── Documentation/          # Developer guides
 │   └── ActionDeveloperGuide.md
 ├── Tests/
 │   └── AROParserTests/     # Unit tests
-└── Proposals/              # Language Evolution Proposals
+└── Proposals/              # 28 Language Evolution Proposals
     ├── ARO-0001 through 0019  # Core language
-    └── ARO-0020 through 0025  # Runtime architecture
+    ├── ARO-0020 through 0025  # Runtime architecture
+    ├── ARO-0026              # Native compilation
+    ├── ARO-0027              # OpenAPI contract-first
+    ├── ARO-0028              # Long-running applications
+    └── ARO-0029              # Native file monitoring
 ```
 
 ## Language Specification
 
-The complete language is specified in 25 Evolution Proposals:
+The complete language is specified in 28 Evolution Proposals:
 
 ### Core Language (0001-0019)
 
@@ -110,20 +131,18 @@ The complete language is specified in 25 Evolution Proposals:
 | 0005 | Iteration & Loops | for-each, while, repeat-until |
 | 0006 | Type System | Types, generics, protocols |
 | 0007 | Modules & Imports | Module system, packages |
-| 0008 | Error Handling | try/catch, Result, guards |
+| 0008 | Error Handling | Code is the error message |
 | 0009 | Action Implementations | Action protocol, code generation |
-| 0010 | Annotations | @doc, @validate, @route |
-| 0011 | Concurrency | async/await, actors, channels |
-| 0012 | Events & Reactive | Event sourcing, sagas |
-| 0013 | State Machines | States, transitions |
+| 0011 | Concurrency | Async runtime with sync semantics |
+| 0012 | Events & Reactive | Event sourcing, direct dispatch |
+| 0013 | State Machines | State objects with Accept action |
 | 0014 | Domain Modeling | DDD constructs |
-| 0015 | Testing Framework | BDD, mocking |
+| 0015 | Testing Framework | BDD with Given/When/Then |
 | 0016 | Interoperability | Swift, REST, databases |
-| 0017 | Macros | Metaprogramming, DSLs |
 | 0018 | Query Language | SQL-like queries |
 | 0019 | Standard Library | Core utilities |
 
-### Runtime Architecture (0020-0025)
+### Runtime Architecture (0020-0029)
 
 | # | Proposal | Description |
 |---|----------|-------------|
@@ -133,6 +152,10 @@ The complete language is specified in 25 Evolution Proposals:
 | 0023 | File System | File I/O, FileMonitor integration |
 | 0024 | Sockets | TCP server/client, bidirectional |
 | 0025 | Action Extension | Custom action development |
+| 0026 | Native Compilation | Compile to native binaries |
+| 0027 | OpenAPI Contract-First | API routes from openapi.yaml |
+| 0028 | Long-Running Applications | Keepalive action |
+| 0029 | Native File Monitoring | Platform-specific file watching |
 
 See [Proposals/README.md](Proposals/README.md) for details.
 
@@ -151,21 +174,69 @@ aro run ./Examples/HelloWorld
 
 ## Usage
 
-### Running Applications
+### CLI Commands
 
 ```bash
 # Run an ARO application
 aro run ./Examples/HTTPServer
 
-# Servers use the <Keepalive> action to stay running
-# No --keep-alive flag needed
+# Compile to native binary
+aro build ./Examples/HelloWorld
 
-# Compile only (check for errors)
+# Run tests
+aro test ./Examples/Calculator
+
+# Compile and check for errors
 aro compile ./MyApp
 
 # Quick syntax check
 aro check ./MyApp
 ```
+
+### Contract-First HTTP APIs
+
+ARO uses **contract-first** API development. HTTP routes are defined in `openapi.yaml`,
+and feature sets are named after `operationId` values:
+
+```yaml
+# openapi.yaml
+paths:
+  /users:
+    get:
+      operationId: listUsers    # Feature set name
+    post:
+      operationId: createUser
+```
+
+```aro
+(* Feature set names match operationIds from openapi.yaml *)
+(listUsers: User API) {
+    <Retrieve> the <users> from the <user-repository>.
+    <Return> an <OK: status> with <users>.
+}
+
+(createUser: User API) {
+    <Extract> the <data> from the <request: body>.
+    <Create> the <user> with <data>.
+    <Emit> a <UserCreated: event> with <user>.
+    <Return> a <Created: status> with <user>.
+}
+```
+
+### Testing
+
+Tests are feature sets with "Test" suffix in business activity:
+
+```aro
+(add-positive-numbers: Calculator Test) {
+    <Given> the <a> with 5.
+    <Given> the <b> with 3.
+    <When> the <sum> from the <add-numbers>.
+    <Then> the <sum> with 8.
+}
+```
+
+Run tests with: `aro test ./Examples/Calculator`
 
 ### As a Library
 
@@ -185,8 +256,8 @@ let result = Compiler.compile(source)
 
 if result.isSuccess {
     // Execute the compiled program
-    let app = Application(programs: [result.analyzedProgram])
-    try await app.run()
+    let runtime = Runtime()
+    try await runtime.run(result.analyzedProgram)
 } else {
     for diagnostic in result.diagnostics {
         print("\(diagnostic.severity): \(diagnostic.message)")
@@ -227,7 +298,7 @@ See [Documentation/ActionDeveloperGuide.md](Documentation/ActionDeveloperGuide.m
 ### Compilation & Execution Pipeline
 
 ```
-Source Code
+Source Code (.aro files)
     │
     ▼
 ┌─────────┐
@@ -277,7 +348,7 @@ Source Code
 Each Feature Set has its own symbol table:
 
 - **REQUEST Actions** (Extract, Parse, Retrieve): External → Internal
-- **OWN Actions** (Compute, Validate, Compare): Internal → Internal  
+- **OWN Actions** (Compute, Validate, Compare, Create): Internal → Internal
 - **RESPONSE Actions** (Return, Throw): Internal → External
 - **EXPORT Actions** (Publish): Makes internal variables accessible globally
 
@@ -285,7 +356,7 @@ Each Feature Set has its own symbol table:
 
 ### Completed
 - Lexer with full token support
-- Recursive descent parser
+- Recursive descent parser with expression support
 - AST with visitor pattern
 - Symbol table management
 - Basic semantic analysis
@@ -297,20 +368,19 @@ Each Feature Set has its own symbol table:
 - HTTP client (AsyncHTTPClient)
 - File system operations (FileMonitor)
 - Socket server/client
-- CLI tool (`aro run/compile/check`)
+- Testing framework (Given/When/Then/Assert)
+- Native compilation (`aro build`)
+- CLI tool (`aro run/build/compile/check/test`)
 - Example applications
 
 ### In Progress
 - Type checking
-- Conditional branching
-- Loop constructs
+- Advanced conditional branching
 
 ### Planned
 - LSP server
 - IDE integration
 - Additional built-in actions
-
-See [TODO.md](TODO.md) for the complete roadmap.
 
 ## Design Principles
 
@@ -320,7 +390,8 @@ See [TODO.md](TODO.md) for the complete roadmap.
 4. **Visitor Pattern**: Extensible tree traversal
 5. **Error Recovery**: Continue parsing after errors
 6. **Event-Driven**: Loose coupling via event bus
-7. **Extensible Actions**: Plugin architecture for custom verbs
+7. **Contract-First**: API routes from OpenAPI spec
+8. **Extensible Actions**: Plugin architecture for custom verbs
 
 ## License
 
@@ -329,9 +400,8 @@ MIT License
 ## Contributing
 
 1. Read the relevant proposals in `Proposals/`
-2. Check `TODO.md` for planned features
-3. Submit issues for bugs or feature requests
-4. PRs welcome!
+2. Submit issues for bugs or feature requests
+3. PRs welcome!
 
 ---
 

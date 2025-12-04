@@ -22,17 +22,17 @@
 *)
 
 (add-numbers: Calculator) {
-    <Create> the <sum> with <a>.
+    <Create> the <sum> with <a> + <b>.
     <Return> an <OK: status> with <sum>.
 }
 
 (subtract-numbers: Calculator) {
-    <Create> the <difference> with <a>.
+    <Create> the <difference> with <a> - <b>.
     <Return> an <OK: status> with <difference>.
 }
 
 (multiply-numbers: Calculator) {
-    <Create> the <product> with <a>.
+    <Create> the <product> with <a> * <b>.
     <Return> an <OK: status> with <product>.
 }
 
