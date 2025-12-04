@@ -325,9 +325,20 @@ public final class PluginLoader: @unchecked Sendable {
         case let str as String:
             return str
         case let num as NSNumber:
+            // Check if it's a boolean (cross-platform)
+            #if canImport(CoreFoundation)
             if CFGetTypeID(num) == CFBooleanGetTypeID() {
                 return num.boolValue
             }
+            #else
+            // On Linux, check type encoding for boolean
+            let objCType = String(cString: num.objCType)
+            if objCType == "B" || objCType == "c" {
+                if num.intValue == 0 || num.intValue == 1 {
+                    return num.boolValue
+                }
+            }
+            #endif
             if floor(num.doubleValue) == num.doubleValue {
                 return num.intValue
             }

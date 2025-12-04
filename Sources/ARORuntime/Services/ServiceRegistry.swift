@@ -5,6 +5,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 // MARK: - Service Protocol
 
 /// Protocol for external service implementations
@@ -368,10 +372,20 @@ public struct BuiltInHTTPService: AROService {
         case let str as String:
             return str
         case let num as NSNumber:
-            // Check if it's a boolean
+            // Check if it's a boolean (cross-platform)
+            #if canImport(CoreFoundation)
             if CFGetTypeID(num) == CFBooleanGetTypeID() {
                 return num.boolValue
             }
+            #else
+            // On Linux, check type encoding for boolean
+            let objCType = String(cString: num.objCType)
+            if objCType == "B" || objCType == "c" {
+                if num.intValue == 0 || num.intValue == 1 {
+                    return num.boolValue
+                }
+            }
+            #endif
             // Check if it's an integer
             if floor(num.doubleValue) == num.doubleValue {
                 return num.intValue
