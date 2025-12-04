@@ -10,35 +10,50 @@ distDirs.forEach(dir => {
     }
 });
 
-// Read head partial
+// Read partials
 const headPartial = fs.readFileSync('src/partials/head.html', 'utf8');
+const footerPartial = fs.readFileSync('src/partials/footer.html', 'utf8');
 
-// Process HTML file with head partial injection
-function processHtmlFile(srcPath, destPath, stylesheetPath = 'style.css') {
+// Copy animation files to dist
+fs.copyFileSync('src/partials/animations.css', 'dist/animations.css');
+fs.copyFileSync('src/partials/animations.js', 'dist/animations.js');
+
+// Process HTML file with partial injection
+function processHtmlFile(srcPath, destPath, basePath = '') {
     if (!fs.existsSync(srcPath)) return;
 
     let content = fs.readFileSync(srcPath, 'utf8');
 
+    // Calculate stylesheet paths based on basePath
+    const stylesheetPath = basePath + 'style.css';
+    const animationsStylesheetPath = basePath + 'animations.css';
+
     // Replace {{head}} placeholder with head partial content
-    const headContent = headPartial.replace('{{stylesheet}}', stylesheetPath);
+    let headContent = headPartial
+        .replace('{{stylesheet}}', stylesheetPath)
+        .replace('{{animations-stylesheet}}', animationsStylesheetPath);
     content = content.replace('{{head}}', headContent);
+
+    // Replace {{footer}} placeholder with footer partial content
+    let footerContent = footerPartial.replace(/\{\{base\}\}/g, basePath);
+    content = content.replace('{{footer}}', footerContent);
 
     fs.writeFileSync(destPath, content);
 }
 
-// Process main HTML files (stylesheet at same level)
+// Process main HTML files (at root level)
 const mainHtmlFiles = ['index.html', 'fdd.html', 'docs.html', 'getting-started.html', 'disclaimer.html', 'tutorial.html'];
 mainHtmlFiles.forEach(file => {
-    processHtmlFile(`src/${file}`, `dist/${file}`, 'style.css');
+    processHtmlFile(`src/${file}`, `dist/${file}`, '');
 });
 
-// Process doc-template.html (stylesheet at parent level)
-processHtmlFile('src/doc-template.html', 'dist/doc-template.html', '../style.css');
+// Process doc-template.html (one level deep)
+processHtmlFile('src/doc-template.html', 'dist/doc-template.html', '../');
 
-// Process docs subdirectory pages
+// Process docs subdirectory pages (one level deep)
 const docsSubPages = ['event-driven.html', 'state-transitions.html', 'data-pipelines.html', 'native-compilation.html', 'language-proposals.html'];
 docsSubPages.forEach(file => {
-    processHtmlFile(`src/docs/${file}`, `dist/docs/${file}`, '../style.css');
+    processHtmlFile(`src/docs/${file}`, `dist/docs/${file}`, '../');
 });
 
 // Copy style.css
@@ -48,13 +63,23 @@ if (fs.existsSync('src/style.css')) {
 
 // Read template for markdown docs (1 level deep: /docs/)
 const docTemplate = fs.readFileSync('src/doc-template.html', 'utf8');
-const docHeadContent = headPartial.replace('{{stylesheet}}', '../style.css');
-const processedDocTemplate = docTemplate.replace('{{head}}', docHeadContent);
+const docHeadContent = headPartial
+    .replace('{{stylesheet}}', '../style.css')
+    .replace('{{animations-stylesheet}}', '../animations.css');
+const docFooterContent = footerPartial.replace(/\{\{base\}\}/g, '../');
+const processedDocTemplate = docTemplate
+    .replace('{{head}}', docHeadContent)
+    .replace('{{footer}}', docFooterContent);
 
 // Template for nested pages (2 levels deep: /docs/guide/, /docs/reference/)
 const nestedDocTemplate = fs.readFileSync('src/doc-template-nested.html', 'utf8');
-const nestedHeadContent = headPartial.replace('{{stylesheet}}', '../../style.css');
-const processedNestedTemplate = nestedDocTemplate.replace('{{head}}', nestedHeadContent);
+const nestedHeadContent = headPartial
+    .replace('{{stylesheet}}', '../../style.css')
+    .replace('{{animations-stylesheet}}', '../../animations.css');
+const nestedFooterContent = footerPartial.replace(/\{\{base\}\}/g, '../../');
+const processedNestedTemplate = nestedDocTemplate
+    .replace('{{head}}', nestedHeadContent)
+    .replace('{{footer}}', nestedFooterContent);
 
 // Extract title from markdown content
 function extractTitle(markdown) {
