@@ -140,11 +140,27 @@ struct BuildCommand: AsyncParsableCommand {
             print("Generating LLVM IR...")
         }
 
+        // Serialize OpenAPI spec to JSON for embedding (if present)
+        var openAPISpecJSON: String? = nil
+        if let spec = appConfig.openAPISpec {
+            do {
+                let encoder = JSONEncoder()
+                let jsonData = try encoder.encode(spec)
+                openAPISpecJSON = String(data: jsonData, encoding: .utf8)
+                if verbose {
+                    print("  Embedding OpenAPI spec (\(jsonData.count) bytes)")
+                }
+            } catch {
+                print("Warning: Could not serialize OpenAPI spec: \(error)")
+                // Continue without embedding - fall back to file-based loading at runtime
+            }
+        }
+
         let codeGenerator = LLVMCodeGenerator()
         let llvmResult: LLVMCodeGenerationResult
 
         do {
-            llvmResult = try codeGenerator.generate(program: mergedProgram)
+            llvmResult = try codeGenerator.generate(program: mergedProgram, openAPISpecJSON: openAPISpecJSON)
         } catch {
             print("Code generation error: \(error)")
             throw ExitCode.failure

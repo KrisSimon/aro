@@ -22,6 +22,7 @@ public final class LLVMCodeGenerator {
     private var output: String = ""
     private var stringConstants: [String: String] = [:]  // string -> global name
     private var uniqueCounter: Int = 0
+    private var openAPISpecJSON: String? = nil
 
     // MARK: - Initialization
 
@@ -30,12 +31,15 @@ public final class LLVMCodeGenerator {
     // MARK: - Code Generation
 
     /// Generate LLVM IR for an analyzed program
-    /// - Parameter program: The analyzed ARO program
+    /// - Parameters:
+    ///   - program: The analyzed ARO program
+    ///   - openAPISpecJSON: Optional OpenAPI spec as minified JSON to embed in binary
     /// - Returns: Result containing the LLVM IR text
-    public func generate(program: AnalyzedProgram) throws -> LLVMCodeGenerationResult {
+    public func generate(program: AnalyzedProgram, openAPISpecJSON: String? = nil) throws -> LLVMCodeGenerationResult {
         output = ""
         stringConstants = [:]
         uniqueCounter = 0
+        self.openAPISpecJSON = openAPISpecJSON
 
         // Emit module header
         emitModuleHeader()
@@ -155,6 +159,11 @@ public final class LLVMCodeGenerator {
         emit("; Standard C library")
         emit("declare i32 @strcmp(ptr, ptr)")
         emit("")
+
+        // OpenAPI embedding
+        emit("; OpenAPI spec embedding")
+        emit("declare void @aro_set_embedded_openapi(ptr)")
+        emit("")
     }
 
     // MARK: - String Constants
@@ -174,6 +183,11 @@ public final class LLVMCodeGenerator {
         registerString("Application-Start")
         registerString("_literal_")
         registerString("_expression_")
+
+        // Register OpenAPI spec JSON if provided (for embedded spec)
+        if let specJSON = openAPISpecJSON {
+            registerString(specJSON)
+        }
     }
 
     private func collectStringsFromStatement(_ statement: Statement) {
@@ -784,6 +798,14 @@ public final class LLVMCodeGenerator {
         emit("")
 
         emit("runtime_ok:")
+        // Set embedded OpenAPI spec if available
+        if let specJSON = openAPISpecJSON {
+            let specStr = stringConstants[specJSON]!
+            emit("  ; Set embedded OpenAPI spec")
+            emit("  call void @aro_set_embedded_openapi(ptr \(specStr))")
+            emit("")
+        }
+
         // Load pre-compiled plugins from the binary's directory
         emit("  %plugin_result = call i32 @aro_load_precompiled_plugins()")
         emit("")

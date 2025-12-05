@@ -1476,6 +1476,16 @@ nonisolated(unsafe) public var httpRouteHandlers: [String: (UnsafeMutableRawPoin
 /// Route registry for matching paths to operationIds
 nonisolated(unsafe) public var httpRoutes: [(method: String, path: String, operationId: String)] = []
 
+/// Global storage for embedded OpenAPI spec (JSON string, set at compile time)
+nonisolated(unsafe) public var embeddedOpenAPISpec: String? = nil
+
+/// Set the embedded OpenAPI spec (called from generated main)
+@_cdecl("aro_set_embedded_openapi")
+public func aro_set_embedded_openapi(_ specPtr: UnsafePointer<CChar>?) {
+    guard let ptr = specPtr else { return }
+    embeddedOpenAPISpec = String(cString: ptr)
+}
+
 /// Register a feature set handler for HTTP routing
 @_cdecl("aro_http_register_route")
 public func aro_http_register_route(
@@ -1545,28 +1555,33 @@ public func aro_native_http_server_start(_ port: Int32, _ contextPtr: UnsafeMuta
     return nativeHTTPServer?.start() == true ? 0 : -1
 }
 
-/// Start native HTTP server with OpenAPI spec from binary's directory
+/// Start native HTTP server with OpenAPI spec (embedded or from file)
 /// If port is 0, reads port from OpenAPI spec's server URL
 @_cdecl("aro_native_http_server_start_with_openapi")
 public func aro_native_http_server_start_with_openapi(_ port: Int32, _ contextPtr: UnsafeMutableRawPointer?) -> Int32 {
     httpServerLock.lock()
 
     var finalPort = port
+    var openapiContent: String? = nil
 
-    // Get the directory containing the binary executable
-    let executablePath = CommandLine.arguments[0]
-    let binaryDir = (executablePath as NSString).deletingLastPathComponent
+    // Priority 1: Use embedded spec if available (compiled into binary)
+    if let embedded = embeddedOpenAPISpec {
+        openapiContent = embedded
+    }
+    // Priority 2: Fall back to file-based loading from binary's directory
+    else {
+        let executablePath = CommandLine.arguments[0]
+        let binaryDir = (executablePath as NSString).deletingLastPathComponent
+        let openapiPath = binaryDir + "/openapi.yaml"
+        openapiContent = try? String(contentsOfFile: openapiPath, encoding: .utf8)
+    }
 
-    // Try to load openapi.yaml from binary's directory
-    let openapiPath = binaryDir + "/openapi.yaml"
+    // Parse routes and extract port from the spec
+    if let content = openapiContent {
+        parseOpenAPIRoutes(content)
 
-    if let openapiContent = try? String(contentsOfFile: openapiPath, encoding: .utf8) {
-        // Simple YAML parsing for routes
-        parseOpenAPIRoutes(openapiContent)
-
-        // Extract port from server URL if not explicitly specified
         if finalPort == 0 {
-            finalPort = Int32(extractPortFromOpenAPI(openapiContent))
+            finalPort = Int32(extractPortFromOpenAPI(content))
         }
     }
 
@@ -1580,8 +1595,18 @@ public func aro_native_http_server_start_with_openapi(_ port: Int32, _ contextPt
     return aro_native_http_server_start(finalPort, contextPtr)
 }
 
-/// Extract port from OpenAPI spec's server URL
-private func extractPortFromOpenAPI(_ yaml: String) -> Int {
+/// Extract port from OpenAPI spec's server URL (auto-detects YAML or JSON)
+private func extractPortFromOpenAPI(_ content: String) -> Int {
+    let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.hasPrefix("{") {
+        return extractPortFromOpenAPIJSON(content)
+    } else {
+        return extractPortFromOpenAPIYAML(content)
+    }
+}
+
+/// Extract port from OpenAPI YAML spec's server URL
+private func extractPortFromOpenAPIYAML(_ yaml: String) -> Int {
     let lines = yaml.components(separatedBy: "\n")
 
     for line in lines {
@@ -1593,17 +1618,8 @@ private func extractPortFromOpenAPI(_ yaml: String) -> Int {
                 .replacingOccurrences(of: "url:", with: "")
                 .trimmingCharacters(in: .whitespaces)
 
-            // Extract port from URL
-            if let colonRange = urlPart.range(of: "://") {
-                let afterScheme = String(urlPart[colonRange.upperBound...])
-                // Look for :PORT at the end
-                if let lastColon = afterScheme.lastIndex(of: ":") {
-                    let portString = String(afterScheme[afterScheme.index(after: lastColon)...])
-                        .components(separatedBy: CharacterSet(charactersIn: "/")).first ?? ""
-                    if let port = Int(portString) {
-                        return port
-                    }
-                }
+            if let port = extractPortFromURL(urlPart) {
+                return port
             }
         }
     }
@@ -1611,8 +1627,61 @@ private func extractPortFromOpenAPI(_ yaml: String) -> Int {
     return 0
 }
 
-/// Simple OpenAPI route parser
-private func parseOpenAPIRoutes(_ yaml: String) {
+/// Extract port from OpenAPI JSON spec's server URL
+private func extractPortFromOpenAPIJSON(_ json: String) -> Int {
+    guard let data = json.data(using: .utf8),
+          let spec = try? JSONDecoder().decode(OpenAPISpec.self, from: data),
+          let servers = spec.servers,
+          let firstServer = servers.first else {
+        return 0
+    }
+
+    return extractPortFromURL(firstServer.url) ?? 0
+}
+
+/// Extract port number from a URL string
+private func extractPortFromURL(_ urlString: String) -> Int? {
+    // Extract port from URL like "http://localhost:8000"
+    if let colonRange = urlString.range(of: "://") {
+        let afterScheme = String(urlString[colonRange.upperBound...])
+        // Look for :PORT at the end
+        if let lastColon = afterScheme.lastIndex(of: ":") {
+            let portString = String(afterScheme[afterScheme.index(after: lastColon)...])
+                .components(separatedBy: CharacterSet(charactersIn: "/")).first ?? ""
+            return Int(portString)
+        }
+    }
+    return nil
+}
+
+/// Simple OpenAPI route parser (auto-detects YAML or JSON)
+private func parseOpenAPIRoutes(_ content: String) {
+    let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.hasPrefix("{") {
+        parseOpenAPIRoutesJSON(content)
+    } else {
+        parseOpenAPIRoutesYAML(content)
+    }
+}
+
+/// Parse routes from OpenAPI JSON spec
+private func parseOpenAPIRoutesJSON(_ json: String) {
+    guard let data = json.data(using: .utf8),
+          let spec = try? JSONDecoder().decode(OpenAPISpec.self, from: data) else {
+        return
+    }
+
+    for (path, pathItem) in spec.paths {
+        for (method, operation) in pathItem.allOperations {
+            if let opId = operation.operationId {
+                httpRoutes.append((method: method.uppercased(), path: path, operationId: opId))
+            }
+        }
+    }
+}
+
+/// Parse routes from OpenAPI YAML spec
+private func parseOpenAPIRoutesYAML(_ yaml: String) {
     let lines = yaml.components(separatedBy: "\n")
     var currentPath: String? = nil
     var currentMethod: String? = nil
