@@ -1,0 +1,72 @@
+(* ARO-0031: Context-Aware Response Formatting Demo *)
+(*
+   This example demonstrates how ARO automatically formats responses
+   based on execution context:
+
+   - aro run ./Examples/ContextAware            -> Human context (readable)
+   - aro run ./Examples/ContextAware --debug    -> Developer context (diagnostic)
+   - HTTP API requests                          -> Machine context (JSON)
+   - aro test                                   -> Developer context (diagnostic)
+*)
+
+(Application-Start: Context-Aware Demo) {
+    (* Create sample user data *)
+    <Create> the <user> with {
+        id: 42,
+        name: "Alice Smith",
+        email: "alice@example.com",
+        role: "admin",
+        active: true,
+        score: 98.5
+    }.
+
+    (* Create an order with nested data *)
+    <Create> the <order> with {
+        order-id: "ORD-2024-001",
+        customer: "Alice Smith",
+        items: 3,
+        total: 249.99,
+        status: "completed"
+    }.
+
+    (* Create a list of tags *)
+    <Create> the <tags> with ["featured", "premium", "verified"].
+
+    (* Log information - format varies by context *)
+    <Log> the <message> for the <console> with "=== Context-Aware Response Demo ===".
+    <Log> the <message> for the <console> with "User data:".
+    <Log> the <message> for the <console> with <user>.
+    <Log> the <message> for the <console> with "Order data:".
+    <Log> the <message> for the <console> with <order>.
+
+    (* Return response with structured data *)
+    (* Output format depends on execution context:
+       - Human (aro run):
+           [OK] context-demo
+             order.customer: Alice Smith
+             order.items: 3
+             order.order-id: ORD-2024-001
+             summary: Demo of context-aware formatting
+             tags: featured, premium, verified
+             user.active: true
+             user.name: Alice Smith
+
+       - Developer (aro run --debug):
+           ┌────────────────┬─────────────────────────────┐
+           │ Response<OK>                                   │
+           ├────────────────┬─────────────────────────────┤
+           │ order.customer │ String("Alice Smith")       │
+           │ order.items    │ Int(3)                      │
+           │ user.active    │ Bool(true)                  │
+           │ user.score     │ Double(98.5)                │
+           └────────────────┴─────────────────────────────┘
+
+       - Machine (HTTP API): JSON response
+    *)
+    <Return> an <OK: status> for the <context-demo> with {
+        user: <user>,
+        order: <order>,
+        tags: <tags>,
+        summary: "Demo of context-aware formatting"
+    }.
+}

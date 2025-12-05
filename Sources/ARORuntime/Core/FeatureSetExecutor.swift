@@ -190,7 +190,28 @@ public final class FeatureSetExecutor: @unchecked Sendable {
                 context.bind(literalName, value: b)
             case .null:
                 context.bind(literalName, value: "")
+            case .array(let elements):
+                context.bind(literalName, value: convertLiteralArray(elements))
+            case .object(let fields):
+                context.bind(literalName, value: convertLiteralObject(fields))
             }
+        }
+
+        // ARO-0018: Bind aggregation clause if present
+        if let aggregation = statement.aggregation {
+            context.bind("_aggregation_type_", value: aggregation.type.rawValue)
+            if let field = aggregation.field {
+                context.bind("_aggregation_field_", value: field)
+            }
+        }
+
+        // ARO-0018: Bind where clause if present
+        if let whereClause = statement.whereClause {
+            context.bind("_where_field_", value: whereClause.field)
+            context.bind("_where_op_", value: whereClause.op.rawValue)
+            // Evaluate the where value expression
+            let whereValue = try await expressionEvaluator.evaluate(whereClause.value, context: context)
+            context.bind("_where_value_", value: whereValue)
         }
 
         // Get action implementation
@@ -389,7 +410,37 @@ public final class FeatureSetExecutor: @unchecked Sendable {
                 return optionalValue == nil
             }
             return false
+        case .array, .object:
+            // Complex types - use string comparison for now
+            return String(describing: convertLiteralValue(literal)) == String(describing: value)
         }
+    }
+
+    /// Convert a LiteralValue to a runtime value
+    private func convertLiteralValue(_ literal: LiteralValue) -> any Sendable {
+        switch literal {
+        case .string(let s): return s
+        case .integer(let i): return i
+        case .float(let f): return f
+        case .boolean(let b): return b
+        case .null: return ""
+        case .array(let elements): return convertLiteralArray(elements)
+        case .object(let fields): return convertLiteralObject(fields)
+        }
+    }
+
+    /// Convert an array of LiteralValues to a runtime array
+    private func convertLiteralArray(_ elements: [LiteralValue]) -> [any Sendable] {
+        elements.map { convertLiteralValue($0) }
+    }
+
+    /// Convert object fields to a runtime dictionary
+    private func convertLiteralObject(_ fields: [(String, LiteralValue)]) -> [String: any Sendable] {
+        var dict: [String: any Sendable] = [:]
+        for (key, value) in fields {
+            dict[key] = convertLiteralValue(value)
+        }
+        return dict
     }
 
     /// Check if two values are equal

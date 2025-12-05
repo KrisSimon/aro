@@ -26,6 +26,9 @@ struct RunCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Keep the application running (for servers)")
     var keepAlive: Bool = false
 
+    @Flag(name: .long, help: "Enable developer/debug output formatting")
+    var debug: Bool = false
+
     func run() async throws {
         let resolvedPath = URL(fileURLWithPath: path)
 
@@ -150,7 +153,8 @@ struct RunCommand: AsyncParsableCommand {
                     print("\nExecution completed:")
                 }
                 // Use context-aware formatting for response output
-                print(response.format(for: .human))
+                let outputContext: OutputContext = debug ? .developer : .human
+                print(response.format(for: outputContext))
             }
         } catch let error as ActionError {
             print("Runtime error: \(error)")

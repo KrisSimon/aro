@@ -238,6 +238,29 @@ struct BuildCommand: AsyncParsableCommand {
             print("  Intermediate files kept at: \(buildDir.path)")
         }
 
+        // Compile plugins if present (ARO-0031: plugins are compiled during build, not at runtime)
+        let sourcePluginsDir = appConfig.rootPath.appendingPathComponent("plugins")
+        let outputPluginsDir = binaryPath.deletingLastPathComponent().appendingPathComponent("plugins")
+
+        if FileManager.default.fileExists(atPath: sourcePluginsDir.path) {
+            if verbose {
+                print("Compiling plugins...")
+            }
+
+            do {
+                try PluginLoader.shared.compilePlugins(from: sourcePluginsDir, to: outputPluginsDir)
+                if verbose {
+                    // Count compiled plugins
+                    let pluginFiles = try? FileManager.default.contentsOfDirectory(at: outputPluginsDir, includingPropertiesForKeys: nil)
+                    let dylibCount = pluginFiles?.filter { $0.pathExtension == "dylib" || $0.pathExtension == "so" }.count ?? 0
+                    print("  \(dylibCount) plugin(s) compiled to: \(outputPluginsDir.path)")
+                }
+            } catch {
+                print("Warning: Plugin compilation failed: \(error)")
+                // Continue - plugins are optional
+            }
+        }
+
         let elapsed = Date().timeIntervalSince(startTime)
 
         print("Built: \(binaryPath.path)")

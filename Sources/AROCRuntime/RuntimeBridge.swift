@@ -206,6 +206,332 @@ public func aro_variable_bind_bool(
     contextHandle.context.bind(nameStr, value: value != 0)
 }
 
+/// Bind a dictionary variable in the context (from JSON string)
+/// - Parameters:
+///   - contextPtr: Context handle
+///   - name: Variable name (C string)
+///   - json: JSON object string (e.g., '{"key": "value"}')
+@_cdecl("aro_variable_bind_dict")
+public func aro_variable_bind_dict(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ name: UnsafePointer<CChar>?,
+    _ json: UnsafePointer<CChar>?
+) {
+    guard let ptr = contextPtr,
+          let nameStr = name.map({ String(cString: $0) }),
+          let jsonStr = json.map({ String(cString: $0) }) else { return }
+
+    let contextHandle = Unmanaged<AROCContextHandle>.fromOpaque(ptr).takeUnretainedValue()
+
+    // Parse JSON to dictionary
+    guard let data = jsonStr.data(using: .utf8),
+          let parsed = try? JSONSerialization.jsonObject(with: data, options: []),
+          let dict = parsed as? [String: Any] else {
+        // Fallback: bind as string (JSON parse failed)
+        contextHandle.context.bind(nameStr, value: jsonStr)
+        return
+    }
+
+    // Resolve $ref: prefixed values (variable references)
+    let resolvedDict = resolveReferences(dict, context: contextHandle.context)
+
+    // Convert to Sendable dictionary
+    let sendableDict = convertToSendable(resolvedDict) as? [String: any Sendable] ?? [:]
+    contextHandle.context.bind(nameStr, value: sendableDict)
+}
+
+/// Resolve $ref:varname values in a dictionary by looking up the variable in context
+private func resolveReferences(_ dict: [String: Any], context: RuntimeContext) -> [String: Any] {
+    var result: [String: Any] = [:]
+    for (key, value) in dict {
+        result[key] = resolveValue(value, context: context)
+    }
+    return result
+}
+
+/// Resolve a single value, replacing $ref:varname with actual variable values
+private func resolveValue(_ value: Any, context: RuntimeContext) -> Any {
+    if let str = value as? String, str.hasPrefix("$ref:") {
+        let varName = String(str.dropFirst(5))  // Remove "$ref:" prefix
+        if let resolved = context.resolveAny(varName) {
+            return resolved
+        } else {
+            return value  // Return original if not found
+        }
+    } else if let subDict = value as? [String: Any] {
+        return resolveReferences(subDict, context: context)
+    } else if let array = value as? [Any] {
+        return array.map { resolveValue($0, context: context) }
+    }
+    return value
+}
+
+/// Bind an array variable in the context (from JSON string)
+/// - Parameters:
+///   - contextPtr: Context handle
+///   - name: Variable name (C string)
+///   - json: JSON array string (e.g., '["a", "b", "c"]')
+@_cdecl("aro_variable_bind_array")
+public func aro_variable_bind_array(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ name: UnsafePointer<CChar>?,
+    _ json: UnsafePointer<CChar>?
+) {
+    guard let ptr = contextPtr,
+          let nameStr = name.map({ String(cString: $0) }),
+          let jsonStr = json.map({ String(cString: $0) }) else { return }
+
+    let contextHandle = Unmanaged<AROCContextHandle>.fromOpaque(ptr).takeUnretainedValue()
+
+    // Parse JSON to array
+    guard let data = jsonStr.data(using: .utf8),
+          let parsed = try? JSONSerialization.jsonObject(with: data, options: []),
+          let array = parsed as? [Any] else {
+        // Fallback: bind as string
+        contextHandle.context.bind(nameStr, value: jsonStr)
+        return
+    }
+
+    // Convert to Sendable array
+    let sendableArray = array.map { convertToSendable($0) }
+    contextHandle.context.bind(nameStr, value: sendableArray)
+}
+
+/// Convert Any to Sendable recursively
+private func convertToSendable(_ value: Any) -> any Sendable {
+    switch value {
+    case let str as String:
+        return str
+    // Check Bool BEFORE Int - NSNumber/CFBoolean can match both
+    case let bool as Bool:
+        return bool
+    case let int as Int:
+        return int
+    case let double as Double:
+        return double
+    case let dict as [String: Any]:
+        var result: [String: any Sendable] = [:]
+        for (k, v) in dict {
+            result[k] = convertToSendable(v)
+        }
+        return result
+    case let array as [Any]:
+        return array.map { convertToSendable($0) }
+    default:
+        return String(describing: value)
+    }
+}
+
+/// Copy a resolved value to the _expression_ variable
+/// This is used when a variable reference is used in a with clause
+/// - Parameters:
+///   - contextPtr: Context handle
+///   - valuePtr: Value handle from aro_variable_resolve
+@_cdecl("aro_copy_value_to_expression")
+public func aro_copy_value_to_expression(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ valuePtr: UnsafeMutableRawPointer?
+) {
+    guard let ptr = contextPtr else { return }
+
+    let contextHandle = Unmanaged<AROCContextHandle>.fromOpaque(ptr).takeUnretainedValue()
+
+    // If no value was resolved, don't bind anything
+    guard let valPtr = valuePtr else { return }
+
+    let boxed = Unmanaged<AROCValue>.fromOpaque(valPtr).takeUnretainedValue()
+
+    // Bind the resolved value to _expression_
+    contextHandle.context.bind("_expression_", value: boxed.value)
+}
+
+/// Evaluate a JSON-encoded expression and bind result to _expression_
+/// JSON format:
+///   {"$lit": value}           - literal value
+///   {"$var": "name"}          - variable reference
+///   {"$binary": {"op": "+", "left": {...}, "right": {...}}}  - binary expression
+/// - Parameters:
+///   - contextPtr: Context handle
+///   - json: JSON-encoded expression
+@_cdecl("aro_evaluate_expression")
+public func aro_evaluate_expression(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ json: UnsafePointer<CChar>?
+) {
+    guard let ptr = contextPtr,
+          let jsonStr = json.map({ String(cString: $0) }) else { return }
+
+    let contextHandle = Unmanaged<AROCContextHandle>.fromOpaque(ptr).takeUnretainedValue()
+
+    // Parse and evaluate the expression
+    guard let data = jsonStr.data(using: .utf8),
+          let parsed = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+        return
+    }
+
+    let result = evaluateExpressionJSON(parsed, context: contextHandle.context)
+    contextHandle.context.bind("_expression_", value: result)
+}
+
+/// Recursively evaluate a JSON-encoded expression
+private func evaluateExpressionJSON(_ expr: [String: Any], context: RuntimeContext) -> any Sendable {
+    // Literal value
+    if let lit = expr["$lit"] {
+        return convertToSendable(lit)
+    }
+
+    // Variable reference
+    if let varName = expr["$var"] as? String {
+        return context.resolveAny(varName) ?? ""
+    }
+
+    // Binary expression
+    if let binary = expr["$binary"] as? [String: Any],
+       let op = binary["op"] as? String,
+       let leftExpr = binary["left"] as? [String: Any],
+       let rightExpr = binary["right"] as? [String: Any] {
+
+        let left = evaluateExpressionJSON(leftExpr, context: context)
+        let right = evaluateExpressionJSON(rightExpr, context: context)
+
+        return evaluateBinaryOp(op: op, left: left, right: right)
+    }
+
+    return ""
+}
+
+/// Evaluate a binary operation
+private func evaluateBinaryOp(op: String, left: any Sendable, right: any Sendable) -> any Sendable {
+    switch op {
+    // Arithmetic
+    case "+":
+        if let l = asDouble(left), let r = asDouble(right) {
+            // Preserve int type if both are ints
+            if let li = left as? Int, let ri = right as? Int {
+                return li + ri
+            }
+            return l + r
+        }
+        return 0
+
+    case "-":
+        if let l = asDouble(left), let r = asDouble(right) {
+            if let li = left as? Int, let ri = right as? Int {
+                return li - ri
+            }
+            return l - r
+        }
+        return 0
+
+    case "*":
+        if let l = asDouble(left), let r = asDouble(right) {
+            if let li = left as? Int, let ri = right as? Int {
+                return li * ri
+            }
+            return l * r
+        }
+        return 0
+
+    case "/":
+        if let l = asDouble(left), let r = asDouble(right), r != 0 {
+            if let li = left as? Int, let ri = right as? Int, li % ri == 0 {
+                return li / ri
+            }
+            return l / r
+        }
+        return 0
+
+    case "%":
+        if let li = left as? Int, let ri = right as? Int, ri != 0 {
+            return li % ri
+        }
+        return 0
+
+    // String concatenation
+    case "++":
+        let l = asString(left)
+        let r = asString(right)
+        return l + r
+
+    // Comparison
+    case "==":
+        return asString(left) == asString(right)
+
+    case "!=":
+        return asString(left) != asString(right)
+
+    case "<":
+        if let l = asDouble(left), let r = asDouble(right) {
+            return l < r
+        }
+        return false
+
+    case ">":
+        if let l = asDouble(left), let r = asDouble(right) {
+            return l > r
+        }
+        return false
+
+    case "<=":
+        if let l = asDouble(left), let r = asDouble(right) {
+            return l <= r
+        }
+        return false
+
+    case ">=":
+        if let l = asDouble(left), let r = asDouble(right) {
+            return l >= r
+        }
+        return false
+
+    // Logical
+    case "and":
+        return asBool(left) && asBool(right)
+
+    case "or":
+        return asBool(left) || asBool(right)
+
+    default:
+        return ""
+    }
+}
+
+/// Convert value to Double for arithmetic
+private func asDouble(_ value: any Sendable) -> Double? {
+    switch value {
+    case let i as Int: return Double(i)
+    case let d as Double: return d
+    case let s as String: return Double(s)
+    default: return nil
+    }
+}
+
+/// Convert value to String
+private func asString(_ value: any Sendable) -> String {
+    switch value {
+    case let s as String: return s
+    case let i as Int: return String(i)
+    case let d as Double:
+        // Format nicely - no trailing zeros
+        if d == floor(d) {
+            return String(Int(d))
+        }
+        return String(format: "%.2f", d)
+    case let b as Bool: return b ? "true" : "false"
+    default: return String(describing: value)
+    }
+}
+
+/// Convert value to Bool
+private func asBool(_ value: any Sendable) -> Bool {
+    switch value {
+    case let b as Bool: return b
+    case let i as Int: return i != 0
+    case let s as String: return s.lowercased() == "true"
+    default: return false
+    }
+}
+
 /// Resolve a variable from the context
 /// - Parameters:
 ///   - contextPtr: Context handle
@@ -390,7 +716,7 @@ struct CustomRuntimeEvent: RuntimeEvent {
 
 // MARK: - Plugin Loading
 
-/// Load plugins from a directory
+/// Load plugins from a directory (compiles if needed - for interpreter use)
 /// - Parameter dirPath: Path to the directory containing the plugins/ folder
 /// - Returns: 0 on success, non-zero on failure
 @_cdecl("aro_load_plugins")
@@ -401,6 +727,35 @@ public func aro_load_plugins(_ dirPath: UnsafePointer<CChar>?) -> Int32 {
 
     do {
         try PluginLoader.shared.loadPlugins(from: directory)
+        return 0
+    } catch {
+        print("[ARO] Plugin loading error: \(error)")
+        return 1
+    }
+}
+
+/// Load pre-compiled plugins relative to the binary's location
+/// This is used by native compiled binaries - no compilation occurs at runtime
+/// - Returns: 0 on success, non-zero on failure
+@_cdecl("aro_load_precompiled_plugins")
+public func aro_load_precompiled_plugins() -> Int32 {
+    // Get the path to the current executable
+    let executablePath = CommandLine.arguments[0]
+    let executableURL: URL
+
+    // Handle both absolute and relative paths
+    if executablePath.hasPrefix("/") {
+        executableURL = URL(fileURLWithPath: executablePath)
+    } else {
+        let cwd = FileManager.default.currentDirectoryPath
+        executableURL = URL(fileURLWithPath: cwd).appendingPathComponent(executablePath)
+    }
+
+    // Resolve any symlinks to get the real path
+    let resolvedURL = executableURL.resolvingSymlinksInPath()
+
+    do {
+        try PluginLoader.shared.loadPrecompiledPlugins(relativeTo: resolvedURL)
         return 0
     } catch {
         print("[ARO] Plugin loading error: \(error)")

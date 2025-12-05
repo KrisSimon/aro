@@ -98,7 +98,7 @@ public final class LLVMCodeGenerator {
         emit("declare ptr @aro_context_create(ptr)")
         emit("declare ptr @aro_context_create_named(ptr, ptr)")
         emit("declare void @aro_context_destroy(ptr)")
-        emit("declare i32 @aro_load_plugins(ptr)")
+        emit("declare i32 @aro_load_precompiled_plugins()")
         emit("")
 
         // Variable operations
@@ -107,12 +107,16 @@ public final class LLVMCodeGenerator {
         emit("declare void @aro_variable_bind_int(ptr, ptr, i64)")
         emit("declare void @aro_variable_bind_double(ptr, ptr, double)")
         emit("declare void @aro_variable_bind_bool(ptr, ptr, i32)")
+        emit("declare void @aro_variable_bind_dict(ptr, ptr, ptr)")
+        emit("declare void @aro_variable_bind_array(ptr, ptr, ptr)")
         emit("declare ptr @aro_variable_resolve(ptr, ptr)")
+        emit("declare void @aro_copy_value_to_expression(ptr, ptr)")
         emit("declare ptr @aro_variable_resolve_string(ptr, ptr)")
         emit("declare i32 @aro_variable_resolve_int(ptr, ptr, ptr)")
         emit("declare void @aro_value_free(ptr)")
         emit("declare ptr @aro_value_as_string(ptr)")
         emit("declare i32 @aro_value_as_int(ptr, ptr)")
+        emit("declare void @aro_evaluate_expression(ptr, ptr)")
         emit("")
 
         // All action functions
@@ -122,7 +126,9 @@ public final class LLVMCodeGenerator {
             "compute", "validate", "compare", "transform", "create", "update",
             "return", "throw", "emit", "send", "log", "store", "write", "publish",
             "start", "listen", "route", "watch", "stop", "keepalive",
-            "call"
+            "call",
+            // Data pipeline actions (ARO-0018)
+            "filter", "reduce", "map"
         ]
         for action in actions {
             emit("declare ptr @aro_action_\(action)(ptr, ptr, ptr)")
@@ -168,7 +174,6 @@ public final class LLVMCodeGenerator {
         registerString("Application-Start")
         registerString("_literal_")
         registerString("_expression_")
-        registerString(".")  // For plugin loading from current directory
     }
 
     private func collectStringsFromStatement(_ statement: Statement) {
@@ -183,8 +188,8 @@ public final class LLVMCodeGenerator {
                 registerString(spec)
             }
 
-            if case .string(let s) = aroStatement.literalValue {
-                registerString(s)
+            if let literal = aroStatement.literalValue {
+                collectStringsFromLiteral(literal)
             }
 
             // Collect strings from expressions (ARO-0002)
@@ -216,12 +221,157 @@ public final class LLVMCodeGenerator {
 
     private func collectStringsFromExpression(_ expression: any AROParser.Expression) {
         if let literalExpr = expression as? LiteralExpression {
-            if case .string(let s) = literalExpr.value {
-                registerString(s)
+            collectStringsFromLiteral(literalExpr.value)
+        } else if let varRefExpr = expression as? VariableRefExpression {
+            // Register variable name for runtime resolution
+            registerString(varRefExpr.noun.base)
+        } else if let mapExpr = expression as? MapLiteralExpression {
+            // Register JSON representation of the map
+            let jsonString = mapExpressionToJSON(mapExpr)
+            registerString(jsonString)
+            // Also register nested strings from entries
+            for entry in mapExpr.entries {
+                registerString(entry.key)
+                collectStringsFromExpression(entry.value)
             }
+        } else if let arrayExpr = expression as? ArrayLiteralExpression {
+            // Register JSON representation of the array
+            let jsonString = arrayExpressionToJSON(arrayExpr)
+            registerString(jsonString)
+            // Also register nested strings from elements
+            for element in arrayExpr.elements {
+                collectStringsFromExpression(element)
+            }
+        } else if let binaryExpr = expression as? BinaryExpression {
+            // Register the JSON representation for runtime evaluation
+            let jsonString = binaryExpressionToJSON(binaryExpr)
+            registerString(jsonString)
+            // Also collect strings from operands
+            collectStringsFromExpression(binaryExpr.left)
+            collectStringsFromExpression(binaryExpr.right)
+        } else if let groupedExpr = expression as? GroupedExpression {
+            collectStringsFromExpression(groupedExpr.expression)
         }
-        // For complex expressions (binary, etc.), we could recurse, but for now
-        // we only support simple literal expressions in native compilation
+    }
+
+    /// Convert a MapLiteralExpression to JSON string
+    private func mapExpressionToJSON(_ mapExpr: MapLiteralExpression) -> String {
+        let pairs = mapExpr.entries.map { entry in
+            let keyEscaped = entry.key.replacingOccurrences(of: "\"", with: "\\\"")
+            let valueJSON = expressionToJSON(entry.value)
+            return "\"\(keyEscaped)\":\(valueJSON)"
+        }
+        return "{\(pairs.joined(separator: ","))}"
+    }
+
+    /// Convert an ArrayLiteralExpression to JSON string
+    private func arrayExpressionToJSON(_ arrayExpr: ArrayLiteralExpression) -> String {
+        let items = arrayExpr.elements.map { expressionToJSON($0) }
+        return "[\(items.joined(separator: ","))]"
+    }
+
+    /// Convert a BinaryExpression to JSON string for runtime evaluation
+    /// Format: {"$binary":{"op":"*","left":{...},"right":{...}}}
+    private func binaryExpressionToJSON(_ binaryExpr: BinaryExpression) -> String {
+        let opStr = binaryExpr.op.rawValue.replacingOccurrences(of: "\"", with: "\\\"")
+        let leftJSON = expressionToEvalJSON(binaryExpr.left)
+        let rightJSON = expressionToEvalJSON(binaryExpr.right)
+        return "{\"$binary\":{\"op\":\"\(opStr)\",\"left\":\(leftJSON),\"right\":\(rightJSON)}}"
+    }
+
+    /// Convert any Expression to evaluation JSON format
+    /// Format for values: {"$lit": value} or {"$var": "name"} or {"$binary": {...}}
+    private func expressionToEvalJSON(_ expr: any AROParser.Expression) -> String {
+        if let literalExpr = expr as? LiteralExpression {
+            return "{\"$lit\":\(literalToJSON(literalExpr.value))}"
+        } else if let varRefExpr = expr as? VariableRefExpression {
+            let escaped = varRefExpr.noun.base.replacingOccurrences(of: "\"", with: "\\\"")
+            return "{\"$var\":\"\(escaped)\"}"
+        } else if let binaryExpr = expr as? BinaryExpression {
+            return binaryExpressionToJSON(binaryExpr)
+        } else if let groupedExpr = expr as? GroupedExpression {
+            return expressionToEvalJSON(groupedExpr.expression)
+        } else {
+            // Fallback: treat as string literal
+            let escaped = expr.description.replacingOccurrences(of: "\"", with: "\\\"")
+            return "{\"$lit\":\"\(escaped)\"}"
+        }
+    }
+
+    /// Convert any Expression to JSON string (for nested values)
+    private func expressionToJSON(_ expr: any AROParser.Expression) -> String {
+        if let literalExpr = expr as? LiteralExpression {
+            return literalToJSON(literalExpr.value)
+        } else if let varRefExpr = expr as? VariableRefExpression {
+            // Variable reference: use $ref: prefix so runtime can resolve it
+            let escaped = varRefExpr.noun.base.replacingOccurrences(of: "\"", with: "\\\"")
+            return "\"$ref:\(escaped)\""
+        } else if let mapExpr = expr as? MapLiteralExpression {
+            return mapExpressionToJSON(mapExpr)
+        } else if let arrayExpr = expr as? ArrayLiteralExpression {
+            return arrayExpressionToJSON(arrayExpr)
+        } else {
+            // Fallback: use description as string
+            let escaped = expr.description.replacingOccurrences(of: "\"", with: "\\\"")
+            return "\"\(escaped)\""
+        }
+    }
+
+    private func collectStringsFromLiteral(_ literal: LiteralValue) {
+        switch literal {
+        case .string(let s):
+            registerString(s)
+        case .object(let pairs):
+            // Register JSON representation
+            let jsonString = literalToJSON(literal)
+            registerString(jsonString)
+            // Also register nested strings
+            for (key, value) in pairs {
+                registerString(key)
+                collectStringsFromLiteral(value)
+            }
+        case .array(let items):
+            // Register JSON representation
+            let jsonString = literalToJSON(literal)
+            registerString(jsonString)
+            // Also register nested strings
+            for item in items {
+                collectStringsFromLiteral(item)
+            }
+        default:
+            break
+        }
+    }
+
+    /// Convert a LiteralValue to its JSON string representation
+    private func literalToJSON(_ literal: LiteralValue) -> String {
+        switch literal {
+        case .string(let s):
+            // Escape special characters for JSON
+            let escaped = s
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\r", with: "\\r")
+                .replacingOccurrences(of: "\t", with: "\\t")
+            return "\"\(escaped)\""
+        case .integer(let i):
+            return String(i)
+        case .float(let f):
+            return String(f)
+        case .boolean(let b):
+            return b ? "true" : "false"
+        case .null:
+            return "null"
+        case .array(let items):
+            let itemsJson = items.map { literalToJSON($0) }.joined(separator: ",")
+            return "[\(itemsJson)]"
+        case .object(let pairs):
+            let pairsJson = pairs.map { key, value in
+                "\"\(key)\":\(literalToJSON(value))"
+            }.joined(separator: ",")
+            return "{\(pairsJson)}"
+        }
     }
 
     private func registerString(_ str: String) {
@@ -394,6 +544,18 @@ public final class LLVMCodeGenerator {
         case .null:
             // No binding needed
             break
+
+        case .array:
+            // Bind array as JSON string
+            let jsonString = literalToJSON(literal)
+            let jsonConst = stringConstants[jsonString]!
+            emit("  call void @aro_variable_bind_array(ptr %ctx, ptr \(literalNameStr), ptr \(jsonConst))")
+
+        case .object:
+            // Bind object as JSON string
+            let jsonString = literalToJSON(literal)
+            let jsonConst = stringConstants[jsonString]!
+            emit("  call void @aro_variable_bind_dict(ptr %ctx, ptr \(literalNameStr), ptr \(jsonConst))")
         }
     }
 
@@ -419,10 +581,53 @@ public final class LLVMCodeGenerator {
 
             case .null:
                 break
+
+            case .array:
+                // Bind array as JSON string
+                let jsonString = literalToJSON(literalExpr.value)
+                let jsonConst = stringConstants[jsonString]!
+                emit("  call void @aro_variable_bind_array(ptr %ctx, ptr \(exprNameStr), ptr \(jsonConst))")
+
+            case .object:
+                // Bind object as JSON string
+                let jsonString = literalToJSON(literalExpr.value)
+                let jsonConst = stringConstants[jsonString]!
+                emit("  call void @aro_variable_bind_dict(ptr %ctx, ptr \(exprNameStr), ptr \(jsonConst))")
             }
+        } else if let varRefExpr = expression as? VariableRefExpression {
+            // Variable reference expression: <user>, <user: id>, etc.
+            // Resolve the variable and copy its value to _expression_
+            let varName = varRefExpr.noun.base
+            let varNameStr = stringConstants[varName]!
+
+            emit("  ; Resolve variable reference <\(varName)> for expression binding")
+            emit("  %\(prefix)_varref = call ptr @aro_variable_resolve(ptr %ctx, ptr \(varNameStr))")
+            emit("  call void @aro_copy_value_to_expression(ptr %ctx, ptr %\(prefix)_varref)")
+        } else if let mapExpr = expression as? MapLiteralExpression {
+            // Map literal expression: { key: value, ... }
+            // Bind as JSON string and let runtime parse it
+            let jsonString = mapExpressionToJSON(mapExpr)
+            let jsonConst = stringConstants[jsonString]!
+            emit("  ; Bind map expression as JSON")
+            emit("  call void @aro_variable_bind_dict(ptr %ctx, ptr \(exprNameStr), ptr \(jsonConst))")
+        } else if let arrayExpr = expression as? ArrayLiteralExpression {
+            // Array literal expression: [elem1, elem2, ...]
+            // Bind as JSON string and let runtime parse it
+            let jsonString = arrayExpressionToJSON(arrayExpr)
+            let jsonConst = stringConstants[jsonString]!
+            emit("  ; Bind array expression as JSON")
+            emit("  call void @aro_variable_bind_array(ptr %ctx, ptr \(exprNameStr), ptr \(jsonConst))")
+        } else if let binaryExpr = expression as? BinaryExpression {
+            // Binary expression: <a> + <b>, <x> * <y>, <s> ++ <t>, etc.
+            // Serialize to JSON and evaluate at runtime
+            let jsonString = binaryExpressionToJSON(binaryExpr)
+            let jsonConst = stringConstants[jsonString]!
+            emit("  ; Evaluate binary expression at runtime")
+            emit("  call void @aro_evaluate_expression(ptr %ctx, ptr \(jsonConst))")
+        } else if let groupedExpr = expression as? GroupedExpression {
+            // Grouped expression: (expr) - evaluate the inner expression
+            try emitExpressionBinding(groupedExpr.expression, prefix: prefix)
         }
-        // TODO: Handle complex expressions (binary, variable references, etc.)
-        // For now, only literal expressions are supported in native compilation
     }
 
     private func generatePublishStatement(_ statement: PublishStatement, index: Int) throws {
@@ -579,9 +784,8 @@ public final class LLVMCodeGenerator {
         emit("")
 
         emit("runtime_ok:")
-        // Load plugins from current directory (supports custom services)
-        let pluginDirStr = stringConstants["."]!
-        emit("  %plugin_result = call i32 @aro_load_plugins(ptr \(pluginDirStr))")
+        // Load pre-compiled plugins from the binary's directory
+        emit("  %plugin_result = call i32 @aro_load_precompiled_plugins()")
         emit("")
         // Create named context
         emit("  %ctx = call ptr @aro_context_create_named(ptr %runtime, ptr \(appStartStr))")

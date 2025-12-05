@@ -24,6 +24,14 @@ public struct MapAction: ActionImplementation {
 
     public init() {}
 
+    // Known type specifiers that should not be treated as field names
+    private static let typeSpecifiers: Set<String> = [
+        "List", "Array", "Set",
+        "Integer", "Int", "Float", "Double", "Number",
+        "String", "Boolean", "Bool",
+        "Object", "Dictionary", "Map"
+    ]
+
     public func execute(
         result: ResultDescriptor,
         object: ObjectDescriptor,
@@ -36,10 +44,13 @@ public struct MapAction: ActionImplementation {
             throw ActionError.undefinedVariable(object.base)
         }
 
+        // Find field specifier (skip known type specifiers)
+        let fieldSpecifier = result.specifiers.first { !Self.typeSpecifiers.contains($0) }
+
         // Handle array mapping
         if let array = source as? [any Sendable] {
             // If there's a field specifier, extract that field from each item
-            if let field = result.specifiers.first {
+            if let field = fieldSpecifier {
                 return array.compactMap { item -> (any Sendable)? in
                     if let dict = item as? [String: any Sendable] {
                         return dict[field]
@@ -56,7 +67,7 @@ public struct MapAction: ActionImplementation {
 
         // Handle dictionary - extract field
         if let dict = source as? [String: any Sendable] {
-            if let field = result.specifiers.first {
+            if let field = fieldSpecifier {
                 if let value = dict[field] {
                     return value
                 }
@@ -100,11 +111,19 @@ public struct ReduceAction: ActionImplementation {
             throw ActionError.undefinedVariable(object.base)
         }
 
-        // Get aggregation function from specifiers or expression
-        let aggregateFunc = result.specifiers.first?.lowercased() ?? "count"
+        // Get aggregation function from context binding (ARO-0018) or fall back to specifiers
+        let aggregateFunc: String
+        let field: String?
 
-        // Get field to aggregate (if specified)
-        let field = result.specifiers.count > 1 ? result.specifiers[1] : nil
+        if let aggType = context.resolveAny("_aggregation_type_") as? String {
+            // New ARO-0018 syntax: with sum(<field>)
+            aggregateFunc = aggType.lowercased()
+            field = context.resolveAny("_aggregation_field_") as? String
+        } else {
+            // Legacy syntax: specifiers
+            aggregateFunc = result.specifiers.first?.lowercased() ?? "count"
+            field = result.specifiers.count > 1 ? result.specifiers[1] : nil
+        }
 
         // Handle array aggregation
         guard let array = source as? [any Sendable] else {
@@ -122,9 +141,9 @@ public struct ReduceAction: ActionImplementation {
             if let field = field, let dict = item as? [String: any Sendable] {
                 return asDouble(dict[field])
             }
+            // For simple arrays of numbers, convert directly
             return asDouble(item)
         }
-
         // Apply aggregation function
         switch aggregateFunc {
         case "count":
@@ -164,19 +183,20 @@ public struct ReduceAction: ActionImplementation {
     }
 }
 
-// MARK: - Enhanced Filter with Predicates
+// MARK: - Filter Action
 
-/// Filters a collection using predicates
+/// Filters a collection using a where clause
 ///
-/// This enhanced filter supports comparison operators for filtering.
+/// The Filter action filters a collection based on field predicates.
 ///
 /// ## Example
 /// ```aro
 /// <Filter> the <active: List<User>> from the <users> where <status> is "active".
+/// <Filter> the <high-value: List<Order>> from the <orders> where <amount> > 1000.
 /// ```
-public struct PredicateFilterAction: ActionImplementation {
+public struct FilterAction: ActionImplementation {
     public static let role: ActionRole = .own
-    public static let verbs: Set<String> = ["filter-where"]
+    public static let verbs: Set<String> = ["filter"]
     public static let validPrepositions: Set<Preposition> = [.from]
 
     public init() {}
@@ -193,15 +213,29 @@ public struct PredicateFilterAction: ActionImplementation {
             throw ActionError.undefinedVariable(object.base)
         }
 
-        // Get predicate from specifiers: [field, operator, value]
-        guard result.specifiers.count >= 3 else {
+        // Get where clause from context binding (ARO-0018) or fall back to specifiers
+        let field: String?
+        let op: String?
+        let expectedValue: any Sendable
+
+        if let whereField = context.resolveAny("_where_field_") as? String {
+            // New ARO-0018 syntax: where <field> is "value"
+            field = whereField
+            op = context.resolveAny("_where_op_") as? String
+            expectedValue = context.resolveAny("_where_value_") ?? ""
+        } else if result.specifiers.count >= 3 {
+            // Legacy syntax: specifiers
+            field = result.specifiers[0]
+            op = result.specifiers[1]
+            expectedValue = result.specifiers[2]
+        } else {
             // No predicate - return all
             return source
         }
 
-        let field = result.specifiers[0]
-        let op = result.specifiers[1]
-        let expectedValue = result.specifiers[2]
+        guard let field = field, let op = op else {
+            return source
+        }
 
         // Handle array filtering with predicate
         guard let array = source as? [any Sendable] else {
@@ -217,57 +251,76 @@ public struct PredicateFilterAction: ActionImplementation {
         }
     }
 
-    private func matchesPredicate(actual: Any, op: String, expected: String) -> Bool {
+    private func matchesPredicate(actual: Any, op: String, expected: any Sendable) -> Bool {
         let actualStr = String(describing: actual)
+        let expectedStr = String(describing: expected)
 
         switch op.lowercased() {
         case "is", "==", "equals":
-            return actualStr == expected
+            return actualStr == expectedStr
 
-        case "is-not", "!=", "not-equals":
-            return actualStr != expected
+        case "is not", "is-not", "!=", "not-equals":
+            return actualStr != expectedStr
 
         case ">", "gt":
-            if let actualNum = Double(actualStr), let expectedNum = Double(expected) {
+            if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
                 return actualNum > expectedNum
             }
-            return actualStr > expected
+            return actualStr > expectedStr
 
         case ">=", "gte":
-            if let actualNum = Double(actualStr), let expectedNum = Double(expected) {
+            if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
                 return actualNum >= expectedNum
             }
-            return actualStr >= expected
+            return actualStr >= expectedStr
 
         case "<", "lt":
-            if let actualNum = Double(actualStr), let expectedNum = Double(expected) {
+            if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
                 return actualNum < expectedNum
             }
-            return actualStr < expected
+            return actualStr < expectedStr
 
         case "<=", "lte":
-            if let actualNum = Double(actualStr), let expectedNum = Double(expected) {
+            if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
                 return actualNum <= expectedNum
             }
-            return actualStr <= expected
+            return actualStr <= expectedStr
 
         case "contains":
-            return actualStr.contains(expected)
+            return actualStr.contains(expectedStr)
 
         case "starts-with":
-            return actualStr.hasPrefix(expected)
+            return actualStr.hasPrefix(expectedStr)
 
         case "ends-with":
-            return actualStr.hasSuffix(expected)
+            return actualStr.hasSuffix(expectedStr)
+
+        case "matches":
+            // Regex matching
+            do {
+                let regex = try NSRegularExpression(pattern: expectedStr)
+                let range = NSRange(actualStr.startIndex..., in: actualStr)
+                return regex.firstMatch(in: actualStr, range: range) != nil
+            } catch {
+                return false
+            }
 
         case "in":
             // Expected should be comma-separated values
-            let values = expected.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+            let values = expectedStr.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
             return values.contains(actualStr)
 
         default:
-            return actualStr == expected
+            return actualStr == expectedStr
         }
+    }
+
+    private func asDouble(_ value: Any) -> Double? {
+        if let d = value as? Double { return d }
+        if let i = value as? Int { return Double(i) }
+        if let f = value as? Float { return Double(f) }
+        if let s = value as? String { return Double(s) }
+        return nil
     }
 }
 

@@ -116,6 +116,93 @@ public final class PluginLoader: @unchecked Sendable {
         }
     }
 
+    /// Load pre-compiled plugins from the plugins directory
+    /// This is used by native compiled binaries - no compilation occurs
+    /// Plugins are discovered relative to the binary's location
+    /// - Parameter binaryPath: Path to the executable binary
+    public func loadPrecompiledPlugins(relativeTo binaryPath: URL) throws {
+        let binaryDir = binaryPath.deletingLastPathComponent()
+        let pluginsDir = binaryDir.appendingPathComponent("plugins")
+
+        #if os(Windows)
+        let libraryExtension = "dll"
+        #elseif os(Linux)
+        let libraryExtension = "so"
+        #else
+        let libraryExtension = "dylib"
+        #endif
+
+        // Check if plugins directory exists
+        guard FileManager.default.fileExists(atPath: pluginsDir.path) else {
+            return // No plugins directory, nothing to load
+        }
+
+        // Find all .dylib/.so/.dll files in plugins directory
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: pluginsDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        let dylibFiles = contents.filter { $0.pathExtension == libraryExtension }
+
+        for dylibFile in dylibFiles {
+            let pluginName = dylibFile.deletingPathExtension().lastPathComponent
+            do {
+                try loadDylib(at: dylibFile, name: pluginName)
+                print("[PluginLoader] Loaded precompiled plugin: \(pluginName)")
+            } catch {
+                print("[PluginLoader] Warning: Failed to load \(dylibFile.lastPathComponent): \(error)")
+            }
+        }
+    }
+
+    /// Compile plugins to the output directory (for aro build)
+    /// - Parameters:
+    ///   - sourceDirectory: Source plugins directory (containing .swift files)
+    ///   - outputDirectory: Output plugins directory (where .dylib/.so files go)
+    public func compilePlugins(from sourceDirectory: URL, to outputDirectory: URL) throws {
+        let sourcePluginsDir = sourceDirectory
+        let outputPluginsDir = outputDirectory
+
+        #if os(Windows)
+        let libraryExtension = "dll"
+        #elseif os(Linux)
+        let libraryExtension = "so"
+        #else
+        let libraryExtension = "dylib"
+        #endif
+
+        // Check if source plugins directory exists
+        guard FileManager.default.fileExists(atPath: sourcePluginsDir.path) else {
+            return // No plugins directory, nothing to compile
+        }
+
+        // Create output plugins directory
+        try FileManager.default.createDirectory(at: outputPluginsDir, withIntermediateDirectories: true)
+
+        // Find all .swift files in source plugins directory
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: sourcePluginsDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        let swiftFiles = contents.filter { $0.pathExtension == "swift" }
+
+        for swiftFile in swiftFiles {
+            let pluginName = swiftFile.deletingPathExtension().lastPathComponent
+            let outputPath = outputPluginsDir.appendingPathComponent("\(pluginName).\(libraryExtension)")
+
+            do {
+                try compilePlugin(source: swiftFile, output: outputPath)
+                print("[PluginLoader] Compiled plugin: \(pluginName) -> plugins/\(outputPath.lastPathComponent)")
+            } catch {
+                print("[PluginLoader] Warning: Failed to compile \(swiftFile.lastPathComponent): \(error)")
+            }
+        }
+    }
+
     /// Load a single plugin from a Swift file
     /// - Parameter sourceFile: Path to the .swift plugin file
     public func loadPlugin(from sourceFile: URL) throws {

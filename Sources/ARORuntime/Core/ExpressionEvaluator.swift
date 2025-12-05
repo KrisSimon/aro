@@ -106,6 +106,14 @@ public struct ExpressionEvaluator: Sendable {
         case .float(let f): return f
         case .boolean(let b): return b
         case .null: return NullValue.null
+        case .array(let elements):
+            return elements.map { evaluateLiteral($0) }
+        case .object(let fields):
+            var dict: [String: any Sendable] = [:]
+            for (key, value) in fields {
+                dict[key] = evaluateLiteral(value)
+            }
+            return dict
         }
     }
 

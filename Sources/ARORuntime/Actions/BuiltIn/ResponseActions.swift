@@ -35,27 +35,34 @@ public struct ReturnAction: ActionImplementation {
         // Gather any data to include in response
         var data: [String: AnySendable] = [:]
 
-        // Include object.base value (e.g., <sum> from "<Return> ... with <sum>")
-        if let value: String = context.resolve(object.base) {
-            data[object.base] = AnySendable(value)
-        } else if let value: Int = context.resolve(object.base) {
-            data[object.base] = AnySendable(value)
-        } else if let value: Bool = context.resolve(object.base) {
-            data[object.base] = AnySendable(value)
-        } else if let value: Double = context.resolve(object.base) {
-            data[object.base] = AnySendable(value)
+        // Check for expression from "with" clause (e.g., with { user: <user>, ... })
+        // Note: When with clause contains variable references, it's parsed as expression
+        if let expr = context.resolveAny("_expression_") {
+            if let dict = expr as? [String: any Sendable] {
+                for (key, value) in dict {
+                    flattenValue(value, into: &data, prefix: key, context: context)
+                }
+            }
+        }
+
+        // Check for object literal from "with" clause (for simple literals without var refs)
+        if let literal = context.resolveAny("_literal_") {
+            if let dict = literal as? [String: any Sendable] {
+                for (key, value) in dict {
+                    flattenValue(value, into: &data, prefix: key, context: context)
+                }
+            }
+        }
+
+        // Include object.base value if resolvable
+        if let value = context.resolveAny(object.base) {
+            flattenValue(value, into: &data, prefix: object.base, context: context)
         }
 
         // Include object specifiers as data references
         for specifier in object.specifiers {
-            if let value: String = context.resolve(specifier) {
-                data[specifier] = AnySendable(value)
-            } else if let value: Int = context.resolve(specifier) {
-                data[specifier] = AnySendable(value)
-            } else if let value: Bool = context.resolve(specifier) {
-                data[specifier] = AnySendable(value)
-            } else if let value: Double = context.resolve(specifier) {
-                data[specifier] = AnySendable(value)
+            if let value = context.resolveAny(specifier) {
+                flattenValue(value, into: &data, prefix: specifier, context: context)
             }
         }
 
@@ -67,6 +74,61 @@ public struct ReturnAction: ActionImplementation {
 
         context.setResponse(response)
         return response
+    }
+
+    /// Flatten a value into the data dictionary using dot notation for nested objects
+    private func flattenValue(
+        _ value: any Sendable,
+        into data: inout [String: AnySendable],
+        prefix: String,
+        context: ExecutionContext
+    ) {
+        switch value {
+        case let str as String:
+            // Check if it's a variable reference
+            if let resolved = context.resolveAny(str) {
+                flattenValue(resolved, into: &data, prefix: prefix, context: context)
+            } else {
+                data[prefix] = AnySendable(str)
+            }
+        case let int as Int:
+            data[prefix] = AnySendable(int)
+        case let double as Double:
+            data[prefix] = AnySendable(double)
+        case let bool as Bool:
+            data[prefix] = AnySendable(bool)
+        case let dict as [String: any Sendable]:
+            // Recursively flatten nested dictionaries with dot notation
+            for (key, nestedValue) in dict {
+                let nestedPrefix = "\(prefix).\(key)"
+                flattenValue(nestedValue, into: &data, prefix: nestedPrefix, context: context)
+            }
+        case let array as [any Sendable]:
+            // Arrays become comma-separated values
+            let items = array.map { formatArrayItem($0, context: context) }
+            data[prefix] = AnySendable(items.joined(separator: ", "))
+        default:
+            data[prefix] = AnySendable(String(describing: value))
+        }
+    }
+
+    /// Format an array item as a string
+    private func formatArrayItem(_ value: any Sendable, context: ExecutionContext) -> String {
+        switch value {
+        case let str as String:
+            if let resolved = context.resolveAny(str) {
+                return formatArrayItem(resolved, context: context)
+            }
+            return str
+        case let int as Int:
+            return String(int)
+        case let double as Double:
+            return String(double)
+        case let bool as Bool:
+            return bool ? "true" : "false"
+        default:
+            return String(describing: value)
+        }
     }
 }
 

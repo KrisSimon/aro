@@ -420,63 +420,7 @@ extension CreatedEntity: Equatable {
 
 // MARK: - Additional OWN Actions (ARO-0001)
 
-/// Filters a collection to select a subset
-public struct FilterAction: ActionImplementation {
-    public static let role: ActionRole = .own
-    public static let verbs: Set<String> = ["filter", "select", "where"]
-    public static let validPrepositions: Set<Preposition> = [.from, .with, .for]
-
-    public init() {}
-
-    public func execute(
-        result: ResultDescriptor,
-        object: ObjectDescriptor,
-        context: ExecutionContext
-    ) async throws -> any Sendable {
-        try validatePreposition(object.preposition)
-
-        // Get collection to filter
-        guard let collection = context.resolveAny(object.base) else {
-            throw ActionError.undefinedVariable(object.base)
-        }
-
-        // Filter predicate from result specifiers
-        let predicate = result.specifiers.first ?? "all"
-
-        // Handle array filtering
-        if let array = collection as? [any Sendable] {
-            switch predicate.lowercased() {
-            case "all":
-                return array
-            case "first":
-                if let first = array.first {
-                    return first
-                }
-                return [] as [any Sendable]
-            case "last":
-                if let last = array.last {
-                    return last
-                }
-                return [] as [any Sendable]
-            case "empty":
-                return array.filter { item in
-                    if let str = item as? String { return str.isEmpty }
-                    return false
-                }
-            case "nonempty":
-                return array.filter { item in
-                    if let str = item as? String { return !str.isEmpty }
-                    return true
-                }
-            default:
-                return array
-            }
-        }
-
-        // Return original if not filterable
-        return collection
-    }
-}
+// Note: FilterAction with ARO-0018 where clause support is now in QueryActions.swift
 
 /// Sorts a collection
 public struct SortAction: ActionImplementation {

@@ -652,6 +652,8 @@ public final class SemanticAnalyzer {
             case .float: return .float
             case .boolean: return .boolean
             case .null: return .unknown
+            case .array: return .list(.unknown)
+            case .object: return .map(key: .string, value: .unknown)
             }
 
         case is ArrayLiteralExpression:

@@ -229,6 +229,7 @@ public final class Parser {
         var objectNoun: QualifiedNoun
         let literalValue: LiteralValue? = nil
         var expression: (any Expression)? = nil
+        var aggregation: AggregationClause? = nil
 
         // Check if we should parse an expression after the preposition
         // This happens for: `to <expr>`, `from <expr>`, `with <expr>`, `for <expr>` when followed by expression-starting token
@@ -251,14 +252,24 @@ public final class Parser {
             objectNoun = try parseQualifiedNoun()
             try expect(.rightAngle, message: "'>'")
 
-            // Parse optional value after object: `with "string"` or `with <expr>`
+            // Parse optional value after object: `with "string"` or `with <expr>` or `with sum(<field>)`
             if case .preposition(.with) = peek().kind {
                 advance() // consume 'with'
-                if isExpressionStart(peek()) {
+                // Check for aggregation functions: sum(<field>), count(), avg(<field>)
+                if let agg = try parseAggregationIfPresent() {
+                    aggregation = agg
+                } else if isExpressionStart(peek()) {
                     // Try to parse as expression first
                     expression = try parseExpression()
                 }
             }
+        }
+
+        // Parse optional where clause (ARO-0018): `where <field> is "value"` or `where <field> > 1000`
+        var whereClause: WhereClause?
+        if check(.where) {
+            advance() // consume 'where'
+            whereClause = try parseWhereClause()
         }
 
         // Parse optional when clause (ARO-0004): `when <condition>`
@@ -276,6 +287,8 @@ public final class Parser {
             object: ObjectClause(preposition: prep, noun: objectNoun),
             literalValue: literalValue,
             expression: expression,
+            aggregation: aggregation,
+            whereClause: whereClause,
             whenCondition: whenCondition,
             span: startToken.span.merged(with: endToken.span)
         )
@@ -319,6 +332,107 @@ public final class Parser {
         }
     }
 
+    /// Parses aggregation function if present: sum(<field>), count(), avg(<field>), min(<field>), max(<field>)
+    /// Returns nil if not an aggregation function
+    private func parseAggregationIfPresent() throws -> AggregationClause? {
+        // Check for aggregation function name
+        guard case .identifier(let name) = peek().kind else {
+            return nil
+        }
+
+        // Map identifier to aggregation type
+        let aggType: AggregationType?
+        switch name.lowercased() {
+        case "sum": aggType = .sum
+        case "count": aggType = .count
+        case "avg": aggType = .avg
+        case "min": aggType = .min
+        case "max": aggType = .max
+        default: aggType = nil
+        }
+
+        guard let type = aggType else {
+            return nil
+        }
+
+        let startSpan = peek().span
+        advance() // consume function name
+
+        // Expect (
+        try expect(.leftParen, message: "'('")
+
+        // Parse optional field: <field> or empty for count()
+        var field: String? = nil
+        if check(.leftAngle) {
+            advance() // consume <
+            field = try parseCompoundIdentifier()
+            try expect(.rightAngle, message: "'>'")
+        }
+
+        let endSpan = try expect(.rightParen, message: "')'").span
+
+        return AggregationClause(type: type, field: field, span: startSpan.merged(with: endSpan))
+    }
+
+    /// Parses where clause: <field> is "value" or <field> > 1000
+    private func parseWhereClause() throws -> WhereClause {
+        let startSpan = peek().span
+
+        // Parse field: <field>
+        try expect(.leftAngle, message: "'<'")
+        let field = try parseCompoundIdentifier()
+        try expect(.rightAngle, message: "'>'")
+
+        // Parse operator
+        let op: WhereOperator
+        switch peek().kind {
+        case .is:
+            advance()
+            // Check for "is not"
+            if check(.not) {
+                advance()
+                op = .notEqual
+            } else {
+                op = .equal
+            }
+        case .lessThan, .leftAngle:
+            advance()
+            if check(.equals) {
+                advance()
+                op = .lessEqual
+            } else {
+                op = .lessThan
+            }
+        case .greaterThan, .rightAngle:
+            advance()
+            if check(.equals) {
+                advance()
+                op = .greaterEqual
+            } else {
+                op = .greaterThan
+            }
+        case .equalEqual:
+            advance()
+            op = .equal
+        case .bangEqual:
+            advance()
+            op = .notEqual
+        case .contains:
+            advance()
+            op = .contains
+        case .matches:
+            advance()
+            op = .matches
+        default:
+            throw ParserError.unexpectedToken(expected: "comparison operator (is, <, >, <=, >=, contains, matches)", got: peek())
+        }
+
+        // Parse value expression
+        let value = try parseExpression()
+
+        return WhereClause(field: field, op: op, value: value, span: startSpan.merged(with: value.span))
+    }
+
     /// Parses a literal value (string, number, boolean, null)
     private func parseLiteralValue() throws -> LiteralValue {
         let token = peek()
@@ -341,9 +455,103 @@ public final class Parser {
         case .nil, .null:
             advance()
             return .null
+        case .leftBracket:
+            return try parseArrayLiteral()
+        case .leftBrace:
+            return try parseObjectLiteral()
         default:
             throw ParserError.unexpectedToken(expected: "literal value", got: token)
         }
+    }
+
+    /// Parses: "[" [ literal { "," literal } ] "]"
+    private func parseArrayLiteral() throws -> LiteralValue {
+        try expect(.leftBracket, message: "'['")
+        var elements: [LiteralValue] = []
+
+        // Handle empty array
+        if check(.rightBracket) {
+            advance()
+            return .array(elements)
+        }
+
+        // Parse first element
+        elements.append(try parseLiteralValue())
+
+        // Parse remaining elements
+        while check(.comma) {
+            advance() // consume comma
+            // Allow trailing comma before ]
+            if check(.rightBracket) {
+                break
+            }
+            elements.append(try parseLiteralValue())
+        }
+
+        try expect(.rightBracket, message: "']'")
+        return .array(elements)
+    }
+
+    /// Parses: "{" [ key ":" value { "," key ":" value } ] "}"
+    /// Key can be identifier or hyphenated-identifier
+    private func parseObjectLiteral() throws -> LiteralValue {
+        try expect(.leftBrace, message: "'{'")
+        var fields: [(String, LiteralValue)] = []
+
+        // Handle empty object
+        if check(.rightBrace) {
+            advance()
+            return .object(fields)
+        }
+
+        // Parse first field
+        let (key, value) = try parseObjectField()
+        fields.append((key, value))
+
+        // Parse remaining fields
+        while check(.comma) {
+            advance() // consume comma
+            // Allow trailing comma before }
+            if check(.rightBrace) {
+                break
+            }
+            let (k, v) = try parseObjectField()
+            fields.append((k, v))
+        }
+
+        try expect(.rightBrace, message: "'}'")
+        return .object(fields)
+    }
+
+    /// Parses: key ":" value
+    /// Key can be: identifier, identifier-identifier-..., or string literal
+    private func parseObjectField() throws -> (String, LiteralValue) {
+        // Parse key (supports hyphenated identifiers like "customer-name")
+        var key = ""
+        if case .stringLiteral(let s) = peek().kind {
+            advance()
+            key = s
+        } else if case .identifier(let name) = peek().kind {
+            advance()
+            key = name
+            // Handle hyphenated keys: customer-name, order-id, etc.
+            while check(.hyphen) {
+                advance() // consume hyphen
+                key += "-"
+                if case .identifier(let nextPart) = peek().kind {
+                    advance()
+                    key += nextPart
+                } else {
+                    throw ParserError.unexpectedToken(expected: "identifier after hyphen", got: peek())
+                }
+            }
+        } else {
+            throw ParserError.unexpectedToken(expected: "field name", got: peek())
+        }
+
+        try expect(.colon, message: "':'")
+        let value = try parseLiteralValue()
+        return (key, value)
     }
     
     /// Parses: "<Publish>" "as" "<" external ">" "<" internal ">" "."
@@ -1124,15 +1332,27 @@ extension Parser {
     }
 
     /// Parses a single map entry: key: value
+    /// Key can be: identifier, hyphenated-identifier, or string literal
     private func parseMapEntry() throws -> MapEntry {
         let keyToken = peek()
-        let key: String
+        var key: String
 
         // Key can be identifier or string literal
         switch keyToken.kind {
         case .identifier(let s):
             advance()
             key = s
+            // Handle hyphenated keys: customer-name, order-id, etc.
+            while check(.hyphen) {
+                advance() // consume hyphen
+                key += "-"
+                if case .identifier(let nextPart) = peek().kind {
+                    advance()
+                    key += nextPart
+                } else {
+                    throw ParserError.unexpectedToken(expected: "identifier after hyphen", got: peek())
+                }
+            }
         case .stringLiteral(let s):
             advance()
             key = s

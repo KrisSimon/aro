@@ -481,6 +481,7 @@ public func aro_action_create(
 
     // Bind the actual value directly to result variable
     ctxHandle.context.bind(resultDesc.base, value: sourceData)
+
     return boxResult(sourceData)
 }
 
@@ -537,21 +538,105 @@ public func aro_action_return(
     let resultDesc = toResultDescriptor(result)
     let objectDesc = toObjectDescriptor(object)
 
-    var data: [String: any Sendable] = [:]
-    for specifier in objectDesc.specifiers {
-        if let value = ctxHandle.context.resolveAny(specifier) {
-            data[specifier] = value
+    var data: [String: AnySendable] = [:]
+
+    // Check for expression from "with" clause (e.g., with { user: <user>, ... })
+    if let expr = ctxHandle.context.resolveAny("_expression_") {
+        if let dict = expr as? [String: any Sendable] {
+            for (key, value) in dict {
+                flattenValue(value, into: &data, prefix: key, context: ctxHandle.context)
+            }
         }
     }
 
-    let response = ResponseBridge(
+    // Check for object literal from "with" clause
+    if let literal = ctxHandle.context.resolveAny("_literal_") {
+        if let dict = literal as? [String: any Sendable] {
+            for (key, value) in dict {
+                flattenValue(value, into: &data, prefix: key, context: ctxHandle.context)
+            }
+        }
+    }
+
+    // Include object.base value if resolvable
+    if let value = ctxHandle.context.resolveAny(objectDesc.base) {
+        flattenValue(value, into: &data, prefix: objectDesc.base, context: ctxHandle.context)
+    }
+
+    // Include object specifiers as data references
+    for specifier in objectDesc.specifiers {
+        if let value = ctxHandle.context.resolveAny(specifier) {
+            flattenValue(value, into: &data, prefix: specifier, context: ctxHandle.context)
+        }
+    }
+
+    let response = Response(
         status: resultDesc.base,
         reason: objectDesc.base,
         data: data
     )
 
-    ctxHandle.context.setResponse(Response(status: resultDesc.base, reason: objectDesc.base, data: [:]))
+    ctxHandle.context.setResponse(response)
+
+    // Format and print the response like the interpreter does
+    print(response.toFormattedString())
+
     return boxResult(response)
+}
+
+/// Flatten a value into the data dictionary using dot notation for nested objects
+private func flattenValue(
+    _ value: any Sendable,
+    into data: inout [String: AnySendable],
+    prefix: String,
+    context: RuntimeContext
+) {
+    switch value {
+    case let str as String:
+        // Check if it's a variable reference
+        if let resolved = context.resolveAny(str) {
+            flattenValue(resolved, into: &data, prefix: prefix, context: context)
+        } else {
+            data[prefix] = AnySendable(str)
+        }
+    case let int as Int:
+        data[prefix] = AnySendable(int)
+    case let double as Double:
+        data[prefix] = AnySendable(double)
+    case let bool as Bool:
+        data[prefix] = AnySendable(bool)
+    case let dict as [String: any Sendable]:
+        // Recursively flatten nested dictionaries with dot notation
+        for (key, nestedValue) in dict {
+            let nestedPrefix = "\(prefix).\(key)"
+            flattenValue(nestedValue, into: &data, prefix: nestedPrefix, context: context)
+        }
+    case let array as [any Sendable]:
+        // Arrays become comma-separated values
+        let items = array.map { formatArrayItem($0, context: context) }
+        data[prefix] = AnySendable(items.joined(separator: ", "))
+    default:
+        data[prefix] = AnySendable(String(describing: value))
+    }
+}
+
+/// Format an array item as a string
+private func formatArrayItem(_ value: any Sendable, context: RuntimeContext) -> String {
+    switch value {
+    case let str as String:
+        if let resolved = context.resolveAny(str) {
+            return formatArrayItem(resolved, context: context)
+        }
+        return str
+    case let int as Int:
+        return String(int)
+    case let double as Double:
+        return String(double)
+    case let bool as Bool:
+        return bool ? "true" : "false"
+    default:
+        return String(describing: value)
+    }
 }
 
 struct ResponseBridge: Sendable {
@@ -1142,4 +1227,237 @@ final class ServiceCallResultHolder: @unchecked Sendable {
         defer { lock.unlock() }
         _error = err
     }
+}
+
+// MARK: - Data Pipeline Actions (ARO-0018)
+
+/// Filter action - filters a collection using a where clause
+@_cdecl("aro_action_filter")
+public func aro_action_filter(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ resultPtr: UnsafeRawPointer?,
+    _ objectPtr: UnsafeRawPointer?
+) -> UnsafeMutableRawPointer? {
+    guard let ctxHandle = getContext(contextPtr),
+          let result = resultPtr,
+          let object = objectPtr else { return nil }
+
+    let resultDesc = toResultDescriptor(result)
+    let objectDesc = toObjectDescriptor(object)
+
+    // Get source collection
+    guard let source = ctxHandle.context.resolveAny(objectDesc.base),
+          let array = source as? [any Sendable] else {
+        ctxHandle.context.bind(resultDesc.base, value: [] as [any Sendable])
+        return boxResult([] as [any Sendable])
+    }
+
+    // Get where clause from context bindings
+    guard let field = ctxHandle.context.resolveAny("_where_field_") as? String,
+          let op = ctxHandle.context.resolveAny("_where_op_") as? String,
+          let expectedValue = ctxHandle.context.resolveAny("_where_value_") else {
+        // No filter - return all
+        ctxHandle.context.bind(resultDesc.base, value: array)
+        return boxResult(array)
+    }
+
+    let filtered = array.filter { item in
+        guard let dict = item as? [String: any Sendable],
+              let actualValue = dict[field] else {
+            return false
+        }
+        return matchesPredicate(actual: actualValue, op: op, expected: expectedValue)
+    }
+
+    ctxHandle.context.bind(resultDesc.base, value: filtered)
+    return boxResult(filtered)
+}
+
+/// Helper function for filter predicate matching
+private func matchesPredicate(actual: Any, op: String, expected: any Sendable) -> Bool {
+    let actualStr = String(describing: actual)
+    let expectedStr = String(describing: expected)
+
+    switch op.lowercased() {
+    case "is", "==", "equals":
+        return actualStr == expectedStr
+
+    case "is not", "is-not", "!=", "not-equals":
+        return actualStr != expectedStr
+
+    case ">", "gt":
+        if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
+            return actualNum > expectedNum
+        }
+        return actualStr > expectedStr
+
+    case ">=", "gte":
+        if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
+            return actualNum >= expectedNum
+        }
+        return actualStr >= expectedStr
+
+    case "<", "lt":
+        if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
+            return actualNum < expectedNum
+        }
+        return actualStr < expectedStr
+
+    case "<=", "lte":
+        if let actualNum = asDouble(actual), let expectedNum = asDouble(expected) {
+            return actualNum <= expectedNum
+        }
+        return actualStr <= expectedStr
+
+    case "contains":
+        return actualStr.contains(expectedStr)
+
+    default:
+        return actualStr == expectedStr
+    }
+}
+
+/// Reduce action - aggregates a collection with sum/count/avg/min/max
+@_cdecl("aro_action_reduce")
+public func aro_action_reduce(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ resultPtr: UnsafeRawPointer?,
+    _ objectPtr: UnsafeRawPointer?
+) -> UnsafeMutableRawPointer? {
+    guard let ctxHandle = getContext(contextPtr),
+          let result = resultPtr,
+          let object = objectPtr else { return nil }
+
+    let resultDesc = toResultDescriptor(result)
+    let objectDesc = toObjectDescriptor(object)
+
+    // Get source collection
+    guard let source = ctxHandle.context.resolveAny(objectDesc.base) else {
+        ctxHandle.context.bind(resultDesc.base, value: 0)
+        return boxResult(0)
+    }
+
+    // Get aggregation function from context
+    let aggregateFunc = (ctxHandle.context.resolveAny("_aggregation_type_") as? String)?.lowercased() ?? "count"
+    let field = ctxHandle.context.resolveAny("_aggregation_field_") as? String
+
+    // Handle array aggregation
+    guard let array = source as? [any Sendable] else {
+        let result: any Sendable = aggregateFunc == "count" ? 1 : source
+        ctxHandle.context.bind(resultDesc.base, value: result)
+        return boxResult(result)
+    }
+
+    // Extract numeric values from array
+    let values: [Double] = array.compactMap { item -> Double? in
+        if let field = field, let dict = item as? [String: any Sendable] {
+            return asDouble(dict[field])
+        }
+        return asDouble(item)
+    }
+
+    // Apply aggregation function
+    let aggregatedResult: any Sendable
+    switch aggregateFunc {
+    case "count":
+        aggregatedResult = array.count
+
+    case "sum":
+        aggregatedResult = values.reduce(0, +)
+
+    case "avg", "average":
+        aggregatedResult = values.isEmpty ? 0.0 : values.reduce(0, +) / Double(values.count)
+
+    case "min":
+        aggregatedResult = values.min() ?? 0.0
+
+    case "max":
+        aggregatedResult = values.max() ?? 0.0
+
+    case "first":
+        aggregatedResult = array.first ?? ([] as [any Sendable])
+
+    case "last":
+        aggregatedResult = array.last ?? ([] as [any Sendable])
+
+    default:
+        aggregatedResult = array.count
+    }
+
+    ctxHandle.context.bind(resultDesc.base, value: aggregatedResult)
+    return boxResult(aggregatedResult)
+}
+
+/// Map action - transforms a collection
+@_cdecl("aro_action_map")
+public func aro_action_map(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ resultPtr: UnsafeRawPointer?,
+    _ objectPtr: UnsafeRawPointer?
+) -> UnsafeMutableRawPointer? {
+    guard let ctxHandle = getContext(contextPtr),
+          let result = resultPtr,
+          let object = objectPtr else { return nil }
+
+    let resultDesc = toResultDescriptor(result)
+    let objectDesc = toObjectDescriptor(object)
+
+    // Get source collection
+    guard let source = ctxHandle.context.resolveAny(objectDesc.base) else {
+        ctxHandle.context.bind(resultDesc.base, value: [] as [any Sendable])
+        return boxResult([] as [any Sendable])
+    }
+
+    // Known type specifiers that should not be treated as field names
+    let typeSpecifiers: Set<String> = [
+        "List", "Array", "Set",
+        "Integer", "Int", "Float", "Double", "Number",
+        "String", "Boolean", "Bool",
+        "Object", "Dictionary", "Map"
+    ]
+
+    // Find field specifier (skip known type specifiers)
+    let fieldSpecifier = resultDesc.specifiers.first { !typeSpecifiers.contains($0) }
+
+    // Handle array mapping
+    if let array = source as? [any Sendable] {
+        if let field = fieldSpecifier {
+            // Extract specific field from each item
+            let mapped = array.compactMap { item -> (any Sendable)? in
+                if let dict = item as? [String: any Sendable] {
+                    return dict[field]
+                }
+                return nil
+            }
+            ctxHandle.context.bind(resultDesc.base, value: mapped)
+            return boxResult(mapped)
+        }
+
+        // Pass through the entire array
+        ctxHandle.context.bind(resultDesc.base, value: array)
+        return boxResult(array)
+    }
+
+    // Handle dictionary - extract field
+    if let dict = source as? [String: any Sendable] {
+        if let field = fieldSpecifier, let value = dict[field] {
+            ctxHandle.context.bind(resultDesc.base, value: value)
+            return boxResult(value)
+        }
+        ctxHandle.context.bind(resultDesc.base, value: dict)
+        return boxResult(dict)
+    }
+
+    ctxHandle.context.bind(resultDesc.base, value: source)
+    return boxResult(source)
+}
+
+/// Helper function for numeric conversion
+private func asDouble(_ value: Any?) -> Double? {
+    guard let value = value else { return nil }
+    if let d = value as? Double { return d }
+    if let i = value as? Int { return Double(i) }
+    if let f = value as? Float { return Double(f) }
+    if let s = value as? String { return Double(s) }
+    return nil
 }

@@ -58,7 +58,7 @@ public final class ActionRegistry: @unchecked Sendable {
         register(TransformAction.self)
         register(CreateAction.self)
         register(UpdateAction.self)
-        register(FilterAction.self)
+        // FilterAction is registered below in data pipeline actions
         register(SortAction.self)
         register(MergeAction.self)
         register(DeleteAction.self)
@@ -103,7 +103,7 @@ public final class ActionRegistry: @unchecked Sendable {
         // Data pipeline actions (ARO-0018)
         register(MapAction.self)
         register(ReduceAction.self)
-        register(PredicateFilterAction.self)
+        register(FilterAction.self)
 
         // External service actions (ARO-0016)
         register(CallAction.self)

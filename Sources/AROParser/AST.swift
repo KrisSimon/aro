@@ -103,6 +103,10 @@ public struct AROStatement: Statement {
     public let literalValue: LiteralValue?
     /// Optional expression value (ARO-0002) - for computed values like `from <x> * <y>`
     public let expression: (any Expression)?
+    /// Optional aggregation clause (ARO-0018) - for Reduce: `with sum(<field>)`
+    public let aggregation: AggregationClause?
+    /// Optional where clause (ARO-0018) - for Filter: `where <field> is "value"`
+    public let whereClause: WhereClause?
     /// Optional when condition (ARO-0004) - for guarded statements
     public let whenCondition: (any Expression)?
     public let span: SourceSpan
@@ -113,6 +117,8 @@ public struct AROStatement: Statement {
         object: ObjectClause,
         literalValue: LiteralValue? = nil,
         expression: (any Expression)? = nil,
+        aggregation: AggregationClause? = nil,
+        whereClause: WhereClause? = nil,
         whenCondition: (any Expression)? = nil,
         span: SourceSpan
     ) {
@@ -121,6 +127,8 @@ public struct AROStatement: Statement {
         self.object = object
         self.literalValue = literalValue
         self.expression = expression
+        self.aggregation = aggregation
+        self.whereClause = whereClause
         self.whenCondition = whenCondition
         self.span = span
     }
@@ -132,6 +140,12 @@ public struct AROStatement: Statement {
         }
         if let expr = expression {
             desc += " = \(expr)"
+        }
+        if let agg = aggregation {
+            desc += " with \(agg)"
+        }
+        if let where_ = whereClause {
+            desc += " where \(where_)"
         }
         if let when = whenCondition {
             desc += " when \(when)"
@@ -162,6 +176,75 @@ public struct PublishStatement: Statement {
     
     public func accept<V: ASTVisitor>(_ visitor: V) throws -> V.Result {
         try visitor.visit(self)
+    }
+}
+
+// MARK: - Aggregation Clause (ARO-0018)
+
+/// Types of aggregation operations
+public enum AggregationType: String, Sendable, Equatable, CustomStringConvertible {
+    case sum = "sum"
+    case count = "count"
+    case avg = "avg"
+    case min = "min"
+    case max = "max"
+
+    public var description: String { rawValue }
+}
+
+/// An aggregation clause: with sum(<field>), with count(), with avg(<field>)
+public struct AggregationClause: Sendable, CustomStringConvertible {
+    public let type: AggregationType
+    /// The field to aggregate (nil for count)
+    public let field: String?
+    public let span: SourceSpan
+
+    public init(type: AggregationType, field: String?, span: SourceSpan) {
+        self.type = type
+        self.field = field
+        self.span = span
+    }
+
+    public var description: String {
+        if let field = field {
+            return "\(type)(<\(field)>)"
+        }
+        return "\(type)()"
+    }
+}
+
+// MARK: - Where Clause (ARO-0018)
+
+/// Comparison operators for where clauses
+public enum WhereOperator: String, Sendable, Equatable, CustomStringConvertible {
+    case equal = "is"
+    case notEqual = "is not"
+    case lessThan = "<"
+    case greaterThan = ">"
+    case lessEqual = "<="
+    case greaterEqual = ">="
+    case contains = "contains"
+    case matches = "matches"
+
+    public var description: String { rawValue }
+}
+
+/// A where clause: where <field> is "value" or where <field> > 1000
+public struct WhereClause: Sendable, CustomStringConvertible {
+    public let field: String
+    public let op: WhereOperator
+    public let value: any Expression
+    public let span: SourceSpan
+
+    public init(field: String, op: WhereOperator, value: any Expression, span: SourceSpan) {
+        self.field = field
+        self.op = op
+        self.value = value
+        self.span = span
+    }
+
+    public var description: String {
+        "<\(field)> \(op) \(value)"
     }
 }
 
@@ -438,12 +521,14 @@ public struct QualifiedNoun: Sendable, Equatable, CustomStringConvertible {
 // MARK: - Object Clause
 
 /// A literal value that can be passed with an ARO statement
-public enum LiteralValue: Sendable, Equatable, CustomStringConvertible {
+public indirect enum LiteralValue: Sendable, Equatable, CustomStringConvertible {
     case string(String)
     case integer(Int)
     case float(Double)
     case boolean(Bool)
     case null
+    case array([LiteralValue])
+    case object([(String, LiteralValue)])
 
     public var description: String {
         switch self {
@@ -452,6 +537,31 @@ public enum LiteralValue: Sendable, Equatable, CustomStringConvertible {
         case .float(let f): return "\(f)"
         case .boolean(let b): return b ? "true" : "false"
         case .null: return "null"
+        case .array(let elements):
+            let items = elements.map { $0.description }.joined(separator: ", ")
+            return "[\(items)]"
+        case .object(let fields):
+            let items = fields.map { "\($0.0): \($0.1.description)" }.joined(separator: ", ")
+            return "{\(items)}"
+        }
+    }
+
+    public static func == (lhs: LiteralValue, rhs: LiteralValue) -> Bool {
+        switch (lhs, rhs) {
+        case (.string(let a), .string(let b)): return a == b
+        case (.integer(let a), .integer(let b)): return a == b
+        case (.float(let a), .float(let b)): return a == b
+        case (.boolean(let a), .boolean(let b)): return a == b
+        case (.null, .null): return true
+        case (.array(let a), .array(let b)): return a == b
+        case (.object(let a), .object(let b)):
+            guard a.count == b.count else { return false }
+            for (i, (keyA, valA)) in a.enumerated() {
+                let (keyB, valB) = b[i]
+                if keyA != keyB || valA != valB { return false }
+            }
+            return true
+        default: return false
         }
     }
 }
