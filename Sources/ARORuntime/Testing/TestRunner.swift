@@ -174,6 +174,7 @@ public final class TestContext: ExecutionContext, TestExecutionContext, @uncheck
     private let featureSetLookupTable: [String: AnalyzedFeatureSet]
 
     public let featureSetName: String
+    public let businessActivity: String
     public let executionId: String
     public let parent: ExecutionContext?
 
@@ -181,10 +182,12 @@ public final class TestContext: ExecutionContext, TestExecutionContext, @uncheck
 
     public init(
         featureSetName: String,
+        businessActivity: String = "",
         featureSetLookup: [String: AnalyzedFeatureSet],
         parent: ExecutionContext? = nil
     ) {
         self.featureSetName = featureSetName
+        self.businessActivity = businessActivity
         self.executionId = UUID().uuidString
         self.featureSetLookupTable = featureSetLookup
         self.parent = parent
@@ -218,6 +221,7 @@ public final class TestContext: ExecutionContext, TestExecutionContext, @uncheck
     public func createChildForFeatureSet(_ name: String) -> ExecutionContext {
         TestContext(
             featureSetName: name,
+            businessActivity: businessActivity,
             featureSetLookup: featureSetLookupTable,
             parent: self
         )

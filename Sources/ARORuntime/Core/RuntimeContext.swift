@@ -42,6 +42,7 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
     // MARK: - Metadata
 
     public let featureSetName: String
+    public let businessActivity: String
     public let executionId: String
     public let parent: ExecutionContext?
 
@@ -50,16 +51,19 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
     /// Initialize a new runtime context
     /// - Parameters:
     ///   - featureSetName: Name of the feature set being executed
+    ///   - businessActivity: Business activity this feature set belongs to
     ///   - outputContext: Output context for formatting (defaults to .human)
     ///   - eventBus: Optional event bus for event emission
     ///   - parent: Optional parent context for nested execution
     public init(
         featureSetName: String,
+        businessActivity: String = "",
         outputContext: OutputContext = .human,
         eventBus: EventBus? = nil,
         parent: ExecutionContext? = nil
     ) {
         self.featureSetName = featureSetName
+        self.businessActivity = businessActivity
         self.executionId = UUID().uuidString
         self._outputContext = outputContext
         self.eventBus = eventBus
@@ -184,6 +188,18 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
     public func createChild(featureSetName: String) -> ExecutionContext {
         RuntimeContext(
             featureSetName: featureSetName,
+            businessActivity: businessActivity,
+            outputContext: _outputContext,
+            eventBus: eventBus,
+            parent: self
+        )
+    }
+
+    /// Create a child context with a different business activity
+    public func createChild(featureSetName: String, businessActivity: String) -> ExecutionContext {
+        RuntimeContext(
+            featureSetName: featureSetName,
+            businessActivity: businessActivity,
             outputContext: _outputContext,
             eventBus: eventBus,
             parent: self
@@ -251,18 +267,21 @@ extension RuntimeContext {
     /// Create a context with initial bindings
     /// - Parameters:
     ///   - featureSetName: Name of the feature set
+    ///   - businessActivity: Business activity this feature set belongs to
     ///   - outputContext: Output context for formatting
     ///   - eventBus: Optional event bus
     ///   - initialBindings: Initial variable bindings
     /// - Returns: A new context with the bindings
     public static func with(
         featureSetName: String,
+        businessActivity: String = "",
         outputContext: OutputContext = .human,
         eventBus: EventBus? = nil,
         initialBindings: [String: any Sendable]
     ) -> RuntimeContext {
         let context = RuntimeContext(
             featureSetName: featureSetName,
+            businessActivity: businessActivity,
             outputContext: outputContext,
             eventBus: eventBus
         )

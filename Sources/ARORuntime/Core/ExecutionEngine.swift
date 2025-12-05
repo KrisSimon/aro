@@ -76,9 +76,10 @@ public final class ExecutionEngine: @unchecked Sendable {
         // Emit application start event
         eventBus.publish(ApplicationStartedEvent(applicationName: entryPoint))
 
-        // Create root context
+        // Create root context with business activity from entry feature set
         let context = RuntimeContext(
             featureSetName: entryPoint,
+            businessActivity: entryFeatureSet.featureSet.businessActivity,
             eventBus: eventBus
         )
 
@@ -187,9 +188,10 @@ public final class ExecutionEngine: @unchecked Sendable {
         baseContext: RuntimeContext,
         eventData: [String: any Sendable]
     ) async {
-        // Create child context for this event handler
+        // Create child context for this event handler with its business activity
         let handlerContext = RuntimeContext(
             featureSetName: analyzedFS.featureSet.name,
+            businessActivity: analyzedFS.featureSet.businessActivity,
             eventBus: eventBus,
             parent: baseContext
         )
@@ -250,39 +252,70 @@ public final class ExecutionEngine: @unchecked Sendable {
 
 // MARK: - Global Symbol Storage
 
-/// Thread-safe storage for published symbols
+/// Thread-safe storage for published symbols with business activity enforcement
 public final class GlobalSymbolStorage: @unchecked Sendable {
     private let lock = NSLock()
-    private var symbols: [String: (value: any Sendable, featureSet: String)] = [:]
+    private var symbols: [String: (value: any Sendable, featureSet: String, businessActivity: String)] = [:]
 
     public init() {}
 
-    /// Store a published symbol
-    public func publish(name: String, value: any Sendable, fromFeatureSet: String) {
+    /// Store a published symbol with its business activity
+    public func publish(name: String, value: any Sendable, fromFeatureSet: String, businessActivity: String) {
         lock.lock()
         defer { lock.unlock() }
-        symbols[name] = (value, fromFeatureSet)
+        symbols[name] = (value, fromFeatureSet, businessActivity)
     }
 
-    /// Resolve a published symbol
-    public func resolve<T: Sendable>(_ name: String) -> T? {
+    /// Resolve a published symbol (validates business activity)
+    /// - Parameters:
+    ///   - name: The symbol name
+    ///   - forBusinessActivity: The business activity of the requesting feature set
+    /// - Returns: The value if found and accessible, nil otherwise
+    public func resolve<T: Sendable>(_ name: String, forBusinessActivity: String) -> T? {
         lock.lock()
         defer { lock.unlock() }
-        return symbols[name]?.value as? T
+
+        guard let entry = symbols[name] else { return nil }
+
+        // Business activity validation: must match or be empty (framework/external)
+        if !entry.businessActivity.isEmpty && !forBusinessActivity.isEmpty &&
+           entry.businessActivity != forBusinessActivity {
+            return nil  // Access denied - different business activity
+        }
+
+        return entry.value as? T
     }
 
-    /// Resolve a published symbol as any Sendable
-    public func resolveAny(_ name: String) -> (any Sendable)? {
+    /// Resolve a published symbol as any Sendable (validates business activity)
+    public func resolveAny(_ name: String, forBusinessActivity: String) -> (any Sendable)? {
         lock.lock()
         defer { lock.unlock() }
-        return symbols[name]?.value
+
+        guard let entry = symbols[name] else { return nil }
+
+        // Business activity validation: must match or be empty (framework/external)
+        if !entry.businessActivity.isEmpty && !forBusinessActivity.isEmpty &&
+           entry.businessActivity != forBusinessActivity {
+            return nil  // Access denied - different business activity
+        }
+
+        return entry.value
     }
 
-    /// Check if a symbol is published
-    public func isPublished(_ name: String) -> Bool {
+    /// Check if a symbol is published and accessible
+    public func isPublished(_ name: String, forBusinessActivity: String) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        return symbols[name] != nil
+
+        guard let entry = symbols[name] else { return false }
+
+        // Business activity validation
+        if !entry.businessActivity.isEmpty && !forBusinessActivity.isEmpty &&
+           entry.businessActivity != forBusinessActivity {
+            return false
+        }
+
+        return true
     }
 
     /// Get the feature set that published a symbol
@@ -290,6 +323,26 @@ public final class GlobalSymbolStorage: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return symbols[name]?.featureSet
+    }
+
+    /// Get the business activity that a symbol belongs to
+    public func businessActivity(for name: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return symbols[name]?.businessActivity
+    }
+
+    /// Check if accessing a symbol would be denied due to business activity mismatch
+    public func isAccessDenied(_ name: String, forBusinessActivity: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let entry = symbols[name] else { return false }
+
+        // Access is denied if both have non-empty business activities that don't match
+        return !entry.businessActivity.isEmpty &&
+               !forBusinessActivity.isEmpty &&
+               entry.businessActivity != forBusinessActivity
     }
 }
 

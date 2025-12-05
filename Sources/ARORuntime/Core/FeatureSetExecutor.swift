@@ -51,9 +51,19 @@ public final class FeatureSetExecutor: @unchecked Sendable {
             executionId: context.executionId
         ))
 
-        // Bind external dependencies from global symbols
+        // Bind external dependencies from global symbols (with business activity validation)
         for dependency in analyzedFeatureSet.dependencies {
-            if let value = globalSymbols.resolveAny(dependency) {
+            // Check if access would be denied due to business activity mismatch
+            if globalSymbols.isAccessDenied(dependency, forBusinessActivity: context.businessActivity) {
+                let sourceActivity = globalSymbols.businessActivity(for: dependency) ?? "unknown"
+                throw ActionError.runtimeError(
+                    "Variable '\(dependency)' is not accessible. " +
+                    "Published variables are only visible within the same business activity. " +
+                    "'\(dependency)' is published in \"\(sourceActivity)\" but accessed from \"\(context.businessActivity)\"."
+                )
+            }
+
+            if let value = globalSymbols.resolveAny(dependency, forBusinessActivity: context.businessActivity) {
                 context.bind(dependency, value: value)
             }
         }
@@ -266,11 +276,12 @@ public final class FeatureSetExecutor: @unchecked Sendable {
             throw ActionError.undefinedVariable(statement.internalVariable)
         }
 
-        // Publish to global symbols
+        // Publish to global symbols with business activity
         globalSymbols.publish(
             name: statement.externalName,
             value: value,
-            fromFeatureSet: context.featureSetName
+            fromFeatureSet: context.featureSetName,
+            businessActivity: context.businessActivity
         )
 
         // Also bind the external name locally
@@ -419,8 +430,8 @@ public final class FeatureSetExecutor: @unchecked Sendable {
                 context.bind(statement.variableName, value: envValue)
             }
         case .featureSet(let name):
-            // Cross-feature-set dependency - resolve from global symbols
-            if let value = globalSymbols.resolveAny(statement.variableName) {
+            // Cross-feature-set dependency - resolve from global symbols (with business activity validation)
+            if let value = globalSymbols.resolveAny(statement.variableName, forBusinessActivity: context.businessActivity) {
                 context.bind(statement.variableName, value: value)
             }
             // If not found, the dependency might be provided later

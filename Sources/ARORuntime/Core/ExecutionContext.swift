@@ -196,6 +196,9 @@ public protocol ExecutionContext: AnyObject, Sendable {
     /// The feature set being executed
     var featureSetName: String { get }
 
+    /// The business activity this feature set belongs to
+    var businessActivity: String { get }
+
     /// Unique identifier for this execution
     var executionId: String { get }
 
