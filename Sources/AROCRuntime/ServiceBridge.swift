@@ -1545,7 +1545,7 @@ public func aro_native_http_server_start(_ port: Int32, _ contextPtr: UnsafeMuta
     return nativeHTTPServer?.start() == true ? 0 : -1
 }
 
-/// Start native HTTP server with OpenAPI spec from working directory
+/// Start native HTTP server with OpenAPI spec from binary's directory
 /// If port is 0, reads port from OpenAPI spec's server URL
 @_cdecl("aro_native_http_server_start_with_openapi")
 public func aro_native_http_server_start_with_openapi(_ port: Int32, _ contextPtr: UnsafeMutableRawPointer?) -> Int32 {
@@ -1553,9 +1553,12 @@ public func aro_native_http_server_start_with_openapi(_ port: Int32, _ contextPt
 
     var finalPort = port
 
-    // Try to load openapi.yaml from current directory
-    let currentDir = FileManager.default.currentDirectoryPath
-    let openapiPath = currentDir + "/openapi.yaml"
+    // Get the directory containing the binary executable
+    let executablePath = CommandLine.arguments[0]
+    let binaryDir = (executablePath as NSString).deletingLastPathComponent
+
+    // Try to load openapi.yaml from binary's directory
+    let openapiPath = binaryDir + "/openapi.yaml"
 
     if let openapiContent = try? String(contentsOfFile: openapiPath, encoding: .utf8) {
         // Simple YAML parsing for routes
