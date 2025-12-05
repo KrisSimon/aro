@@ -499,16 +499,34 @@ private func fsEventsCallback(
         guard let path = paths[i] as? String else { continue }
         let flags = eventFlags[i]
 
-        // Determine event type
+        // Determine event type - FSEvents can set multiple flags at once
+        // Check in priority order: Removed > Modified > Created > Renamed
         let eventType: String
-        if (flags & UInt32(kFSEventStreamEventFlagItemCreated)) != 0 {
-            eventType = "Created"
-        } else if (flags & UInt32(kFSEventStreamEventFlagItemRemoved)) != 0 {
+        let isRemoved = (flags & UInt32(kFSEventStreamEventFlagItemRemoved)) != 0
+        let isModified = (flags & UInt32(kFSEventStreamEventFlagItemModified)) != 0 ||
+                         (flags & UInt32(kFSEventStreamEventFlagItemInodeMetaMod)) != 0
+        let isCreated = (flags & UInt32(kFSEventStreamEventFlagItemCreated)) != 0
+        let isRenamed = (flags & UInt32(kFSEventStreamEventFlagItemRenamed)) != 0
+
+        if isRemoved {
             eventType = "Deleted"
-        } else if (flags & UInt32(kFSEventStreamEventFlagItemModified)) != 0 ||
-                  (flags & UInt32(kFSEventStreamEventFlagItemInodeMetaMod)) != 0 {
+        } else if isModified && !isCreated {
+            // Modified but not created = file was edited
             eventType = "Modified"
-        } else if (flags & UInt32(kFSEventStreamEventFlagItemRenamed)) != 0 {
+        } else if isCreated && !isModified {
+            // Created but not modified = new file
+            eventType = "Created"
+        } else if isCreated && isModified {
+            // Both flags set - need to determine actual operation
+            // Check if file exists to disambiguate
+            if FileManager.default.fileExists(atPath: path) {
+                // File exists, this is likely a modification
+                eventType = "Modified"
+            } else {
+                // File doesn't exist, was probably created then immediately modified
+                eventType = "Created"
+            }
+        } else if isRenamed {
             eventType = "Renamed"
         } else {
             continue // Skip unknown events
