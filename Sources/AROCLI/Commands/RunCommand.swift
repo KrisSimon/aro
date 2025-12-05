@@ -148,11 +148,9 @@ struct RunCommand: AsyncParsableCommand {
 
                 if verbose {
                     print("\nExecution completed:")
-                    print("  Status: \(response.status)")
-                    print("  Reason: \(response.reason)")
-                } else {
-                    print("Status: \(response.status)")
                 }
+                // Use context-aware formatting for response output
+                print(response.format(for: .human))
             }
         } catch let error as ActionError {
             print("Runtime error: \(error)")
