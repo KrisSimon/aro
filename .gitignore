@@ -15,3 +15,8 @@
 /Examples/Conditionals/Conditionals
 /.aro-cache
 /Examples/CustomPlugin/CustomPlugin
+/Examples/ExternalService/ExternalService
+/Examples/Expressions/Expressions
+/Examples/DataPipeline/DataPipeline
+/Examples/CustomPlugin/plugins/GreetingService.dylib
+/Examples/ContextAware/ContextAware
