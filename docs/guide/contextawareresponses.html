@@ -248,22 +248,10 @@
 <p>When code runs via HTTP request or event handler, output is structured data:</p>
 <pre><code class="language-json">{&quot;level&quot;:&quot;info&quot;,&quot;source&quot;:&quot;Application-Start&quot;,&quot;message&quot;:&quot;Hello, World!&quot;}
 </code></pre>
-<p>This format is ideal for:</p>
-<ul>
-<li>API responses</li>
-<li>Log aggregation systems</li>
-<li>Programmatic consumption</li>
-</ul>
 <h3>Developer Context</h3>
 <p>During test execution, output includes diagnostic information:</p>
 <pre><code>LOG[console] Application-Start: Hello, World!
 </code></pre>
-<p>This format helps with:</p>
-<ul>
-<li>Debugging test failures</li>
-<li>Understanding data flow</li>
-<li>Tracing execution</li>
-</ul>
 <h2>Automatic Detection</h2>
 <p>The runtime automatically detects context:</p>
 <table>
@@ -345,12 +333,10 @@ Response&lt;OK&gt; {
 <p>The <code>&lt;Return&gt;</code> action sets the response, which is formatted based on context:</p>
 <pre><code class="language-aro">&lt;Return&gt; an &lt;OK: status&gt; with &lt;result&gt;.
 </code></pre>
-<p>Response formatting is handled by the ResponseFormatter, which adapts output for each context.</p>
 <h2>See Also</h2>
 <ul>
 <li><a href="Actions.md">Actions</a> - Built-in action reference</li>
 <li><a href="HTTPServices.md">HTTP Services</a> - API development</li>
-<li><a href="../LanguageReference/Testing.md">Testing</a> - Test framework</li>
 </ul>
 
     </main>
