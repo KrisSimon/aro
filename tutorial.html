@@ -854,6 +854,7 @@
         <a href="#events" data-title="Events"></a>
         <a href="#philosophy" data-title="Philosophy"></a>
         <a href="#complete" data-title="Example"></a>
+        <a href="#output" data-title="Console Output"></a>
         <a href="#next" data-title="Next Steps"></a>
     </div>
 
@@ -1514,6 +1515,153 @@ Server running on http://localhost:8080
 $ curl http://localhost:8080/hello?name=Developer
 {"message": "Hello, Developer!"}</pre>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Console Output Section -->
+    <section id="output" class="tutorial-section">
+        <div class="section-bg bg-gradient-1"></div>
+        <div class="tutorial-content">
+            <span class="section-number animate-on-scroll">09</span>
+            <h2 class="section-title animate-on-scroll">Context-Aware Output</h2>
+            <p class="section-subtitle animate-on-scroll">Same code, different formats</p>
+
+            <p class="section-text animate-on-scroll">
+                ARO automatically formats output based on <strong>how</strong> your code runs.
+                The same <code>&lt;Log&gt;</code> and <code>&lt;Return&gt;</code> statements produce
+                different output depending on the execution context.
+            </p>
+
+            <div class="concept-grid">
+                <div class="concept-card animate-on-scroll" style="transition-delay: 0.1s;">
+                    <div class="concept-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="4 17 10 11 4 5"/>
+                            <line x1="12" y1="19" x2="20" y2="19"/>
+                        </svg>
+                    </div>
+                    <h4>Human Context</h4>
+                    <p><code>aro run</code> &mdash; Clean, readable text for humans at the terminal.</p>
+                </div>
+                <div class="concept-card animate-on-scroll" style="transition-delay: 0.2s;">
+                    <div class="concept-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                    </div>
+                    <h4>Developer Context</h4>
+                    <p><code>aro test</code> &mdash; Detailed diagnostics with types for debugging.</p>
+                </div>
+                <div class="concept-card animate-on-scroll" style="transition-delay: 0.3s;">
+                    <div class="concept-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 18 22 12 16 6"/>
+                            <polyline points="8 6 2 12 8 18"/>
+                        </svg>
+                    </div>
+                    <h4>Machine Context</h4>
+                    <p>HTTP APIs &mdash; JSON output for programmatic consumption.</p>
+                </div>
+            </div>
+
+            <p class="section-text animate-on-scroll">
+                Consider this simple feature set:
+            </p>
+
+            <div class="code-block animate-on-scroll">
+                <div class="code-header">
+                    <div class="code-dots">
+                        <span class="code-dot red"></span>
+                        <span class="code-dot yellow"></span>
+                        <span class="code-dot green"></span>
+                    </div>
+                    <span class="code-lang">aro</span>
+                </div>
+                <div class="code-content">
+<pre>(<span class="keyword">getUser</span>: <span class="keyword">User API</span>) {
+    <span class="action">&lt;Retrieve&gt;</span> the <span class="variable">&lt;user&gt;</span> from the <span class="variable">&lt;user-repository&gt;</span> where id <span class="operator">=</span> <span class="variable">&lt;id&gt;</span>.
+    <span class="action">&lt;Log&gt;</span> the <span class="variable">&lt;status&gt;</span> for the <span class="variable">&lt;console&gt;</span> with <span class="string">"User retrieved"</span>.
+    <span class="action">&lt;Return&gt;</span> an <span class="variable">&lt;OK: status&gt;</span> with <span class="variable">&lt;user&gt;</span>.
+}</pre>
+                </div>
+            </div>
+
+            <p class="section-text animate-on-scroll">
+                When run from the CLI with <code>aro run</code>, humans see this:
+            </p>
+
+            <div class="code-block animate-on-scroll">
+                <div class="code-header">
+                    <div class="code-dots">
+                        <span class="code-dot red"></span>
+                        <span class="code-dot yellow"></span>
+                        <span class="code-dot green"></span>
+                    </div>
+                    <span class="code-lang">Human Context</span>
+                </div>
+                <div class="code-content">
+<pre><span class="comment">[getUser]</span> User retrieved
+<span class="comment">[OK]</span> success
+  user: {id: 123, name: Alice}</pre>
+                </div>
+            </div>
+
+            <p class="section-text animate-on-scroll">
+                When run via <code>aro test</code>, developers see diagnostic details:
+            </p>
+
+            <div class="code-block animate-on-scroll">
+                <div class="code-header">
+                    <div class="code-dots">
+                        <span class="code-dot red"></span>
+                        <span class="code-dot yellow"></span>
+                        <span class="code-dot green"></span>
+                    </div>
+                    <span class="code-lang">Developer Context</span>
+                </div>
+                <div class="code-content">
+<pre><span class="comment">LOG[console]</span> getUser: User retrieved
+<span class="keyword">Response&lt;OK&gt;</span> {
+  reason: <span class="string">"success"</span>
+  data: {
+    user: <span class="variable">Dict</span> { id: <span class="variable">Int</span>(123), name: <span class="variable">String</span>("Alice") }
+  }
+}</pre>
+                </div>
+            </div>
+
+            <p class="section-text animate-on-scroll">
+                When accessed via HTTP API, machines receive JSON:
+            </p>
+
+            <div class="code-block animate-on-scroll">
+                <div class="code-header">
+                    <div class="code-dots">
+                        <span class="code-dot red"></span>
+                        <span class="code-dot yellow"></span>
+                        <span class="code-dot green"></span>
+                    </div>
+                    <span class="code-lang">Machine Context (JSON)</span>
+                </div>
+                <div class="code-content">
+<pre>{
+  <span class="string">"status"</span>: <span class="string">"OK"</span>,
+  <span class="string">"reason"</span>: <span class="string">"success"</span>,
+  <span class="string">"data"</span>: {
+    <span class="string">"user"</span>: {<span class="string">"id"</span>: 123, <span class="string">"name"</span>: <span class="string">"Alice"</span>}
+  }
+}</pre>
+                </div>
+            </div>
+
+            <div class="story-callout animate-on-scroll">
+                Write once, run anywhere. Your ARO code adapts its output to serve humans
+                at the terminal, developers during testing, and machines via APIs &mdash;
+                all without a single format string.
             </div>
         </div>
     </section>
