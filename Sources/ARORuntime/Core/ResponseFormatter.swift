@@ -125,23 +125,81 @@ public struct ResponseFormatter: Sendable {
         }
     }
 
-    /// Format for developer consumption (diagnostic)
+    /// Format for developer consumption (diagnostic table)
     private static func formatForDeveloper(_ response: Response) -> String {
-        var lines: [String] = []
-        lines.append("Response<\(response.status)> {")
-        lines.append("  reason: \"\(response.reason)\"")
+        // Collect all key-value pairs with flattened keys
+        var pairs: [(String, String)] = []
+        pairs.append(("reason", "String(\"\(response.reason)\")"))
 
         if !response.data.isEmpty {
-            lines.append("  data: {")
-            for (key, value) in response.data.sorted(by: { $0.key < $1.key }) {
-                let diagnostic = formatValueForDeveloper(value)
-                lines.append("    \(key): \(diagnostic)")
-            }
-            lines.append("  }")
+            let flattened = flattenForDeveloper(response.data, prefix: "")
+            pairs.append(contentsOf: flattened.sorted(by: { $0.0 < $1.0 }))
         }
 
-        lines.append("}")
+        // Calculate column widths
+        let keyWidth = max(pairs.map { $0.0.count }.max() ?? 10, 10)
+        let valueWidth = max(pairs.map { $0.1.count }.max() ?? 20, 20)
+        let totalWidth = keyWidth + valueWidth + 5  // 5 = "│ " + " │ " + "│"
+
+        // Build the table
+        var lines: [String] = []
+        let header = "Response<\(response.status)>"
+        let headerPadding = totalWidth - 2 - header.count
+        let headerLine = "│ \(header)\(String(repeating: " ", count: max(0, headerPadding))) │"
+
+        lines.append("┌\(String(repeating: "─", count: totalWidth - 2))┐")
+        lines.append(headerLine)
+        lines.append("├\(String(repeating: "─", count: keyWidth + 2))┬\(String(repeating: "─", count: valueWidth + 2))┤")
+
+        for (key, value) in pairs {
+            let keyPadded = key.padding(toLength: keyWidth, withPad: " ", startingAt: 0)
+            let valuePadded = value.padding(toLength: valueWidth, withPad: " ", startingAt: 0)
+            lines.append("│ \(keyPadded) │ \(valuePadded) │")
+        }
+
+        lines.append("└\(String(repeating: "─", count: keyWidth + 2))┴\(String(repeating: "─", count: valueWidth + 2))┘")
+
         return lines.joined(separator: "\n")
+    }
+
+    /// Flatten nested structures for developer table output
+    private static func flattenForDeveloper(_ data: [String: AnySendable], prefix: String) -> [(String, String)] {
+        var result: [(String, String)] = []
+
+        for (key, value) in data {
+            let fullKey = prefix.isEmpty ? key : "\(prefix).\(key)"
+            let unwrapped = unwrapAnySendable(value)
+
+            if let dict = unwrapped as? [String: any Sendable] {
+                let nestedPairs = flattenValueForDeveloper(dict, prefix: fullKey)
+                result.append(contentsOf: nestedPairs)
+            } else {
+                result.append((fullKey, formatValueForDeveloper(unwrapped)))
+            }
+        }
+
+        return result
+    }
+
+    /// Flatten any Sendable value for developer output
+    private static func flattenValueForDeveloper(_ value: any Sendable, prefix: String) -> [(String, String)] {
+        var result: [(String, String)] = []
+
+        if let dict = value as? [String: any Sendable] {
+            for (key, val) in dict {
+                let fullKey = prefix.isEmpty ? key : "\(prefix).\(key)"
+
+                if let nestedDict = val as? [String: any Sendable] {
+                    result.append(contentsOf: flattenValueForDeveloper(nestedDict, prefix: fullKey))
+                } else {
+                    result.append((fullKey, formatValueForDeveloper(val)))
+                }
+            }
+        } else {
+            result.append((prefix, formatValueForDeveloper(value)))
+        }
+
+        return result
     }
 
     // MARK: - Value Formatting

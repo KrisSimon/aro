@@ -41,10 +41,14 @@ When code runs via HTTP request or event handler, output is structured data:
 
 ### Developer Context
 
-During test execution, output includes diagnostic information:
+During test execution, output is displayed as a formatted table with type annotations:
 
 ```
-LOG[console] Application-Start: Hello, World!
+┌──────────────────────────────────────────┐
+│ LOG [console] Application-Start          │
+├──────────────────────────────────────────┤
+│ message: String("Hello, World!")         │
+└──────────────────────────────────────────┘
 ```
 
 ## Automatic Detection
@@ -93,13 +97,19 @@ The runtime automatically detects context:
 ### Test Output (Developer)
 
 ```
-LOG[console] getUser: User retrieved
-Response<OK> {
-  reason: "success"
-  data: {
-    user: Dict { id: Int(123), name: String("Alice") }
-  }
-}
+┌──────────────────────────────────────────┐
+│ LOG [console] getUser                    │
+├──────────────────────────────────────────┤
+│ message: String("User retrieved")        │
+└──────────────────────────────────────────┘
+
+┌──────────────────────────────────────────┐
+│ Response<OK>                             │
+├────────────────┬─────────────────────────┤
+│ reason         │ String("success")       │
+│ user.id        │ Int(123)                │
+│ user.name      │ String("Alice")         │
+└────────────────┴─────────────────────────┘
 ```
 
 ## Benefits
@@ -121,7 +131,7 @@ The `<Log>` action respects output context:
 
 - **Human**: `[FeatureSetName] value`
 - **Machine**: `{"level":"info","source":"FeatureSetName","message":"value"}`
-- **Developer**: `LOG[console] FeatureSetName: value`
+- **Developer**: Formatted table with type annotations
 
 ### Return Action
 

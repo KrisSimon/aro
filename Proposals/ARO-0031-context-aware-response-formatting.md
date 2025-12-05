@@ -126,27 +126,28 @@ Human output follows these rules:
 - Arrays as sorted, comma-separated values
 - No quotes around simple strings
 
-### Developer Context (Diagnostic)
+### Developer Context (Diagnostic Table)
 
-Type-annotated output for debugging:
+Formatted table with type annotations for debugging:
 
 ```
-Response<OK> {
-  reason: "success"
-  data: {
-    message: String("Hello, Developer!")
-    tags: Array<String>[2]
-    timestamp: Int(1733318400)
-    user: Dict { id: Int(42), name: String("Developer") }
-  }
-}
+┌──────────────────────────────────────────────┐
+│ Response<OK>                                 │
+├────────────────┬─────────────────────────────┤
+│ reason         │ String("success")           │
+│ message        │ String("Hello, Developer!") │
+│ tags           │ Array<String>[2]            │
+│ timestamp      │ Int(1733318400)             │
+│ user.id        │ Int(42)                     │
+│ user.name      │ String("Developer")         │
+└────────────────┴─────────────────────────────┘
 ```
 
 Developer output includes:
-- Response wrapper with status type
+- Clean table format for easy scanning
 - Type annotations for all values
-- Array element counts
-- Explicit string quoting
+- Flattened keys with dot notation
+- Automatic column width adjustment
 
 ## Benefits
 
@@ -239,7 +240,7 @@ The `<Log>` action respects output context:
 |---------|--------|
 | Human | `[FeatureSetName] Processing request` |
 | Machine | `{"level":"info","source":"FeatureSetName","message":"Processing request"}` |
-| Developer | `LOG[console] FeatureSetName: Processing request` |
+| Developer | Formatted table with source and message |
 
 ## Alternatives Considered
 
