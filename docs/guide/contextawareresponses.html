@@ -249,8 +249,12 @@
 <pre><code class="language-json">{&quot;level&quot;:&quot;info&quot;,&quot;source&quot;:&quot;Application-Start&quot;,&quot;message&quot;:&quot;Hello, World!&quot;}
 </code></pre>
 <h3>Developer Context</h3>
-<p>During test execution, output includes diagnostic information:</p>
-<pre><code>LOG[console] Application-Start: Hello, World!
+<p>During test execution, output is displayed as a formatted table with type annotations:</p>
+<pre><code>┌──────────────────────────────────────────┐
+│ LOG [console] Application-Start          │
+├──────────────────────────────────────────┤
+│ message: String(&quot;Hello, World!&quot;)         │
+└──────────────────────────────────────────┘
 </code></pre>
 <h2>Automatic Detection</h2>
 <p>The runtime automatically detects context:</p>
@@ -305,13 +309,19 @@
 }
 </code></pre>
 <h3>Test Output (Developer)</h3>
-<pre><code>LOG[console] getUser: User retrieved
-Response&lt;OK&gt; {
-  reason: &quot;success&quot;
-  data: {
-    user: Dict { id: Int(123), name: String(&quot;Alice&quot;) }
-  }
-}
+<pre><code>┌──────────────────────────────────────────┐
+│ LOG [console] getUser                    │
+├──────────────────────────────────────────┤
+│ message: String(&quot;User retrieved&quot;)        │
+└──────────────────────────────────────────┘
+
+┌──────────────────────────────────────────┐
+│ Response&lt;OK&gt;                             │
+├────────────────┬─────────────────────────┤
+│ reason         │ String(&quot;success&quot;)       │
+│ user.id        │ Int(123)                │
+│ user.name      │ String(&quot;Alice&quot;)         │
+└────────────────┴─────────────────────────┘
 </code></pre>
 <h2>Benefits</h2>
 <ol>
@@ -328,7 +338,7 @@ Response&lt;OK&gt; {
 <ul>
 <li><strong>Human</strong>: <code>[FeatureSetName] value</code></li>
 <li><strong>Machine</strong>: <code>{&quot;level&quot;:&quot;info&quot;,&quot;source&quot;:&quot;FeatureSetName&quot;,&quot;message&quot;:&quot;value&quot;}</code></li>
-<li><strong>Developer</strong>: <code>LOG[console] FeatureSetName: value</code></li>
+<li><strong>Developer</strong>: Formatted table with type annotations</li>
 </ul>
 <h3>Return Action</h3>
 <p>The <code>&lt;Return&gt;</code> action sets the response, which is formatted based on context:</p>
