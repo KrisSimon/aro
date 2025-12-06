@@ -116,6 +116,8 @@ jobs:
   # ===========================================================================
   windows:
     name: Windows
+    permissions:
+      contents: read
     runs-on: windows-latest
     continue-on-error: true  # swift-nio-ssl Windows header issues
     steps:
