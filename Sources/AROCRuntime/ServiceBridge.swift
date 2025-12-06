@@ -1686,7 +1686,11 @@ public func aro_native_http_server_start(_ port: Int32, _ contextPtr: UnsafeMuta
                 }
 
                 // Try to find the compiled feature set function via dlsym
-                let functionName = "featureset_\(opId)"
+                // Must match LLVMCodeGenerator.mangleFeatureSetName()
+                let functionName = "aro_fs_" + opId
+                    .replacingOccurrences(of: "-", with: "_")
+                    .replacingOccurrences(of: " ", with: "_")
+                    .lowercased()
                 if let handle = dlopen(nil, RTLD_NOW),
                    let sym = dlsym(handle, functionName) {
                     typealias FSFunction = @convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?
