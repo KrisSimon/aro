@@ -25,6 +25,47 @@
     --radius-lg: 24px;
 
     --shadow-glow: 0 0 60px rgba(124, 58, 237, 0.3);
+
+    /* Light mode overrides */
+    --nav-bg: rgba(10, 10, 15, 0.8);
+    --nav-border: rgba(255, 255, 255, 0.05);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-bg-overlay: rgba(255, 255, 255, 0.1);
+    --mobile-menu-bg: rgba(10, 10, 15, 0.98);
+    --code-header-bg: rgba(0, 0, 0, 0.3);
+    --code-header-border: rgba(255, 255, 255, 0.05);
+}
+
+/* ============================================================
+   Light Mode
+   ============================================================ */
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --color-bg: #f8f9fc;
+        --color-bg-alt: #eef1f6;
+        --color-text: #1a1a2e;
+        --color-text-muted: #5c5c7a;
+        --color-primary: #6d28d9;
+        --color-secondary: #0891b2;
+        --color-accent: #db2777;
+        --color-success: #059669;
+        --color-warning: #d97706;
+
+        --gradient-primary: linear-gradient(135deg, #6d28d9 0%, #0891b2 100%);
+        --gradient-alt: linear-gradient(135deg, #db2777 0%, #d97706 100%);
+        --gradient-third: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+
+        --shadow-glow: 0 0 60px rgba(109, 40, 217, 0.15);
+
+        --nav-bg: rgba(248, 249, 252, 0.9);
+        --nav-border: rgba(0, 0, 0, 0.08);
+        --card-border: rgba(0, 0, 0, 0.08);
+        --card-bg-overlay: rgba(0, 0, 0, 0.05);
+        --mobile-menu-bg: rgba(248, 249, 252, 0.98);
+        --code-header-bg: rgba(0, 0, 0, 0.05);
+        --code-header-border: rgba(0, 0, 0, 0.08);
+    }
 }
 
 * {
@@ -62,9 +103,9 @@ body {
     right: 0;
     z-index: 100;
     padding: 20px 0;
-    background: rgba(10, 10, 15, 0.8);
+    background: var(--nav-bg);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--nav-border);
 }
 
 .nav-content {
@@ -298,7 +339,7 @@ body {
     border-radius: var(--radius-md);
     overflow: hidden;
     box-shadow: var(--shadow-glow);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--card-border);
 }
 
 .code-header {
@@ -306,8 +347,8 @@ body {
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--code-header-bg);
+    border-bottom: 1px solid var(--code-header-border);
 }
 
 .dot {
@@ -381,7 +422,7 @@ body {
     background: var(--color-bg);
     padding: 40px;
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--card-border);
     transition: transform 0.3s, box-shadow 0.3s;
 }
 
@@ -502,7 +543,7 @@ body {
     background: var(--color-bg-alt);
     padding: 32px;
     border-radius: var(--radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--card-border);
 }
 
 .comparison h4 {
@@ -593,7 +634,7 @@ body {
 .footer {
     padding: 80px 0 40px;
     background: var(--color-bg);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--nav-border);
 }
 
 .footer-content {
@@ -657,7 +698,7 @@ body {
 .footer-bottom {
     text-align: center;
     padding-top: 40px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--nav-border);
 }
 
 .footer-bottom p {
@@ -721,7 +762,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(10, 10, 15, 0.98);
+    background: var(--mobile-menu-bg);
     backdrop-filter: blur(20px);
     z-index: 99;
     padding: 100px 24px 40px;
@@ -763,6 +804,69 @@ body {
 /* Prevent body scroll when menu is open */
 body.menu-open {
     overflow: hidden;
+}
+
+/* ============================================================
+   Light Mode Component Overrides
+   ============================================================ */
+
+@media (prefers-color-scheme: light) {
+    .hero-bg {
+        background:
+            radial-gradient(ellipse at 20% 20%, rgba(109, 40, 217, 0.1) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(8, 145, 178, 0.1) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 50%, rgba(219, 39, 119, 0.08) 0%, transparent 60%);
+    }
+
+    .hero-badge {
+        background: rgba(109, 40, 217, 0.1);
+        border: 1px solid rgba(109, 40, 217, 0.2);
+    }
+
+    .btn-secondary {
+        background: rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-secondary:hover {
+        background: rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-outline {
+        border: 2px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .nav-github {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .flow-item {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .mobile-menu .nav-github {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .cta-section {
+        background:
+            radial-gradient(ellipse at 50% 0%, rgba(109, 40, 217, 0.1) 0%, transparent 50%),
+            var(--color-bg-alt);
+    }
+
+    .code-content .comment { color: #6b7280; }
+    .code-content .feature-name { color: #be185d; }
+    .code-content .action { color: #6d28d9; font-weight: 600; }
+    .code-content .result { color: #0891b2; }
+    .code-content .string { color: #059669; }
+
+    .ai-text code {
+        background: rgba(109, 40, 217, 0.1);
+    }
+
+    .feature-card code {
+        background: rgba(8, 145, 178, 0.1);
+    }
 }
 
 /* ============================================================
