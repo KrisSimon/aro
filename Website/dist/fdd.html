@@ -291,6 +291,25 @@
                 text-align: center;
             }
         }
+
+        /* Light mode overrides */
+        @media (prefers-color-scheme: light) {
+            .feature-formula {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .parking-spot {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .parking-progress {
+                background: rgba(0, 0, 0, 0.1);
+            }
+
+            .feature-formula pre {
+                color: var(--color-text-muted);
+            }
+        }
     </style>
 </head>
 <body>

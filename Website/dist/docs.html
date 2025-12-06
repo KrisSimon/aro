@@ -168,6 +168,17 @@
         .quick-link-icon {
             font-size: 1.2rem;
         }
+
+        /* Light mode overrides */
+        @media (prefers-color-scheme: light) {
+            .doc-card {
+                border: 1px solid rgba(0, 0, 0, 0.08);
+            }
+
+            .quick-link:hover {
+                background: rgba(0, 0, 0, 0.05);
+            }
+        }
     </style>
 </head>
 <body>

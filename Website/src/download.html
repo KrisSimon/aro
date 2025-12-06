@@ -236,6 +236,41 @@
             font-family: var(--font-mono);
             font-size: 0.9rem;
             line-height: 1.6;
+            color: #e2e8f0;
+        }
+
+        /* Light mode overrides */
+        @media (prefers-color-scheme: light) {
+            .download-hero {
+                background:
+                    radial-gradient(ellipse at 50% 0%, rgba(5, 150, 105, 0.08) 0%, transparent 50%),
+                    var(--color-bg);
+            }
+
+            .download-card {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .editor-card {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .build-source {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .build-source code {
+                background: rgba(0, 0, 0, 0.08);
+            }
+
+            .code-block {
+                background: rgba(30, 41, 59, 0.95);
+            }
+
+            .editor-section {
+                background: rgba(5, 150, 105, 0.05);
+                border: 1px solid rgba(5, 150, 105, 0.15);
+            }
         }
     </style>
 </head>

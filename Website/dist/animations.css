@@ -360,3 +360,28 @@ html {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* =============================================================================
+   Light Mode Overrides
+   ============================================================================= */
+@media (prefers-color-scheme: light) {
+    .glass {
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .glass-card {
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .nav-github {
+        background: rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-github:hover {
+        background: rgba(0, 0, 0, 0.08);
+        border-color: rgba(0, 0, 0, 0.15);
+    }
+}

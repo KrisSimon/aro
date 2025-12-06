@@ -260,6 +260,23 @@
             color: var(--color-text-muted);
             margin: 0;
         }
+
+        /* Light mode overrides */
+        @media (prefers-color-scheme: light) {
+            .section-divider::before {
+                background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.15), transparent);
+            }
+
+            .key-point {
+                background: rgba(0, 0, 0, 0.02);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+            }
+
+            .vision-card {
+                background: rgba(0, 0, 0, 0.02);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+            }
+        }
     </style>
 </head>
 <body>

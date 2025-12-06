@@ -783,6 +783,72 @@
             margin: 0 auto;
             line-height: 1.7;
         }
+
+        /* Light mode overrides */
+        @media (prefers-color-scheme: light) {
+            .bg-gradient-1 {
+                background:
+                    radial-gradient(ellipse at 20% 20%, rgba(109, 40, 217, 0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 80%, rgba(8, 145, 178, 0.06) 0%, transparent 50%);
+            }
+
+            .bg-gradient-2 {
+                background:
+                    radial-gradient(ellipse at 80% 20%, rgba(8, 145, 178, 0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 20% 80%, rgba(109, 40, 217, 0.06) 0%, transparent 50%);
+            }
+
+            .bg-gradient-3 {
+                background:
+                    radial-gradient(ellipse at 50% 0%, rgba(109, 40, 217, 0.1) 0%, transparent 40%),
+                    radial-gradient(ellipse at 50% 100%, rgba(8, 145, 178, 0.08) 0%, transparent 40%);
+            }
+
+            .code-block {
+                background: rgba(30, 41, 59, 0.95);
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .code-header {
+                background: rgba(0, 0, 0, 0.2);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .concept-card {
+                background: rgba(0, 0, 0, 0.02);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+            }
+
+            .story-callout {
+                background: rgba(109, 40, 217, 0.05);
+                border: 1px solid rgba(109, 40, 217, 0.15);
+            }
+
+            .section-text code {
+                background: rgba(109, 40, 217, 0.1);
+            }
+
+            .concept-card code {
+                background: rgba(109, 40, 217, 0.15);
+            }
+
+            .footer-note {
+                border-top: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .timeline::before {
+                background: rgba(0, 0, 0, 0.1);
+            }
+
+            .floating-nav {
+                background: rgba(248, 249, 252, 0.95);
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .nav-dot::after {
+                background: rgba(0, 0, 0, 0.2);
+            }
+        }
     </style>
 </head>
 <body>

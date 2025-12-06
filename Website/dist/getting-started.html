@@ -257,6 +257,55 @@
             justify-content: center;
             flex-wrap: wrap;
         }
+
+        /* Light mode overrides */
+        @media (prefers-color-scheme: light) {
+            .guide-hero {
+                background:
+                    radial-gradient(ellipse at 50% 0%, rgba(5, 150, 105, 0.1) 0%, transparent 50%),
+                    var(--color-bg);
+            }
+
+            .step {
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            }
+
+            .code-block {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .code-block-header {
+                background: rgba(0, 0, 0, 0.05);
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            }
+
+            .code-block .comment { color: #6b7280; }
+            .code-block .keyword { color: #6d28d9; }
+            .code-block .string { color: #059669; }
+            .code-block .action { color: #6d28d9; }
+            .code-block .result { color: #0891b2; }
+            .code-block .feature { color: #be185d; }
+
+            .terminal {
+                background: #1e293b;
+            }
+
+            .terminal-command {
+                color: #e2e8f0;
+            }
+
+            .terminal-output {
+                color: #94a3b8;
+            }
+
+            .file-tree {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .tip {
+                background: rgba(5, 150, 105, 0.08);
+            }
+        }
     </style>
 </head>
 <body>
