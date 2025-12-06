@@ -37,21 +37,13 @@
         </ul>
     ]]></change-notes>
 
-    <idea-version since-build="223"/>
+    <idea-version since-build="241" until-build="251.*"/>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- File type registration -->
-        <fileType
-                name="ARO"
-                implementationClass="com.intellij.openapi.fileTypes.PlainTextFileType"
-                fieldName="INSTANCE"
-                language="ARO"
-                extensions="aro"/>
-
-        <!-- TextMate bundle for syntax highlighting -->
+        <!-- TextMate bundle for syntax highlighting (handles file type association via bundle) -->
         <textmate.bundleProvider implementation="com.krissimon.aro.AROTextMateBundleProvider"/>
 
         <!-- Live templates -->

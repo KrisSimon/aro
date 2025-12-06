@@ -90,9 +90,17 @@ Then install from disk (see above).
 
 ### Prerequisites
 
-- **JDK 17** or later (JDK 21 recommended)
-- **Gradle 8.x** (wrapper included)
-- **IntelliJ IDEA** 2023.3 or later (for testing)
+- **JDK 17-21** (JDK 21 recommended - JDK 25+ not yet supported by IntelliJ Platform Gradle Plugin)
+- **Gradle 8.13** (wrapper included)
+- **IntelliJ IDEA** 2024.1 or later (for testing)
+
+On macOS, install Java 21:
+```bash
+brew install openjdk@21
+```
+
+The build uses Java 21 via gradle.properties. If you have a different Java version as default,
+the wrapper will use the configured Java 21 path.
 
 ### Build Commands
 
@@ -220,7 +228,7 @@ export PRIVATE_KEY_PASSWORD=your_password
 
 ## Supported IDEs
 
-The plugin works with all JetBrains IDEs based on IntelliJ Platform 2023.3+:
+The plugin works with all JetBrains IDEs based on IntelliJ Platform 2024.1 - 2025.1:
 
 - IntelliJ IDEA (Community and Ultimate)
 - WebStorm

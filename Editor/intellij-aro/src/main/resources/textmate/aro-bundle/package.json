@@ -1,0 +1,23 @@
+{
+  "name": "aro-language",
+  "displayName": "ARO Language",
+  "description": "TextMate grammar for ARO (Action Result Object) language",
+  "version": "1.0.0",
+  "contributes": {
+    "grammars": [
+      {
+        "language": "aro",
+        "scopeName": "source.aro",
+        "path": "./syntaxes/aro.tmLanguage.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "aro",
+        "aliases": ["ARO", "aro"],
+        "extensions": [".aro"],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  }
+}

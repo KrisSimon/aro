@@ -1,6 +1,6 @@
 plugins {
     id("java")
-    id("org.jetbrains.intellij") version "1.17.2"
+    id("org.jetbrains.intellij.platform") version "2.10.5"
 }
 
 group = "com.krissimon"
@@ -8,32 +8,42 @@ version = "1.0.0"
 
 repositories {
     mavenCentral()
+    intellijPlatform {
+        defaultRepositories()
+    }
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
-intellij {
-    version.set("2023.3")
-    type.set("IC") // IntelliJ IDEA Community Edition
-    plugins.set(listOf("org.jetbrains.plugins.textmate"))
+dependencies {
+    intellijPlatform {
+        intellijIdeaCommunity("2024.1")
+        bundledPlugin("org.jetbrains.plugins.textmate")
+        pluginVerifier()
+        instrumentationTools()
+    }
 }
 
-tasks {
-    patchPluginXml {
-        sinceBuild.set("223")
-        untilBuild.set("243.*")
+intellijPlatform {
+    pluginConfiguration {
+        name = "ARO Language Support"
+        ideaVersion {
+            sinceBuild = "241"
+            untilBuild = "251.*"
+        }
     }
 
-    signPlugin {
-        certificateChain.set(System.getenv("CERTIFICATE_CHAIN"))
-        privateKey.set(System.getenv("PRIVATE_KEY"))
-        password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
+    signing {
+        certificateChain = System.getenv("CERTIFICATE_CHAIN") ?: ""
+        privateKey = System.getenv("PRIVATE_KEY") ?: ""
+        password = System.getenv("PRIVATE_KEY_PASSWORD") ?: ""
     }
 
-    publishPlugin {
-        token.set(System.getenv("PUBLISH_TOKEN"))
+    publishing {
+        token = System.getenv("PUBLISH_TOKEN") ?: ""
     }
 }
