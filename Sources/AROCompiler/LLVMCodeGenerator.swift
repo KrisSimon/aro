@@ -126,7 +126,7 @@ public final class LLVMCodeGenerator {
         // All action functions
         emit("; Action functions")
         let actions = [
-            "extract", "fetch", "retrieve", "parse", "read",
+            "extract", "fetch", "retrieve", "parse", "read", "request",
             "compute", "validate", "compare", "transform", "create", "update",
             "return", "throw", "emit", "send", "log", "store", "write", "publish",
             "start", "listen", "route", "watch", "stop", "keepalive",
@@ -158,6 +158,15 @@ public final class LLVMCodeGenerator {
         // Standard C library functions
         emit("; Standard C library")
         emit("declare i32 @strcmp(ptr, ptr)")
+        emit("")
+
+        // ForEach/iteration operations
+        emit("; ForEach/iteration operations")
+        emit("declare i64 @aro_array_count(ptr)")
+        emit("declare ptr @aro_array_get(ptr, i64)")
+        emit("declare void @aro_variable_bind_value(ptr, ptr, ptr)")
+        emit("declare ptr @aro_dict_get(ptr, ptr)")
+        emit("declare i32 @aro_evaluate_filter(ptr, ptr)")
         emit("")
 
         // OpenAPI embedding
@@ -230,6 +239,29 @@ public final class LLVMCodeGenerator {
                     collectStringsFromStatement(bodyStatement)
                 }
             }
+        } else if let forEachLoop = statement as? ForEachLoop {
+            // Register item variable name
+            registerString(forEachLoop.itemVariable)
+            // Register index variable if present
+            if let indexVar = forEachLoop.indexVariable {
+                registerString(indexVar)
+            }
+            // Register collection base and specifiers
+            registerString(forEachLoop.collection.base)
+            for spec in forEachLoop.collection.specifiers {
+                registerString(spec)
+            }
+            // Register filter expression if present
+            if let filter = forEachLoop.filter {
+                collectStringsFromExpression(filter)
+                // Also register the filter JSON for runtime evaluation
+                let filterJSON = filterExpressionToJSON(filter, itemVar: forEachLoop.itemVariable)
+                registerString(filterJSON)
+            }
+            // Collect strings from body statements
+            for bodyStatement in forEachLoop.body {
+                collectStringsFromStatement(bodyStatement)
+            }
         }
     }
 
@@ -237,8 +269,11 @@ public final class LLVMCodeGenerator {
         if let literalExpr = expression as? LiteralExpression {
             collectStringsFromLiteral(literalExpr.value)
         } else if let varRefExpr = expression as? VariableRefExpression {
-            // Register variable name for runtime resolution
+            // Register variable name and specifiers for runtime resolution
             registerString(varRefExpr.noun.base)
+            for spec in varRefExpr.noun.specifiers {
+                registerString(spec)
+            }
         } else if let mapExpr = expression as? MapLiteralExpression {
             // Register JSON representation of the map
             let jsonString = mapExpressionToJSON(mapExpr)
@@ -294,13 +329,19 @@ public final class LLVMCodeGenerator {
     }
 
     /// Convert any Expression to evaluation JSON format
-    /// Format for values: {"$lit": value} or {"$var": "name"} or {"$binary": {...}}
+    /// Format for values: {"$lit": value} or {"$var": "name"} or {"$var": "name", "$specs": ["prop"]} or {"$binary": {...}}
     private func expressionToEvalJSON(_ expr: any AROParser.Expression) -> String {
         if let literalExpr = expr as? LiteralExpression {
             return "{\"$lit\":\(literalToJSON(literalExpr.value))}"
         } else if let varRefExpr = expr as? VariableRefExpression {
             let escaped = varRefExpr.noun.base.replacingOccurrences(of: "\"", with: "\\\"")
-            return "{\"$var\":\"\(escaped)\"}"
+            if varRefExpr.noun.specifiers.isEmpty {
+                return "{\"$var\":\"\(escaped)\"}"
+            } else {
+                // Include specifiers for expressions like <user: active>
+                let specsJSON = varRefExpr.noun.specifiers.map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" }.joined(separator: ",")
+                return "{\"$var\":\"\(escaped)\",\"$specs\":[\(specsJSON)]}"
+            }
         } else if let binaryExpr = expr as? BinaryExpression {
             return binaryExpressionToJSON(binaryExpr)
         } else if let groupedExpr = expr as? GroupedExpression {
@@ -447,6 +488,8 @@ public final class LLVMCodeGenerator {
             try generatePublishStatement(publishStatement, index: index)
         } else if let matchStatement = statement as? MatchStatement {
             try generateMatchStatement(matchStatement, index: index)
+        } else if let forEachLoop = statement as? ForEachLoop {
+            try generateForEachLoop(forEachLoop, index: index)
         }
     }
 
@@ -610,13 +653,32 @@ public final class LLVMCodeGenerator {
             }
         } else if let varRefExpr = expression as? VariableRefExpression {
             // Variable reference expression: <user>, <user: id>, etc.
-            // Resolve the variable and copy its value to _expression_
+            // Resolve the variable and access specifiers if present
             let varName = varRefExpr.noun.base
             let varNameStr = stringConstants[varName]!
 
             emit("  ; Resolve variable reference <\(varName)> for expression binding")
-            emit("  %\(prefix)_varref = call ptr @aro_variable_resolve(ptr %ctx, ptr \(varNameStr))")
-            emit("  call void @aro_copy_value_to_expression(ptr %ctx, ptr %\(prefix)_varref)")
+
+            if varRefExpr.noun.specifiers.isEmpty {
+                // Simple variable reference: <user>
+                emit("  %\(prefix)_varref = call ptr @aro_variable_resolve(ptr %ctx, ptr \(varNameStr))")
+                emit("  call void @aro_copy_value_to_expression(ptr %ctx, ptr %\(prefix)_varref)")
+            } else {
+                // Variable with specifiers: <user: name>
+                emit("  %\(prefix)_varref_base = call ptr @aro_variable_resolve(ptr %ctx, ptr \(varNameStr))")
+                // Access each specifier property
+                for (specIdx, spec) in varRefExpr.noun.specifiers.enumerated() {
+                    let specStr = stringConstants[spec]!
+                    let prevPtr = specIdx == 0 ? "%\(prefix)_varref_base" : "%\(prefix)_varref_spec\(specIdx - 1)"
+                    if specIdx == varRefExpr.noun.specifiers.count - 1 {
+                        // Last specifier - store in final result
+                        emit("  %\(prefix)_varref = call ptr @aro_dict_get(ptr \(prevPtr), ptr \(specStr))")
+                    } else {
+                        emit("  %\(prefix)_varref_spec\(specIdx) = call ptr @aro_dict_get(ptr \(prevPtr), ptr \(specStr))")
+                    }
+                }
+                emit("  call void @aro_copy_value_to_expression(ptr %ctx, ptr %\(prefix)_varref)")
+            }
         } else if let mapExpr = expression as? MapLiteralExpression {
             // Map literal expression: { key: value, ... }
             // Bind as JSON string and let runtime parse it
@@ -768,6 +830,119 @@ public final class LLVMCodeGenerator {
 
         // End block
         emit("\(endLabel):")
+    }
+
+    // MARK: - ForEach Loop Generation (ARO-0005)
+
+    private func generateForEachLoop(_ loop: ForEachLoop, index: Int) throws {
+        let prefix = "fe\(index)"
+
+        emit("  ; for each <\(loop.itemVariable)> in <\(loop.collection.base)>")
+
+        // Get the collection variable name
+        let collectionName = loop.collection.base
+        let collectionStr = stringConstants[collectionName]!
+
+        // Resolve collection - handle specifiers
+        if loop.collection.specifiers.isEmpty {
+            // Direct collection: <users>
+            emit("  %\(prefix)_collection = call ptr @aro_variable_resolve(ptr %ctx, ptr \(collectionStr))")
+        } else {
+            // Collection with specifiers: <team: members>
+            emit("  %\(prefix)_base = call ptr @aro_variable_resolve(ptr %ctx, ptr \(collectionStr))")
+            // Access each specifier
+            for (specIdx, spec) in loop.collection.specifiers.enumerated() {
+                let specStr = stringConstants[spec]!
+                let prevPtr = specIdx == 0 ? "%\(prefix)_base" : "%\(prefix)_spec\(specIdx - 1)"
+                if specIdx == loop.collection.specifiers.count - 1 {
+                    // Last specifier - store directly in _collection
+                    emit("  %\(prefix)_collection = call ptr @aro_dict_get(ptr \(prevPtr), ptr \(specStr))")
+                } else {
+                    emit("  %\(prefix)_spec\(specIdx) = call ptr @aro_dict_get(ptr \(prevPtr), ptr \(specStr))")
+                }
+            }
+        }
+
+        // Check if collection is null
+        emit("  %\(prefix)_col_null = icmp eq ptr %\(prefix)_collection, null")
+        emit("  br i1 %\(prefix)_col_null, label %\(prefix)_end, label %\(prefix)_init")
+        emit("")
+
+        // Initialize loop
+        emit("\(prefix)_init:")
+        emit("  %\(prefix)_count = call i64 @aro_array_count(ptr %\(prefix)_collection)")
+        emit("  %\(prefix)_has_items = icmp sgt i64 %\(prefix)_count, 0")
+        emit("  br i1 %\(prefix)_has_items, label %\(prefix)_header, label %\(prefix)_end")
+        emit("")
+
+        // Loop header
+        emit("\(prefix)_header:")
+        emit("  %\(prefix)_i = phi i64 [ 0, %\(prefix)_init ], [ %\(prefix)_next_i, %\(prefix)_continue ]")
+
+        // Get element at index
+        emit("  %\(prefix)_element = call ptr @aro_array_get(ptr %\(prefix)_collection, i64 %\(prefix)_i)")
+
+        // Bind element to item variable
+        let itemVarStr = stringConstants[loop.itemVariable]!
+        emit("  call void @aro_variable_bind_value(ptr %ctx, ptr \(itemVarStr), ptr %\(prefix)_element)")
+
+        // Bind index variable if present
+        if let indexVar = loop.indexVariable {
+            let indexVarStr = stringConstants[indexVar]!
+            emit("  call void @aro_variable_bind_int(ptr %ctx, ptr \(indexVarStr), i64 %\(prefix)_i)")
+        }
+
+        // Handle filter if present
+        if let filter = loop.filter {
+            let filterJSON = filterExpressionToJSON(filter, itemVar: loop.itemVariable)
+            let filterStr = stringConstants[filterJSON]!
+            emit("  %\(prefix)_filter_result = call i32 @aro_evaluate_filter(ptr %ctx, ptr \(filterStr))")
+            emit("  %\(prefix)_passes_filter = icmp ne i32 %\(prefix)_filter_result, 0")
+            emit("  br i1 %\(prefix)_passes_filter, label %\(prefix)_body, label %\(prefix)_continue")
+            emit("")
+            emit("\(prefix)_body:")
+        } else {
+            emit("  br label %\(prefix)_body")
+            emit("")
+            emit("\(prefix)_body:")
+        }
+
+        // Generate body statements
+        for (bodyIndex, bodyStatement) in loop.body.enumerated() {
+            try generateStatement(bodyStatement, index: index * 1000 + bodyIndex)
+        }
+
+        // Free element
+        emit("  call void @aro_value_free(ptr %\(prefix)_element)")
+        emit("  br label %\(prefix)_continue")
+        emit("")
+
+        // Continue to next iteration
+        emit("\(prefix)_continue:")
+        emit("  %\(prefix)_next_i = add i64 %\(prefix)_i, 1")
+        emit("  %\(prefix)_done = icmp sge i64 %\(prefix)_next_i, %\(prefix)_count")
+        emit("  br i1 %\(prefix)_done, label %\(prefix)_end, label %\(prefix)_header")
+        emit("")
+
+        // End loop
+        emit("\(prefix)_end:")
+        emit("")
+    }
+
+    /// Convert a filter expression to JSON for runtime evaluation
+    /// Handles expressions like: <user: active> is true
+    private func filterExpressionToJSON(_ expr: any AROParser.Expression, itemVar: String) -> String {
+        // Most filters are binary expressions: <user: active> is true, <user: active> == true, etc.
+        if let binaryExpr = expr as? BinaryExpression {
+            return binaryExpressionToJSON(binaryExpr)
+        }
+        // Type check expression: <user: active> is boolean
+        if let typeCheck = expr as? TypeCheckExpression {
+            let inner = expressionToEvalJSON(typeCheck.expression)
+            return "{\"$typecheck\":{\"expr\":\(inner),\"type\":\"\(typeCheck.typeName)\"}}"
+        }
+        // Fallback: evaluate as-is
+        return expressionToEvalJSON(expr)
     }
 
     // MARK: - Main Function Generation

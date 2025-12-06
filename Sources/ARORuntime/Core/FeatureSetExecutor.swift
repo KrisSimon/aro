@@ -490,15 +490,43 @@ public final class FeatureSetExecutor: @unchecked Sendable {
         }
     }
 
+    // MARK: - Property Access Helper
+
+    /// Access a property on a collection value (for nested iteration like `<team: members>`)
+    private func accessCollectionProperty(_ property: String, on value: any Sendable) throws -> any Sendable {
+        // Handle [String: any Sendable] dictionary
+        if let dict = value as? [String: any Sendable] {
+            guard let propValue = dict[property] else {
+                throw ActionError.runtimeError("Property '\(property)' not found on object")
+            }
+            return propValue
+        }
+
+        // Handle [String: AnySendable] dictionary
+        if let dict = value as? [String: AnySendable] {
+            guard let propValue = dict[property] else {
+                throw ActionError.runtimeError("Property '\(property)' not found on object")
+            }
+            return propValue
+        }
+
+        throw ActionError.runtimeError("Cannot access property '\(property)' on \(type(of: value))")
+    }
+
     // MARK: - For-Each Loop Execution (ARO-0005)
 
     private func executeForEachLoop(
         _ loop: ForEachLoop,
         context: ExecutionContext
     ) async throws {
-        // Resolve the collection
-        guard let collectionValue = context.resolveAny(loop.collection.base) else {
+        // Resolve the collection (with specifier support for property access)
+        guard var collectionValue: any Sendable = context.resolveAny(loop.collection.base) else {
             throw ActionError.undefinedVariable(loop.collection.base)
+        }
+
+        // Handle specifiers as property access (e.g., <team: members> -> team.members)
+        for specifier in loop.collection.specifiers {
+            collectionValue = try accessCollectionProperty(specifier, on: collectionValue)
         }
 
         // Convert to array

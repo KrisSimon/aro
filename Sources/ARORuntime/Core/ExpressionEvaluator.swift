@@ -24,8 +24,12 @@ public struct ExpressionEvaluator: Sendable {
 
         // Variable reference
         case let varRef as VariableRefExpression:
-            guard let value = context.resolveAny(varRef.noun.base) else {
+            guard var value = context.resolveAny(varRef.noun.base) else {
                 throw ExpressionError.undefinedVariable(varRef.noun.base)
+            }
+            // Handle specifiers as property access (e.g., <user: name> -> user.name)
+            for specifier in varRef.noun.specifiers {
+                value = try accessProperty(specifier, on: value)
             }
             return value
 
@@ -253,6 +257,27 @@ public struct ExpressionEvaluator: Sendable {
     }
 
     // MARK: - Helper Methods
+
+    /// Access a property on a value (dictionary, AnySendable, etc.)
+    private func accessProperty(_ property: String, on value: any Sendable) throws -> any Sendable {
+        // Handle [String: any Sendable] dictionary
+        if let dict = value as? [String: any Sendable] {
+            guard let propValue = dict[property] else {
+                throw ExpressionError.undefinedMember(property)
+            }
+            return propValue
+        }
+
+        // Handle [String: AnySendable] dictionary
+        if let dict = value as? [String: AnySendable] {
+            guard let propValue = dict[property] else {
+                throw ExpressionError.undefinedMember(property)
+            }
+            return propValue
+        }
+
+        throw ExpressionError.typeMismatch("Cannot access property '\(property)' on \(type(of: value))")
+    }
 
     private func numericOperation(_ left: any Sendable, _ right: any Sendable, _ op: (Double, Double) -> Double) throws -> any Sendable {
         let l = try asDouble(left)

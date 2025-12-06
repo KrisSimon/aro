@@ -22,3 +22,14 @@
 /Examples/ContextAware/ContextAware
 /Examples/FileWatcher/FileWatcher
 /Examples/HelloWorldAPI/HelloWorldAPI
+/Examples/SimpleChat/SimpleChat
+/Editor/intellij-aro/.intellijPlatform
+/Editor/vscode-aro/aro-language-1.0.0.vsix
+/Editor/vscode-aro/node_modules
+/Editor/vscode-aro/out
+/Examples/HTTPClient/HTTPClient
+/Examples/DataPipeline/.idea
+/Examples/Scoping/Scoping
+/Examples/Iteration/Iteration
+/Examples/HTTPServer/HTTPServer
+.idea

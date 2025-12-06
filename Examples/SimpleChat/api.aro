@@ -1,0 +1,13 @@
+(* GET /status - Return the last posted message *)
+(getStatus: Simple Chat API) {
+    <Retrieve> the <messages> from the <message-repository>.
+    <Return> an <OK: status> with { messages: <messages> }.
+}
+
+(* POST /status - Store the message and return it *)
+(postStatus: Simple Chat API) {
+    <Extract> the <data> from the <request: body>.
+    <Extract> the <message> from the <data: message>.
+    <Store> the <message> into the <message-repository>.
+    <Return> a <Created: status> with { stored: <message> }.
+}

@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: Simple Chat API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /status:
+    get:
+      operationId: getStatus
+      summary: Get current status message
+      responses:
+        '200':
+          description: Current status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+    post:
+      operationId: postStatus
+      summary: Post a new status message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+              required:
+                - message
+      responses:
+        '201':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stored:
+                    type: string

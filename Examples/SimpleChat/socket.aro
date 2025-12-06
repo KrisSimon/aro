@@ -1,0 +1,31 @@
+(* Socket: Client connected *)
+(Handle Client Connected: Socket Event Handler) {
+    <Extract> the <client-id> from the <connection: id>.
+    <Log> the <connection: info> for the <console> with "Chat client connected".
+
+    (* Send welcome message *)
+    <Create> the <welcome> with "Welcome to Simple Chat! Send any message.".
+    <Send> the <welcome> to the <client-id>.
+
+    <Return> an <OK: status> for the <connection>.
+}
+
+(* Socket: Data received - echo back the data *)
+(Handle Data Received: Socket Event Handler) {
+    <Extract> the <data> from the <packet: buffer>.
+    <Extract> the <client> from the <packet: connection>.
+
+    (* Echo back the received data *)
+    <Send> the <data> to the <client>.
+
+    <Log> the <echo: done> for the <console> with "Echoed data back to client".
+
+    <Return> an <OK: status> for the <packet>.
+}
+
+(* Socket: Client disconnected *)
+(Handle Client Disconnected: Socket Event Handler) {
+    <Extract> the <client-id> from the <event: connectionId>.
+    <Log> the <disconnection: info> for the <console> with "Chat client disconnected".
+    <Return> an <OK: status> for the <event>.
+}

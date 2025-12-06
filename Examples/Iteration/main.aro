@@ -18,6 +18,12 @@
         <Log> the <name> for the <console> with <user: name>.
     }
 
+    <Log> the <header> for the <console> with "=== Object For-Each ===".
+    for each <user> in <users> {
+        <Log> the <name> for the <console> with <user>.
+    }
+
+
     (* 2. For-each with filter (replaces break/continue) *)
     <Log> the <header> for the <console> with "=== Filtered For-Each ===".
     for each <user> in <users> where <user: active> is true {
