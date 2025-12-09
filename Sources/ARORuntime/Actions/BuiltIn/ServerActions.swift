@@ -74,15 +74,27 @@ public struct StartAction: ActionImplementation {
             }
         }
 
-        // Try HTTP server service
+        // Try HTTP server service (interpreter mode with NIO)
         if let httpServerService = context.service(HTTPServerService.self) {
             try await httpServerService.start(port: port)
             return ServerStartResult(serverType: "http-server", success: true, port: port)
         }
 
-        // Emit event for external handling
+        // For compiled binaries, use the native HTTP server (BSD sockets)
+        #if !os(Windows)
+        // Pass nil for context - the native server will create contexts per-request
+        // via the aro_context_create() C function when invoking feature sets
+        let result = aro_native_http_server_start_with_openapi(Int32(port), nil)
+        if result == 0 {
+            return ServerStartResult(serverType: "http-server", success: true, port: port)
+        } else {
+            throw ActionError.runtimeError("Failed to start HTTP server on port \(port)")
+        }
+        #else
+        // Emit event for external handling on Windows
         context.emit(HTTPServerStartRequestedEvent(port: port))
         return ServerStartResult(serverType: "http-server", success: true, port: port)
+        #endif
     }
 
     private func startSocketServer(object: ObjectDescriptor, context: ExecutionContext) async throws -> any Sendable {

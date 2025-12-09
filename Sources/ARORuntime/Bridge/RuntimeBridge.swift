@@ -58,6 +58,10 @@ final class AROCContextHandle {
 nonisolated(unsafe) private var runtimeHandles: [UnsafeMutableRawPointer: AROCRuntimeHandle] = [:]
 private let handleLock = NSLock()
 
+/// Global runtime pointer for use by services (HTTP server, etc.)
+/// Set during aro_runtime_init(), cleared during aro_runtime_shutdown()
+nonisolated(unsafe) public var globalRuntimePtr: UnsafeMutableRawPointer?
+
 // MARK: - Runtime Lifecycle
 
 /// Initialize the ARO runtime
@@ -69,6 +73,8 @@ public func aro_runtime_init() -> UnsafeMutableRawPointer? {
 
     handleLock.lock()
     runtimeHandles[pointer] = handle
+    // Set global runtime for services to use
+    globalRuntimePtr = UnsafeMutableRawPointer(pointer)
     handleLock.unlock()
 
     return UnsafeMutableRawPointer(pointer)
@@ -87,6 +93,10 @@ public func aro_runtime_shutdown(_ runtimePtr: UnsafeMutableRawPointer?) {
             Unmanaged<AROCContextHandle>.fromOpaque(contextPtr).release()
         }
         handle.runtime.stop()
+    }
+    // Clear global runtime if it matches
+    if globalRuntimePtr == ptr {
+        globalRuntimePtr = nil
     }
     handleLock.unlock()
 

@@ -1678,13 +1678,27 @@ public func aro_native_http_server_start(_ port: Int32, _ contextPtr: UnsafeMuta
 
             // If route matched, try to invoke the feature set
             if let opId = matchedOperationId {
+                // Create a fresh context for this request if none provided
+                let requestContext: UnsafeMutableRawPointer?
+                if let providedCtx = contextPtr {
+                    requestContext = providedCtx
+                } else {
+                    // Create new context via aro_context_create using global runtime
+                    requestContext = aro_context_create(globalRuntimePtr)
+                }
+
                 // Bind request data to context before invoking handler
-                bindRequestToContext(contextPtr, body: body, headers: headers, path: path)
+                bindRequestToContext(requestContext, body: body, headers: headers, path: path)
 
                 // First check for registered handler
                 if let handler = httpRouteHandlers[opId] {
-                    _ = handler(contextPtr)
-                    return getContextResponse(contextPtr)
+                    _ = handler(requestContext)
+                    let response = getContextResponse(requestContext)
+                    // Clean up if we created the context
+                    if contextPtr == nil, let ctx = requestContext {
+                        aro_context_destroy(ctx)
+                    }
+                    return response
                 }
 
                 // Try to find the compiled feature set function via dlsym
@@ -1697,8 +1711,18 @@ public func aro_native_http_server_start(_ port: Int32, _ contextPtr: UnsafeMuta
                    let sym = dlsym(handle, functionName) {
                     typealias FSFunction = @convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?
                     let function = unsafeBitCast(sym, to: FSFunction.self)
-                    _ = function(contextPtr)
-                    return getContextResponse(contextPtr)
+                    _ = function(requestContext)
+                    let response = getContextResponse(requestContext)
+                    // Clean up if we created the context
+                    if contextPtr == nil, let ctx = requestContext {
+                        aro_context_destroy(ctx)
+                    }
+                    return response
+                }
+
+                // Clean up if we created the context but didn't find handler
+                if contextPtr == nil, let ctx = requestContext {
+                    aro_context_destroy(ctx)
                 }
 
                 // Route matched but no handler - return placeholder success
