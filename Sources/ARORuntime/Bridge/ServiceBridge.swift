@@ -1120,6 +1120,45 @@ public final class NativeSocketServer: @unchecked Sendable {
         return result >= 0
     }
 
+    /// Broadcast data to all connections
+    public func broadcast(data: Data) -> Int {
+        lock.lock()
+        let conns = connections
+        lock.unlock()
+
+        var successCount = 0
+        for (_, fd) in conns {
+            let result = data.withUnsafeBytes { buffer in
+                systemSend(fd, buffer.baseAddress!, data.count, 0)
+            }
+            if result >= 0 {
+                successCount += 1
+            }
+        }
+
+        return successCount
+    }
+
+    /// Broadcast data to all connections except the sender
+    public func broadcast(data: Data, excluding senderId: String) -> Int {
+        lock.lock()
+        let conns = connections
+        lock.unlock()
+
+        var successCount = 0
+        for (connId, fd) in conns {
+            if connId == senderId { continue }
+            let result = data.withUnsafeBytes { buffer in
+                systemSend(fd, buffer.baseAddress!, data.count, 0)
+            }
+            if result >= 0 {
+                successCount += 1
+            }
+        }
+
+        return successCount
+    }
+
     private func acceptLoop() {
         while isRunning {
             var clientAddr = sockaddr_in()
@@ -1190,16 +1229,16 @@ public func aro_native_socket_server_start(_ port: Int32) -> Int32 {
     if nativeSocketServer == nil {
         nativeSocketServer = NativeSocketServer(port: Int(port))
 
-        // Set up handlers for echo behavior (for now - will be customizable)
+        // Set up handlers for broadcast behavior
         nativeSocketServer?.onConnect { connectionId, remoteAddress in
             print("[Handle Client Connected] SocketConnection(id: \"\(connectionId)\", remoteAddress: \"\(remoteAddress)\")")
         }
 
         nativeSocketServer?.onData { connectionId, data in
-            // Echo the data back
-            _ = nativeSocketServer?.send(data: data, to: connectionId)
+            // Broadcast to all clients (including sender for chat-style apps)
+            _ = nativeSocketServer?.broadcast(data: data)
             if let str = String(data: data, encoding: .utf8) {
-                print("[Handle Data Received] Echoed: \(str.trimmingCharacters(in: .whitespacesAndNewlines))")
+                print("[Handle Data Received] Broadcast: \(str.trimmingCharacters(in: .whitespacesAndNewlines))")
             }
         }
 
@@ -1238,6 +1277,42 @@ public func aro_native_socket_send(
     socketServerLock.unlock()
 
     return server?.send(data: sendData, to: connId) == true ? 0 : -1
+}
+
+/// Broadcast data to all connections
+@_cdecl("aro_native_socket_broadcast")
+public func aro_native_socket_broadcast(
+    _ data: UnsafePointer<UInt8>?,
+    _ length: Int
+) -> Int32 {
+    guard let dataPtr = data else { return -1 }
+
+    let sendData = Data(bytes: dataPtr, count: length)
+
+    socketServerLock.lock()
+    let server = nativeSocketServer
+    socketServerLock.unlock()
+
+    return Int32(server?.broadcast(data: sendData) ?? 0)
+}
+
+/// Broadcast data to all connections except sender
+@_cdecl("aro_native_socket_broadcast_excluding")
+public func aro_native_socket_broadcast_excluding(
+    _ senderId: UnsafePointer<CChar>?,
+    _ data: UnsafePointer<UInt8>?,
+    _ length: Int
+) -> Int32 {
+    guard let senderIdStr = senderId.map({ String(cString: $0) }),
+          let dataPtr = data else { return -1 }
+
+    let sendData = Data(bytes: dataPtr, count: length)
+
+    socketServerLock.lock()
+    let server = nativeSocketServer
+    socketServerLock.unlock()
+
+    return Int32(server?.broadcast(data: sendData, excluding: senderIdStr) ?? 0)
 }
 
 // MARK: - Native HTTP Server (BSD Sockets)

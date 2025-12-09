@@ -829,27 +829,49 @@ public struct BroadcastAction: ActionImplementation {
             throw ActionError.undefinedVariable(result.base)
         }
 
-        #if !os(Windows)
-        // Try socket server service
-        if let socketServer = context.service(SocketServerService.self) {
-            let dataToSend: Data
-            if let d = data as? Data {
-                dataToSend = d
-            } else if let s = data as? String {
-                dataToSend = s.data(using: .utf8) ?? Data()
-            } else {
-                dataToSend = String(describing: data).data(using: .utf8) ?? Data()
-            }
+        // Convert data to bytes
+        let dataToSend: Data
+        if let d = data as? Data {
+            dataToSend = d
+        } else if let s = data as? String {
+            dataToSend = s.data(using: .utf8) ?? Data()
+        } else {
+            dataToSend = String(describing: data).data(using: .utf8) ?? Data()
+        }
 
+        #if !os(Windows)
+        // Try socket server service (interpreter mode)
+        if let socketServer = context.service(SocketServerService.self) {
             try await socketServer.broadcast(data: dataToSend)
             return BroadcastResult(success: true, clientCount: -1) // Count not available
         }
+
+        // For compiled binaries, use native socket broadcast
+        let count = NativeSocketBroadcaster.shared.broadcast(data: dataToSend)
+        if count >= 0 {
+            return BroadcastResult(success: true, clientCount: count)
+        }
         #endif
 
-        // Emit broadcast event
+        // Emit broadcast event as fallback
         context.emit(BroadcastRequestedEvent(data: String(describing: data)))
 
         return BroadcastResult(success: true, clientCount: 0)
+    }
+}
+
+/// Native socket broadcaster wrapper for compiled binaries
+public final class NativeSocketBroadcaster: @unchecked Sendable {
+    public static let shared = NativeSocketBroadcaster()
+
+    private init() {}
+
+    /// Broadcast data to all connected clients
+    public func broadcast(data: Data) -> Int {
+        return data.withUnsafeBytes { buffer in
+            guard let ptr = buffer.baseAddress else { return -1 }
+            return Int(aro_native_socket_broadcast(ptr.assumingMemoryBound(to: UInt8.self), data.count))
+        }
     }
 }
 

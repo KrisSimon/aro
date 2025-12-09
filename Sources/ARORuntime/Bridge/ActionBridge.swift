@@ -390,6 +390,43 @@ public func aro_action_stop(
     return executeAction(verb: "stop", contextPtr: contextPtr, resultPtr: resultPtr, objectPtr: objectPtr)
 }
 
+@_cdecl("aro_action_broadcast")
+public func aro_action_broadcast(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ resultPtr: UnsafeRawPointer?,
+    _ objectPtr: UnsafeRawPointer?
+) -> UnsafeMutableRawPointer? {
+    guard let ctxHandle = getContext(contextPtr),
+          let result = resultPtr else { return nil }
+
+    let resultDesc = toResultDescriptor(result)
+
+    // Get data to broadcast
+    guard let data = ctxHandle.context.resolveAny(resultDesc.base) else {
+        return nil
+    }
+
+    // Convert data to bytes
+    let dataToSend: Data
+    if let d = data as? Data {
+        dataToSend = d
+    } else if let s = data as? String {
+        dataToSend = s.data(using: .utf8) ?? Data()
+    } else {
+        dataToSend = String(describing: data).data(using: .utf8) ?? Data()
+    }
+
+    // Use native socket broadcast
+    let count = dataToSend.withUnsafeBytes { buffer -> Int32 in
+        guard let ptr = buffer.baseAddress else { return -1 }
+        return aro_native_socket_broadcast(ptr.assumingMemoryBound(to: UInt8.self), dataToSend.count)
+    }
+
+    let broadcastResult = BroadcastResult(success: count >= 0, clientCount: Int(count))
+    ctxHandle.context.bind(resultDesc.base, value: broadcastResult)
+    return boxResult(broadcastResult)
+}
+
 @_cdecl("aro_action_keepalive")
 public func aro_action_keepalive(
     _ contextPtr: UnsafeMutableRawPointer?,

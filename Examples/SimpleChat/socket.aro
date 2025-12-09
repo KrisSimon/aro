@@ -3,22 +3,22 @@
     <Extract> the <client-id> from the <connection: id>.
     <Log> the <connection: info> for the <console> with "Chat client connected".
 
-    (* Send welcome message *)
-    <Create> the <welcome> with "Welcome to Simple Chat! Send any message.".
+    (* Send welcome message to the new client *)
+    <Create> the <welcome> with "Welcome to Simple Chat! Messages are broadcast to all clients.\n".
     <Send> the <welcome> to the <client-id>.
 
     <Return> an <OK: status> for the <connection>.
 }
 
-(* Socket: Data received - echo back the data *)
+(* Socket: Data received - broadcast to all clients *)
 (Handle Data Received: Socket Event Handler) {
     <Extract> the <data> from the <packet: buffer>.
-    <Extract> the <client> from the <packet: connection>.
+    <Extract> the <sender> from the <packet: connection>.
 
-    (* Echo back the received data *)
-    <Send> the <data> to the <client>.
+    (* Broadcast the message to ALL connected clients *)
+    <Broadcast> the <data> to the <socket-server>.
 
-    <Log> the <echo: done> for the <console> with "Echoed data back to client".
+    <Log> the <broadcast: done> for the <console> with "Message broadcast to all clients".
 
     <Return> an <OK: status> for the <packet>.
 }
