@@ -45,13 +45,18 @@ public struct RequestAction: ActionImplementation {
 
         // Get HTTP client service
         #if !os(Windows)
-        let httpClient: AROHTTPClient
-        if let existingClient = context.service(AROHTTPClient.self) {
-            httpClient = existingClient
+        // Try to get existing URLSession-based client first (better compatibility
+        // with compiled binaries that use sync-to-async bridging)
+        let urlClient: URLSessionHTTPClient
+        if let existingClient = context.service(URLSessionHTTPClient.self) {
+            urlClient = existingClient
         } else {
-            // Create a new client if not registered
-            httpClient = AROHTTPClient()
-            context.register(httpClient)
+            // Create a URLSession-based client for better compatibility with
+            // compiled binaries that use sync-to-async bridging.
+            // The NIO-based AsyncHTTPClient can have issues with semaphore blocking.
+            let newClient = URLSessionHTTPClient()
+            context.register(newClient)
+            urlClient = newClient
         }
 
         // Determine URL
@@ -76,12 +81,12 @@ public struct RequestAction: ActionImplementation {
         switch object.preposition {
         case .from:
             // GET request
-            response = try await httpClient.get(url: url)
+            response = try await urlClient.get(url: url)
 
         case .to:
             // POST request
             let body = getRequestBody(context: context)
-            response = try await httpClient.post(url: url, headers: [:], body: body)
+            response = try await urlClient.post(url: url, headers: [:], body: body)
 
         case .via:
             // Determine method from specifiers
@@ -90,17 +95,17 @@ public struct RequestAction: ActionImplementation {
 
             switch method {
             case "GET":
-                response = try await httpClient.get(url: url)
+                response = try await urlClient.get(url: url)
             case "POST":
-                response = try await httpClient.post(url: url, headers: [:], body: body)
+                response = try await urlClient.post(url: url, headers: [:], body: body)
             case "PUT":
-                response = try await httpClient.put(url: url, headers: [:], body: body)
+                response = try await urlClient.put(url: url, headers: [:], body: body)
             case "DELETE":
-                response = try await httpClient.delete(url: url)
+                response = try await urlClient.delete(url: url)
             case "PATCH":
-                response = try await httpClient.patch(url: url, headers: [:], body: body)
+                response = try await urlClient.patch(url: url, headers: [:], body: body)
             default:
-                response = try await httpClient.get(url: url)
+                response = try await urlClient.get(url: url)
             }
 
         default:

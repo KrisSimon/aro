@@ -226,11 +226,11 @@ public final class CCompiler {
         args.append("-o")
         args.append(outputPath)
 
-        // Runtime library
+        // Runtime library (ARORuntime contains C-callable bridge via @_cdecl)
         if let runtimePath = runtimeLibraryPath {
             let libDir = URL(fileURLWithPath: runtimePath).deletingLastPathComponent().path
             args.append("-L\(libDir)")
-            args.append("-lAROCRuntime")
+            args.append("-lARORuntime")
             args.append("-Wl,-rpath,\(libDir)")
         }
 
@@ -282,11 +282,11 @@ public final class CCompiler {
         args.append("-std=c11")
         args.append("-Wall")
 
-        // Runtime library
+        // Runtime library (ARORuntime contains C-callable bridge via @_cdecl)
         if let runtimePath = runtimeLibraryPath {
             let libDir = URL(fileURLWithPath: runtimePath).deletingLastPathComponent().path
             args.append("-L\(libDir)")
-            args.append("-lAROCRuntime")
+            args.append("-lARORuntime")
             args.append("-Wl,-rpath,\(libDir)")
         }
 

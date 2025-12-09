@@ -212,9 +212,9 @@ struct BuildCommand: AsyncParsableCommand {
             throw ExitCode.failure
         }
 
-        // Find the AROCRuntime library
-        guard let runtimeLibPath = findAROCRuntimeLibrary() else {
-            print("Error: AROCRuntime library not found.")
+        // Find the ARORuntime library (contains C-callable bridge via @_cdecl)
+        guard let runtimeLibPath = findARORuntimeLibrary() else {
+            print("Error: ARORuntime library not found.")
             print("Please run 'swift build' first to build the runtime library.")
             throw ExitCode.failure
         }
@@ -285,7 +285,7 @@ struct BuildCommand: AsyncParsableCommand {
         }
     }
 
-    private func findAROCRuntimeLibrary() -> String? {
+    private func findARORuntimeLibrary() -> String? {
         let fm = FileManager.default
 
         // Get the path to the aro executable itself
@@ -293,21 +293,22 @@ struct BuildCommand: AsyncParsableCommand {
         let executableDir = executablePath.deletingLastPathComponent()
 
         // Common search paths relative to the executable
+        // ARORuntime now contains the C-callable bridge (previously in AROCRuntime)
         let searchPaths: [String] = [
             // Same directory as executable (typical for swift build)
-            executableDir.appendingPathComponent("libAROCRuntime.a").path,
+            executableDir.appendingPathComponent("libARORuntime.a").path,
             // Parent .build directory structures
-            executableDir.deletingLastPathComponent().appendingPathComponent("libAROCRuntime.a").path,
+            executableDir.deletingLastPathComponent().appendingPathComponent("libARORuntime.a").path,
             // Standard Swift build output locations
-            ".build/debug/libAROCRuntime.a",
-            ".build/release/libAROCRuntime.a",
-            ".build/arm64-apple-macosx/debug/libAROCRuntime.a",
-            ".build/arm64-apple-macosx/release/libAROCRuntime.a",
-            ".build/x86_64-apple-macosx/debug/libAROCRuntime.a",
-            ".build/x86_64-apple-macosx/release/libAROCRuntime.a",
+            ".build/debug/libARORuntime.a",
+            ".build/release/libARORuntime.a",
+            ".build/arm64-apple-macosx/debug/libARORuntime.a",
+            ".build/arm64-apple-macosx/release/libARORuntime.a",
+            ".build/x86_64-apple-macosx/debug/libARORuntime.a",
+            ".build/x86_64-apple-macosx/release/libARORuntime.a",
             // Linux paths
-            ".build/x86_64-unknown-linux-gnu/debug/libAROCRuntime.a",
-            ".build/x86_64-unknown-linux-gnu/release/libAROCRuntime.a",
+            ".build/x86_64-unknown-linux-gnu/debug/libARORuntime.a",
+            ".build/x86_64-unknown-linux-gnu/release/libARORuntime.a",
         ]
 
         for path in searchPaths {

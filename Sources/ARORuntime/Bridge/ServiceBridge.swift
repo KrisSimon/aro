@@ -1,14 +1,16 @@
 // ============================================================
 // ServiceBridge.swift
-// AROCRuntime - C-callable Service Interface
+// ARORuntime - C-callable Service Interface
 // ============================================================
+//
+// This file provides C-callable functions for HTTP, File, and Socket
+// services in compiled ARO binaries.
 
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
 import AROParser
-import ARORuntime
 
 #if os(macOS)
 import CoreServices

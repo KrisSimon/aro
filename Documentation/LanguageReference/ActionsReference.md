@@ -2,6 +2,53 @@
 
 Complete reference for all built-in actions in ARO.
 
+## Quick Reference Table
+
+| Action | Role | Description | Example |
+|--------|------|-------------|---------|
+| **Extract** | REQUEST | Pull data from structured source | `<Extract> the <id> from the <request: params>.` |
+| **Retrieve** | REQUEST | Fetch from repository | `<Retrieve> the <user> from the <users> where id = <id>.` |
+| **Request** | REQUEST | Make HTTP request | `<Request> the <data> from the <api-url>.` |
+| **Fetch** | REQUEST | Fetch from external API | `<Fetch> the <weather> from <WeatherAPI: GET /forecast>.` |
+| **Read** | REQUEST | Read from file | `<Read> the <config> from the <file: "./config.json">.` |
+| **Parse** | REQUEST | Parse structured data | `<Parse> the <json> from the <raw-string>.` |
+| **Receive** | REQUEST | Receive event data | `<Receive> the <message> from the <event>.` |
+| **Create** | OWN | Create new data | `<Create> the <user> with { name: "Alice" }.` |
+| **Compute** | OWN | Perform calculations | `<Compute> the <total> for the <items>.` |
+| **Transform** | OWN | Convert/map data | `<Transform> the <dto> from the <entity>.` |
+| **Validate** | OWN | Check against rules | `<Validate> the <data> for the <schema>.` |
+| **Compare** | OWN | Compare values | `<Compare> the <hash> against the <stored>.` |
+| **Update** | OWN | Modify existing data | `<Update> the <user> with <changes>.` |
+| **Map** | OWN | Transform collection elements | `<Map> the <names> from the <users: name>.` |
+| **Filter** | OWN | Select matching elements | `<Filter> the <active> from the <users> where status = "active".` |
+| **Reduce** | OWN | Aggregate collection | `<Reduce> the <total> from the <items> with sum(<amount>).` |
+| **Sort** | OWN | Order collection | `<Sort> the <users> by <name>.` |
+| **Merge** | OWN | Combine data | `<Merge> the <combined> from <a> and <b>.` |
+| **Return** | RESPONSE | Return result | `<Return> an <OK: status> with <data>.` |
+| **Throw** | RESPONSE | Throw error | `<Throw> a <NotFound: error> for the <user>.` |
+| **Log** | EXPORT | Write to logs | `<Log> the <msg> for the <console> with "Done".` |
+| **Store** | EXPORT | Save to repository | `<Store> the <user> into the <users>.` |
+| **Write** | EXPORT | Write to file | `<Write> the <data> to the <file: "./out.txt">.` |
+| **Send** | EXPORT | Send to destination | `<Send> the <email> to the <recipient>.` |
+| **Emit** | EXPORT | Emit domain event | `<Emit> a <UserCreated: event> with <user>.` |
+| **Publish** | EXPORT | Make globally available | `<Publish> as <config> <settings>.` |
+| **Notify** | EXPORT | Send notification | `<Notify> the <alert> to the <admin>.` |
+| **Delete** | EXPORT | Remove data | `<Delete> the <user> from the <users> where id = <id>.` |
+| **Start** | SERVICE | Start a service | `<Start> the <http-server> on port 8080.` |
+| **Listen** | SERVICE | Listen for connections | `<Listen> on port 9000 as <socket-server>.` |
+| **Connect** | SERVICE | Connect to service | `<Connect> to <host: "db"> on port 5432.` |
+| **Close** | SERVICE | Close connection | `<Close> the <connection>.` |
+| **Watch** | SERVICE | Monitor directory | `<Watch> the <dir: "./uploads"> as <monitor>.` |
+| **Broadcast** | SERVICE | Send to all connections | `<Broadcast> the <msg> to the <server>.` |
+| **Route** | SERVICE | Define HTTP route | `<Route> the <handler> for "/api/users".` |
+| **Keepalive** | SERVICE | Keep app running | `<Keepalive> the <app> for the <events>.` |
+| **Call** | SERVICE | Call external API | `<Call> the <result> via <API: POST /users>.` |
+| **Accept** | STATE | Accept state transition | `<Accept> the <order: placed>.` |
+| **Given** | TEST | Test precondition | `<Given> the <user> with { name: "Test" }.` |
+| **When** | TEST | Test action | `<When> the <action> is performed.` |
+| **Then** | TEST | Test expectation | `<Then> the <result> should be <expected>.` |
+| **Assert** | TEST | Assert condition | `<Assert> the <value> equals <expected>.` |
+
 ## Action Categories
 
 | Category | Role | Data Flow |
@@ -11,6 +58,8 @@ Complete reference for all built-in actions in ARO.
 | RESPONSE | Send results | Internal → External |
 | EXPORT | Publish/persist | Internal → External |
 | SERVICE | Control services | System operations |
+| STATE | State transitions | Internal state changes |
+| TEST | Testing | Verification actions |
 
 ---
 
@@ -76,6 +125,43 @@ Makes HTTP requests to external APIs.
 ```
 
 **Valid Prepositions:** `from`
+
+---
+
+### Request
+
+Makes HTTP requests to external URLs or APIs.
+
+**Syntax:**
+```aro
+<Request> the <result> from <url>.              (* GET request *)
+<Request> the <result> to <url> with <data>.    (* POST request *)
+<Request> the <result> via METHOD <url>.        (* Explicit method *)
+```
+
+**Examples:**
+```aro
+(* GET request *)
+<Create> the <api-url> with "https://api.open-meteo.com/v1/forecast".
+<Request> the <weather> from the <api-url>.
+
+(* POST request *)
+<Create> the <user-data> with { name: "Alice", email: "alice@example.com" }.
+<Request> the <result> to the <api-url> with <user-data>.
+
+(* PUT/DELETE/PATCH via explicit method *)
+<Request> the <result> via PUT the <url> with <update-data>.
+<Request> the <result> via DELETE the <url>.
+```
+
+**Response Metadata:**
+After a request, these variables are available:
+- `result` - Parsed response body (JSON as map/list, or string)
+- `result.statusCode` - HTTP status code (e.g., 200, 404)
+- `result.headers` - Response headers as map
+- `result.isSuccess` - Boolean: true if status 200-299
+
+**Valid Prepositions:** `from`, `to`, `via`
 
 ---
 
@@ -650,20 +736,59 @@ Pauses execution.
 
 ---
 
+### Keepalive
+
+Keeps a long-running application alive to process events.
+
+**Syntax:**
+```aro
+<Keepalive> the <application> for the <events>.
+```
+
+**Description:**
+The `Keepalive` action blocks execution until a shutdown signal is received (SIGINT/SIGTERM). This is essential for applications that need to stay alive and process events, such as HTTP servers, file watchers, and socket servers.
+
+**Examples:**
+```aro
+(Application-Start: My Server) {
+    <Start> the <http-server> on port 8080.
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status> for the <startup>.
+}
+
+(Application-Start: File Watcher) {
+    <Watch> the <directory> for the <changes> with "./watched".
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status> for the <startup>.
+}
+```
+
+**Valid Prepositions:** `for`
+
+---
+
 ## Action Summary Table
 
 | Action | Role | Prepositions |
 |--------|------|--------------|
 | Extract | REQUEST | from |
 | Retrieve | REQUEST | from |
+| Request | REQUEST | from, to, via |
 | Fetch | REQUEST | from |
 | Read | REQUEST | from |
 | Parse | REQUEST | from |
+| Receive | REQUEST | from |
 | Create | OWN | with |
 | Compute | OWN | for, from |
 | Transform | OWN | from |
 | Validate | OWN | for |
 | Compare | OWN | against |
+| Update | OWN | with |
+| Map | OWN | from |
+| Filter | OWN | from, where |
+| Reduce | OWN | from, with |
+| Sort | OWN | by |
+| Merge | OWN | from |
 | Set | OWN | to |
 | Configure | OWN | with |
 | Return | RESPONSE | with, for |
@@ -675,13 +800,20 @@ Pauses execution.
 | Emit | EXPORT | with |
 | Write | EXPORT | to |
 | Delete | EXPORT | from |
+| Notify | EXPORT | to |
 | Start | SERVICE | on |
 | Stop | SERVICE | - |
 | Watch | SERVICE | as |
 | Listen | SERVICE | on, as |
 | Connect | SERVICE | to, on, as |
 | Close | SERVICE | - |
-| Flush | SERVICE | - |
+| Route | SERVICE | for |
 | Call | SERVICE | via, with |
 | Broadcast | SERVICE | to, with |
 | Wait | SERVICE | for, with |
+| Keepalive | SERVICE | for |
+| Accept | STATE | - |
+| Given | TEST | with |
+| When | TEST | - |
+| Then | TEST | - |
+| Assert | TEST | equals, contains |

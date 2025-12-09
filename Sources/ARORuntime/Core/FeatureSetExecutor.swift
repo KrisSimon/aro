@@ -2,14 +2,27 @@
 // FeatureSetExecutor.swift
 // ARO Runtime - Feature Set Executor
 // ============================================================
+//
+// ARO-0011: Data-Flow Driven Execution
+// ------------------------------------
+// The executor supports two modes:
+// 1. Sequential (default): Statements execute one after another
+// 2. Optimized: I/O operations run in parallel based on data dependencies
+//
+// The optimized mode maintains sequential semantics from the programmer's
+// perspective while overlapping I/O operations under the hood.
 
 import Foundation
 import AROParser
 
 /// Executes a single feature set
 ///
-/// The FeatureSetExecutor processes statements sequentially within a
-/// feature set, managing variable bindings and action execution.
+/// The FeatureSetExecutor processes statements within a feature set,
+/// managing variable bindings and action execution.
+///
+/// By default, statements execute sequentially. When `enableParallelIO`
+/// is true, I/O operations may run in parallel based on data dependencies
+/// while maintaining sequential semantics (ARO-0011).
 public final class FeatureSetExecutor: @unchecked Sendable {
     // MARK: - Properties
 
@@ -18,17 +31,25 @@ public final class FeatureSetExecutor: @unchecked Sendable {
     private let globalSymbols: GlobalSymbolStorage
     private let expressionEvaluator: ExpressionEvaluator
 
+    /// Whether to enable parallel I/O optimization (ARO-0011)
+    public var enableParallelIO: Bool = false
+
+    /// The statement scheduler for parallel I/O (lazy initialization)
+    private lazy var scheduler = StatementScheduler()
+
     // MARK: - Initialization
 
     public init(
         actionRegistry: ActionRegistry,
         eventBus: EventBus,
-        globalSymbols: GlobalSymbolStorage
+        globalSymbols: GlobalSymbolStorage,
+        enableParallelIO: Bool = false
     ) {
         self.actionRegistry = actionRegistry
         self.eventBus = eventBus
         self.globalSymbols = globalSymbols
         self.expressionEvaluator = ExpressionEvaluator()
+        self.enableParallelIO = enableParallelIO
     }
 
     // MARK: - Execution
@@ -70,22 +91,39 @@ public final class FeatureSetExecutor: @unchecked Sendable {
 
         // Execute statements
         do {
-            for statement in featureSet.statements {
-                try await executeStatement(statement, context: context)
-
-                // Check if we have a response (Return was called)
-                if let response = context.getResponse() {
-                    let duration = Date().timeIntervalSince(startTime) * 1000
-
-                    eventBus.publish(FeatureSetCompletedEvent(
-                        featureSetName: featureSet.name,
-                        executionId: context.executionId,
-                        success: true,
-                        durationMs: duration
-                    ))
-
-                    return response
+            if enableParallelIO {
+                // ARO-0011: Data-flow driven parallel I/O execution
+                _ = try await scheduler.execute(
+                    analyzedFeatureSet,
+                    context: context
+                ) { [self] statement, ctx in
+                    try await self.executeStatement(statement, context: ctx)
+                    return () as any Sendable
                 }
+            } else {
+                // Sequential execution (default)
+                for statement in featureSet.statements {
+                    try await executeStatement(statement, context: context)
+
+                    // Check if we have a response (Return was called)
+                    if context.getResponse() != nil {
+                        break
+                    }
+                }
+            }
+
+            // Check for response (either from sequential or scheduled execution)
+            if let response = context.getResponse() {
+                let duration = Date().timeIntervalSince(startTime) * 1000
+
+                eventBus.publish(FeatureSetCompletedEvent(
+                    featureSetName: featureSet.name,
+                    executionId: context.executionId,
+                    success: true,
+                    durationMs: duration
+                ))
+
+                return response
             }
 
             // No explicit return - create default response

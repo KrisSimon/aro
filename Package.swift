@@ -12,18 +12,16 @@ let package = Package(
             name: "AROParser",
             targets: ["AROParser"]
         ),
+        // ARORuntime is now a static library that exports C symbols via @_cdecl
+        // for use by compiled ARO binaries (previously this was in AROCRuntime)
         .library(
             name: "ARORuntime",
+            type: .static,
             targets: ["ARORuntime"]
         ),
         .library(
             name: "AROCompiler",
             targets: ["AROCompiler"]
-        ),
-        .library(
-            name: "AROCRuntime",
-            type: .static,
-            targets: ["AROCRuntime"]
         ),
         .executable(
             name: "aro",
@@ -70,15 +68,6 @@ let package = Package(
                 "AROParser",
             ],
             path: "Sources/AROCompiler"
-        ),
-        // C-callable runtime for compiled binaries
-        .target(
-            name: "AROCRuntime",
-            dependencies: [
-                "AROParser",
-                "ARORuntime",
-            ],
-            path: "Sources/AROCRuntime"
         ),
         // CLI tool
         .executableTarget(

@@ -1,11 +1,17 @@
 // ============================================================
 // RuntimeBridge.swift
-// AROCRuntime - C-callable Runtime Interface
+// ARORuntime - C-callable Runtime Interface
 // ============================================================
+//
+// This file provides C-callable functions for compiled ARO binaries.
+// It exposes the Swift runtime functionality through @_cdecl exports.
 
 import Foundation
 import AROParser
-import ARORuntime
+
+#if !os(Windows)
+import NIO
+#endif
 
 // MARK: - Runtime Handle
 
@@ -14,8 +20,23 @@ final class AROCRuntimeHandle {
     let runtime: Runtime
     var contexts: [UnsafeMutableRawPointer: AROCContextHandle] = [:]
 
+    #if !os(Windows)
+    /// Shared event loop group for async I/O in compiled binaries
+    let eventLoopGroup: MultiThreadedEventLoopGroup
+    #endif
+
     init() {
         self.runtime = Runtime()
+        #if !os(Windows)
+        // Create event loop group for NIO-based async I/O
+        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
+        #endif
+    }
+
+    deinit {
+        #if !os(Windows)
+        try? eventLoopGroup.syncShutdownGracefully()
+        #endif
     }
 }
 

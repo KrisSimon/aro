@@ -147,6 +147,12 @@ public final class LLVMCodeGenerator {
         emit("declare void @aro_http_server_destroy(ptr)")
         emit("")
 
+        // Async runtime operations
+        emit("; Async runtime")
+        emit("declare i32 @aro_async_run(ptr)")
+        emit("declare void @aro_async_shutdown()")
+        emit("")
+
         // File operations
         emit("; File operations")
         emit("declare ptr @aro_file_read(ptr, ptr)")
@@ -192,6 +198,12 @@ public final class LLVMCodeGenerator {
         registerString("Application-Start")
         registerString("_literal_")
         registerString("_expression_")
+        // ARO-0018: Aggregation and where clause context variables
+        registerString("_aggregation_type_")
+        registerString("_aggregation_field_")
+        registerString("_where_field_")
+        registerString("_where_op_")
+        registerString("_where_value_")
 
         // Register OpenAPI spec JSON if provided (for embedded spec)
         if let specJSON = openAPISpecJSON {
@@ -218,6 +230,22 @@ public final class LLVMCodeGenerator {
             // Collect strings from expressions (ARO-0002)
             if let expression = aroStatement.expression {
                 collectStringsFromExpression(expression)
+            }
+
+            // ARO-0018: Collect aggregation clause strings
+            if let aggregation = aroStatement.aggregation {
+                registerString(aggregation.type.rawValue)
+                if let field = aggregation.field {
+                    registerString(field)
+                }
+            }
+
+            // ARO-0018: Collect where clause strings
+            if let whereClause = aroStatement.whereClause {
+                registerString(whereClause.field)
+                registerString(whereClause.op.rawValue)
+                // Where value expression
+                collectStringsFromExpression(whereClause.value)
             }
         } else if let publishStatement = statement as? PublishStatement {
             registerString(publishStatement.externalName)
@@ -510,6 +538,16 @@ public final class LLVMCodeGenerator {
             try emitExpressionBinding(expression, prefix: prefix)
         }
 
+        // ARO-0018: Bind aggregation clause if present
+        if let aggregation = statement.aggregation {
+            try emitAggregationBinding(aggregation, prefix: prefix)
+        }
+
+        // ARO-0018: Bind where clause if present
+        if let whereClause = statement.whereClause {
+            try emitWhereClauseBinding(whereClause, prefix: prefix)
+        }
+
         // Allocate result descriptor
         emit("  %\(prefix)_result_desc = alloca %AROResultDescriptor")
 
@@ -703,6 +741,68 @@ public final class LLVMCodeGenerator {
         } else if let groupedExpr = expression as? GroupedExpression {
             // Grouped expression: (expr) - evaluate the inner expression
             try emitExpressionBinding(groupedExpr.expression, prefix: prefix)
+        }
+    }
+
+    /// Emit LLVM IR to bind aggregation clause context variables (ARO-0018)
+    /// Binds _aggregation_type_ and optionally _aggregation_field_
+    private func emitAggregationBinding(_ aggregation: AggregationClause, prefix: String) throws {
+        let aggTypeNameStr = stringConstants["_aggregation_type_"]!
+        let aggTypeValueStr = stringConstants[aggregation.type.rawValue]!
+
+        emit("  ; ARO-0018: Bind aggregation type '\(aggregation.type.rawValue)'")
+        emit("  call void @aro_variable_bind_string(ptr %ctx, ptr \(aggTypeNameStr), ptr \(aggTypeValueStr))")
+
+        // Bind field if present (e.g., sum(<amount>))
+        if let field = aggregation.field {
+            let aggFieldNameStr = stringConstants["_aggregation_field_"]!
+            let aggFieldValueStr = stringConstants[field]!
+            emit("  ; ARO-0018: Bind aggregation field '\(field)'")
+            emit("  call void @aro_variable_bind_string(ptr %ctx, ptr \(aggFieldNameStr), ptr \(aggFieldValueStr))")
+        }
+    }
+
+    /// Emit LLVM IR to bind where clause context variables (ARO-0018)
+    /// Binds _where_field_, _where_op_, _where_value_
+    private func emitWhereClauseBinding(_ whereClause: WhereClause, prefix: String) throws {
+        let whereFieldNameStr = stringConstants["_where_field_"]!
+        let whereFieldValueStr = stringConstants[whereClause.field]!
+
+        let whereOpNameStr = stringConstants["_where_op_"]!
+        let whereOpValueStr = stringConstants[whereClause.op.rawValue]!
+
+        emit("  ; ARO-0018: Bind where clause: <\(whereClause.field)> \(whereClause.op.rawValue) ...")
+        emit("  call void @aro_variable_bind_string(ptr %ctx, ptr \(whereFieldNameStr), ptr \(whereFieldValueStr))")
+        emit("  call void @aro_variable_bind_string(ptr %ctx, ptr \(whereOpNameStr), ptr \(whereOpValueStr))")
+
+        // Bind where value - evaluate the expression and bind as _where_value_
+        let whereValueNameStr = stringConstants["_where_value_"]!
+
+        // Handle the where value expression
+        if let literalExpr = whereClause.value as? LiteralExpression {
+            switch literalExpr.value {
+            case .string(let s):
+                let strConst = stringConstants[s]!
+                emit("  call void @aro_variable_bind_string(ptr %ctx, ptr \(whereValueNameStr), ptr \(strConst))")
+            case .integer(let i):
+                emit("  call void @aro_variable_bind_int(ptr %ctx, ptr \(whereValueNameStr), i64 \(i))")
+            case .float(let f):
+                let bits = f.bitPattern
+                emit("  call void @aro_variable_bind_double(ptr %ctx, ptr \(whereValueNameStr), double 0x\(String(bits, radix: 16, uppercase: true)))")
+            case .boolean(let b):
+                emit("  call void @aro_variable_bind_bool(ptr %ctx, ptr \(whereValueNameStr), i32 \(b ? 1 : 0))")
+            default:
+                // Complex literals - bind as string
+                let jsonString = literalToJSON(literalExpr.value)
+                if let jsonConst = stringConstants[jsonString] {
+                    emit("  call void @aro_variable_bind_string(ptr %ctx, ptr \(whereValueNameStr), ptr \(jsonConst))")
+                }
+            }
+        } else if let varRefExpr = whereClause.value as? VariableRefExpression {
+            // Variable reference - resolve and copy
+            let varNameStr = stringConstants[varRefExpr.noun.base]!
+            emit("  %\(prefix)_where_var = call ptr @aro_variable_resolve(ptr %ctx, ptr \(varNameStr))")
+            emit("  call void @aro_variable_bind_value(ptr %ctx, ptr \(whereValueNameStr), ptr %\(prefix)_where_var)")
         }
     }
 
@@ -1032,11 +1132,13 @@ public final class LLVMCodeGenerator {
     }
 
     private func canonicalizeVerb(_ verb: String) -> String {
+        // NOTE: "map", "filter", "reduce" are NOT synonyms - they are their own
+        // data pipeline actions (ARO-0018). Do not map them to other verbs.
         let mapping: [String: String] = [
             "calculate": "compute", "derive": "compute",
             "verify": "validate", "check": "validate",
             "match": "compare",
-            "convert": "transform", "map": "transform",
+            "convert": "transform",
             "make": "create", "build": "create", "construct": "create",
             "modify": "update", "change": "update", "set": "update",
             "respond": "return",

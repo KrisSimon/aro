@@ -358,6 +358,7 @@ public enum HTTPError: Error, Sendable {
     case connectionFailed
     case timeout
     case serverError(Int)
+    case custom(String)
 }
 
 // MARK: - HTTP Server Events

@@ -88,7 +88,8 @@ The `<Request>` action automatically parses JSON responses. After a request, the
 
 ## Implementation Notes
 
-- Uses AsyncHTTPClient for non-blocking requests
+- Uses Foundation's URLSession for HTTP requests
+- Compatible with both interpreter (`aro run`) and compiled binaries (`aro build`)
 - Default timeout: 30 seconds
 - Automatically parses JSON responses
 - Thread-safe for concurrent requests
