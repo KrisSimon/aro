@@ -1,0 +1,80 @@
+(* SystemMonitor - HTTP API for system commands (ARO-0033 Example) *)
+(* Demonstrates context-aware response formatting: *)
+(*   - HTTP requests get JSON responses *)
+(*   - Console output is formatted plaintext *)
+(*   - Debug mode shows diagnostic tables *)
+
+(Application-Start: System Monitor) {
+    <Log> the <startup: message> for the <console> with "System Monitor API starting...".
+    <Start> the <http-server> on port 8080.
+    <Log> the <ready: message> for the <console> with "Server running at http://localhost:8080".
+    <Log> the <info: message> for the <console> with "Endpoints:".
+    <Log> the <endpoint: message> for the <console> with "  GET /exec?cmd=<command>  - Execute any command".
+    <Log> the <endpoint: message> for the <console> with "  GET /list?path=<path>    - List directory".
+    <Log> the <endpoint: message> for the <console> with "  GET /disk                - Check disk usage".
+    <Log> the <endpoint: message> for the <console> with "  GET /processes           - List processes".
+    <Keepalive> the <application> for the <events>.
+    <Return> an <OK: status> for the <startup>.
+}
+
+(* Execute arbitrary command - operationId: executeCommand *)
+(executeCommand: System Monitor API) {
+    <Extract> the <cmd> from the <queryParameters: cmd>.
+
+    (* Validate command is provided *)
+    if <cmd> = "" then {
+        <Return> a <BadRequest: status> with { error: true, message: "Missing 'cmd' parameter" }.
+    }
+
+    (* Execute the command *)
+    <Exec> the <result> for the <command> with <cmd>.
+
+    (* Return result - formatted as JSON for HTTP, plaintext for console *)
+    if <result: error> = true then {
+        <Return> a <ServerError: status> with <result>.
+    }
+
+    <Return> an <OK: status> with <result>.
+}
+
+(* List directory contents - operationId: listDirectory *)
+(listDirectory: System Monitor API) {
+    <Extract> the <path> from the <queryParameters: path>.
+
+    (* Default to current directory if not specified *)
+    if <path> = "" then {
+        <Create> the <path> with ".".
+    }
+
+    (* Build and execute ls command *)
+    <Create> the <command> with "ls -la ${path}".
+    <Exec> the <result> for the <listing> with <command>.
+
+    if <result: error> = true then {
+        <Return> a <NotFound: status> with <result>.
+    }
+
+    <Return> an <OK: status> with <result>.
+}
+
+(* Check disk usage - operationId: checkDisk *)
+(checkDisk: System Monitor API) {
+    <Exec> the <result> for the <disk-check> with "df -h".
+
+    if <result: error> = true then {
+        <Return> a <ServerError: status> with <result>.
+    }
+
+    <Return> an <OK: status> with <result>.
+}
+
+(* List running processes - operationId: listProcesses *)
+(listProcesses: System Monitor API) {
+    <Exec> the <result> for the <process-list> with "ps aux | head -20".
+
+    if <result: error> = true then {
+        <Return> a <ServerError: status> with <result>.
+    }
+
+    <Return> an <OK: status> with <result>.
+}

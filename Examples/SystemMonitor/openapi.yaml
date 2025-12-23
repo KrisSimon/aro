@@ -1,0 +1,122 @@
+# ============================================================
+# OpenAPI Contract for System Monitor API (ARO-0033 Example)
+# ============================================================
+# Demonstrates context-aware response formatting:
+# - HTTP: JSON response
+# - Console: Plaintext with formatted output
+# - Debug: Diagnostic table
+# ============================================================
+
+openapi: 3.0.3
+info:
+  title: System Monitor API
+  description: Execute system commands via HTTP API with context-aware responses
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /exec:
+    get:
+      operationId: executeCommand
+      summary: Execute a system command
+      description: |
+        Executes a shell command and returns structured results.
+        Results include error status, message, output, and exit code.
+      parameters:
+        - name: cmd
+          in: query
+          required: true
+          description: The command to execute
+          schema:
+            type: string
+          example: ls -la
+      responses:
+        '200':
+          description: Command executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecResponse'
+        '500':
+          description: Command execution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecResponse'
+
+  /list:
+    get:
+      operationId: listDirectory
+      summary: List directory contents
+      description: Lists files in the specified directory using ls -la
+      parameters:
+        - name: path
+          in: query
+          required: false
+          description: Directory path to list (defaults to current directory)
+          schema:
+            type: string
+            default: "."
+      responses:
+        '200':
+          description: Directory listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecResponse'
+
+  /disk:
+    get:
+      operationId: checkDisk
+      summary: Check disk usage
+      description: Returns disk usage information using df -h
+      responses:
+        '200':
+          description: Disk usage information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecResponse'
+
+  /processes:
+    get:
+      operationId: listProcesses
+      summary: List running processes
+      description: Returns top processes by CPU usage
+      responses:
+        '200':
+          description: Process list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecResponse'
+
+components:
+  schemas:
+    ExecResponse:
+      type: object
+      properties:
+        error:
+          type: boolean
+          description: Whether the command failed
+        message:
+          type: string
+          description: Human-readable status message
+        output:
+          type: string
+          description: Command output (stdout or stderr)
+        exitCode:
+          type: integer
+          description: Process exit code (0 = success)
+        command:
+          type: string
+          description: The executed command
+      required:
+        - error
+        - message
+        - output
+        - exitCode
+        - command

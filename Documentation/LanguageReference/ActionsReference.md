@@ -13,6 +13,7 @@ Complete reference for all built-in actions in ARO.
 | **Read** | REQUEST | Read from file | `<Read> the <config> from the <file: "./config.json">.` |
 | **Parse** | REQUEST | Parse structured data | `<Parse> the <json> from the <raw-string>.` |
 | **Receive** | REQUEST | Receive event data | `<Receive> the <message> from the <event>.` |
+| **Exec** | REQUEST | Execute shell command | `<Exec> the <result> for the <command> with "ls -la".` |
 | **Create** | OWN | Create new data | `<Create> the <user> with { name: "Alice" }.` |
 | **Compute** | OWN | Perform calculations | `<Compute> the <total> for the <items>.` |
 | **Transform** | OWN | Convert/map data | `<Transform> the <dto> from the <entity>.` |
@@ -203,6 +204,70 @@ Parses structured data from strings.
 ```
 
 **Valid Prepositions:** `from`
+
+---
+
+### Exec
+
+Executes shell commands on the host system and returns structured results.
+
+**Syntax:**
+```aro
+<Exec> the <result> for the <command> with "command-string".
+<Exec> the <result> for the <command> with <variable>.
+<Exec> the <result> on the <system> with {
+    command: "command-string",
+    workingDirectory: "/path",
+    timeout: 30000
+}.
+```
+
+**Result Object:**
+The Exec action returns a structured result with the following fields:
+- `result.error` - Boolean: true if command failed (non-zero exit code)
+- `result.message` - Human-readable status message
+- `result.output` - Command stdout (or stderr if error)
+- `result.exitCode` - Process exit code (0 = success, -1 = timeout)
+- `result.command` - The executed command string
+
+**Examples:**
+```aro
+(* Basic command execution *)
+<Exec> the <listing> for the <command> with "ls -la".
+<Return> an <OK: status> for the <listing>.
+
+(* With error handling *)
+<Exec> the <result> for the <disk-check> with "df -h".
+if <result.error> = true then {
+    <Log> the <error> for the <console> with <result.message>.
+    <Return> an <Error: status> for the <result>.
+}
+<Return> an <OK: status> for the <result>.
+
+(* Using a variable for the command *)
+<Create> the <cmd> with "ps aux | head -20".
+<Exec> the <processes> for the <listing> with <cmd>.
+
+(* With configuration options *)
+<Exec> the <result> on the <system> with {
+    command: "npm install",
+    workingDirectory: "/app",
+    timeout: 60000
+}.
+```
+
+**Configuration Options:**
+When using object syntax, these options are available:
+- `command` (required) - The shell command to execute
+- `workingDirectory` - Working directory (default: current)
+- `timeout` - Timeout in milliseconds (default: 30000)
+- `shell` - Shell to use (default: /bin/sh)
+- `environment` - Additional environment variables as object
+
+**Security Note:**
+Be cautious when constructing commands from user input. Always validate and sanitize input to prevent command injection.
+
+**Valid Prepositions:** `for`, `on`, `with`
 
 ---
 
@@ -815,6 +880,7 @@ The `Keepalive` action blocks execution until a shutdown signal is received (SIG
 | Read | REQUEST | from |
 | Parse | REQUEST | from |
 | Receive | REQUEST | from |
+| Exec | REQUEST | for, on, with |
 | Create | OWN | with |
 | Compute | OWN | for, from |
 | Transform | OWN | from |

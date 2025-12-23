@@ -108,6 +108,9 @@ public final class ActionRegistry: @unchecked Sendable {
 
         // External service actions (ARO-0016)
         register(CallAction.self)
+
+        // System exec action (ARO-0033)
+        register(ExecAction.self)
     }
 
     /// Register a custom action

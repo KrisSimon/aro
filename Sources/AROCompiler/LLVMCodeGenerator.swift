@@ -133,7 +133,9 @@ public final class LLVMCodeGenerator {
             "start", "listen", "route", "watch", "stop", "keepalive", "broadcast",
             "call",
             // Data pipeline actions (ARO-0018)
-            "filter", "reduce", "map"
+            "filter", "reduce", "map",
+            // System exec action (ARO-0033)
+            "exec", "shell"
         ]
         for action in actions {
             emit("declare ptr @aro_action_\(action)(ptr, ptr, ptr)")

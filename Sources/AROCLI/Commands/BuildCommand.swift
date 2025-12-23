@@ -24,6 +24,15 @@ struct BuildCommand: AsyncParsableCommand {
     @Flag(name: .customLong("optimize"), help: "Enable optimizations")
     var optimize: Bool = false
 
+    @Flag(name: .long, help: "Optimize for size instead of speed")
+    var size: Bool = false
+
+    @Flag(name: .long, help: "Strip symbols from binary")
+    var strip: Bool = false
+
+    @Flag(name: .long, help: "Release build (optimize + size + strip)")
+    var release: Bool = false
+
     @Flag(name: .shortAndLong, help: "Enable verbose logging")
     var verbose: Bool = false
 
@@ -198,8 +207,15 @@ struct BuildCommand: AsyncParsableCommand {
             print("Emitting object file...")
         }
 
+        // Release mode enables all optimizations
+        let effectiveOptimize = optimize || release
+        let effectiveSize = size || release
+        let effectiveStrip = strip || release
+
         let emitter = LLVMEmitter()
-        let optLevel: LLVMEmitter.OptimizationLevel = optimize ? .o2 : .none
+        // llc only supports O0-O3, use O2 for both speed and size optimization
+        // (size optimization is applied during linking stage with -Os)
+        let optLevel: LLVMEmitter.OptimizationLevel = (effectiveOptimize || effectiveSize) ? .o2 : .none
 
         do {
             try emitter.emitObject(irPath: llPath.path, to: objectPath, optimize: optLevel)
@@ -229,13 +245,19 @@ struct BuildCommand: AsyncParsableCommand {
         }
 
         let linker = CCompiler(runtimeLibraryPath: runtimeLibPath)
+        let linkOptions = CCompiler.LinkOptions(
+            optimize: effectiveOptimize,
+            optimizeForSize: effectiveSize,
+            strip: effectiveStrip,
+            deadStrip: effectiveStrip || effectiveSize  // Enable dead stripping when stripping or optimizing for size
+        )
 
         do {
             try linker.link(
                 objectFiles: [objectPath],
                 outputPath: binaryPath.path,
                 outputType: .executable,
-                optimize: optimize
+                options: linkOptions
             )
 
             if verbose {
@@ -244,6 +266,14 @@ struct BuildCommand: AsyncParsableCommand {
         } catch {
             print("Linking error: \(error)")
             throw ExitCode.failure
+        }
+
+        // Post-build strip for maximum size reduction
+        if effectiveStrip {
+            if verbose {
+                print("Stripping symbols...")
+            }
+            try? runStripCommand(on: binaryPath.path)
         }
 
         // Cleanup intermediate files
@@ -364,5 +394,21 @@ struct BuildCommand: AsyncParsableCommand {
             featureSets: productionFeatureSets,
             globalRegistry: globalRegistry
         )
+    }
+
+    private func runStripCommand(on binaryPath: String) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/strip")
+        #if os(macOS)
+        // -S: Remove debug symbols only, keep global symbols for dynamic linking
+        // -x: Remove local symbols (non-global)
+        process.arguments = ["-S", "-x", binaryPath]
+        #else
+        // Linux: strip all symbols
+        process.arguments = ["-s", binaryPath]
+        #endif
+
+        try process.run()
+        process.waitUntilExit()
     }
 }

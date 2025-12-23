@@ -9,12 +9,14 @@ import Foundation
 public final class LLVMEmitter {
     // MARK: - Properties
 
-    /// Optimization level
+    /// Optimization level for llc (O0-O3 only)
     public enum OptimizationLevel: String {
         case none = "-O0"
         case o1 = "-O1"
         case o2 = "-O2"
         case o3 = "-O3"
+        // Note: llc doesn't support -Os/-Oz, use -O2 for size optimization
+        // (size optimization is applied during linking stage)
     }
 
     // MARK: - Initialization
@@ -189,16 +191,56 @@ public final class CCompiler {
         try runProcess(args)
     }
 
+    /// Linker options for size and stripping
+    public struct LinkOptions {
+        public var optimize: Bool = false
+        public var optimizeForSize: Bool = false
+        public var strip: Bool = false
+        public var deadStrip: Bool = false
+
+        public init(
+            optimize: Bool = false,
+            optimizeForSize: Bool = false,
+            strip: Bool = false,
+            deadStrip: Bool = false
+        ) {
+            self.optimize = optimize
+            self.optimizeForSize = optimizeForSize
+            self.strip = strip
+            self.deadStrip = deadStrip
+        }
+    }
+
     /// Link object files into an executable
     /// - Parameters:
     ///   - objectFiles: Paths to object files
     ///   - outputPath: Path for output executable
-    ///   - optimize: Enable link-time optimizations
+    ///   - optimize: Enable link-time optimizations (deprecated, use options)
     public func link(
         objectFiles: [String],
         outputPath: String,
         outputType: OutputType = .executable,
         optimize: Bool = false
+    ) throws {
+        try link(
+            objectFiles: objectFiles,
+            outputPath: outputPath,
+            outputType: outputType,
+            options: LinkOptions(optimize: optimize)
+        )
+    }
+
+    /// Link object files into an executable with full options
+    /// - Parameters:
+    ///   - objectFiles: Paths to object files
+    ///   - outputPath: Path for output executable
+    ///   - outputType: Type of output
+    ///   - options: Link options for optimization, stripping, etc.
+    public func link(
+        objectFiles: [String],
+        outputPath: String,
+        outputType: OutputType = .executable,
+        options: LinkOptions
     ) throws {
         var args = [findCompiler()]
 
@@ -243,6 +285,11 @@ public final class CCompiler {
             args.append(swiftLibPath)
         }
         args.append("-lSystem")
+
+        // Dead code stripping (macOS specific)
+        if options.deadStrip {
+            args.append("-Wl,-dead_strip")
+        }
         #elseif os(Linux)
         args.append("-lpthread")
         args.append("-ldl")
@@ -252,12 +299,31 @@ public final class CCompiler {
             args.append("-L\(swiftLibPath)")
             args.append("-Wl,-rpath,\(swiftLibPath)")
         }
+
+        // Dead code stripping on Linux
+        if options.deadStrip {
+            args.append("-Wl,--gc-sections")
+        }
         #endif
 
         // Optimizations
-        if optimize {
-            args.append("-O2")
-            args.append("-flto")
+        if options.optimize || options.optimizeForSize {
+            if options.optimizeForSize {
+                args.append("-Os")
+            } else {
+                args.append("-O2")
+            }
+            args.append("-flto=thin")  // Thin LTO for faster linking
+        }
+
+        // Strip symbols
+        if options.strip {
+            #if os(macOS)
+            args.append("-Wl,-S")  // Strip debug symbols
+            args.append("-Wl,-x")  // Strip local symbols
+            #else
+            args.append("-s")  // Strip all symbols
+            #endif
         }
 
         try runProcess(args)

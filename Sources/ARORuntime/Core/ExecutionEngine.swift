@@ -64,7 +64,6 @@ public final class ExecutionEngine: @unchecked Sendable {
         _ program: AnalyzedProgram,
         entryPoint: String = "Application-Start"
     ) async throws -> Response {
-        print("[ExecutionEngine] execute() called with entryPoint: \(entryPoint)")
 
         // Find entry point
         guard let entryFeatureSet = program.featureSets.first(where: {
@@ -125,20 +124,15 @@ public final class ExecutionEngine: @unchecked Sendable {
             analyzedFS.featureSet.businessActivity.contains("Socket Event Handler")
         }
 
-        print("[ExecutionEngine] Found \(socketHandlers.count) socket event handlers")
 
         for analyzedFS in socketHandlers {
             let featureSetName = analyzedFS.featureSet.name
             let lowercaseName = featureSetName.lowercased()
-            print("[ExecutionEngine] Registering handler: \(featureSetName) (activity: \(analyzedFS.featureSet.businessActivity))")
-
             // Determine which event type this handler should respond to
             if lowercaseName.contains("data received") || lowercaseName.contains("data") {
-                print("[ExecutionEngine] -> Subscribing to DataReceivedEvent, eventBus=\(ObjectIdentifier(eventBus))")
                 // Subscribe to DataReceivedEvent
                 eventBus.subscribe(to: DataReceivedEvent.self) { [weak self] event in
                     guard let self = self else { return }
-                    print("[ExecutionEngine] DataReceivedEvent received! connectionId=\(event.connectionId), data=\(event.data.count) bytes")
                     await self.executeSocketHandler(
                         analyzedFS,
                         program: program,
@@ -241,8 +235,6 @@ public final class ExecutionEngine: @unchecked Sendable {
                    !activity.contains("Application-End")
         }
 
-        print("[ExecutionEngine] Found \(domainHandlers.count) domain event handlers")
-
         for analyzedFS in domainHandlers {
             let activity = analyzedFS.featureSet.businessActivity
 
@@ -252,15 +244,12 @@ public final class ExecutionEngine: @unchecked Sendable {
                 .replacingOccurrences(of: " Handler", with: "")
                 .trimmingCharacters(in: .whitespaces)
 
-            print("[ExecutionEngine] Registering domain handler: \(analyzedFS.featureSet.name) for event: \(eventType)")
-
             // Subscribe to DomainEvent and filter by eventType
             eventBus.subscribe(to: DomainEvent.self) { [weak self] event in
                 guard let self = self else { return }
 
                 // Only handle events that match this handler's event type
                 if event.domainEventType == eventType {
-                    print("[ExecutionEngine] DomainEvent '\(eventType)' received, triggering handler: \(analyzedFS.featureSet.name)")
                     await self.executeDomainEventHandler(
                         analyzedFS,
                         program: program,
@@ -308,9 +297,7 @@ public final class ExecutionEngine: @unchecked Sendable {
 
         do {
             _ = try await executor.execute(analyzedFS, context: handlerContext)
-            print("[ExecutionEngine] Domain handler '\(analyzedFS.featureSet.name)' completed successfully")
         } catch {
-            print("[ExecutionEngine] Domain handler '\(analyzedFS.featureSet.name)' failed: \(error)")
             eventBus.publish(ErrorOccurredEvent(
                 error: String(describing: error),
                 context: analyzedFS.featureSet.name,
@@ -326,18 +313,14 @@ public final class ExecutionEngine: @unchecked Sendable {
             analyzedFS.featureSet.businessActivity.contains("File Event Handler")
         }
 
-        print("[ExecutionEngine] Found \(fileHandlers.count) file event handlers")
-
         for analyzedFS in fileHandlers {
             let featureSetName = analyzedFS.featureSet.name
             let lowercaseName = featureSetName.lowercased()
-            print("[ExecutionEngine] Registering file handler: \(featureSetName)")
 
             // Determine which file event type this handler should respond to
             if lowercaseName.contains("created") {
                 eventBus.subscribe(to: FileCreatedEvent.self) { [weak self] event in
                     guard let self = self else { return }
-                    print("[ExecutionEngine] FileCreatedEvent received: \(event.path)")
                     await self.executeFileEventHandler(
                         analyzedFS,
                         program: program,
@@ -351,10 +334,8 @@ public final class ExecutionEngine: @unchecked Sendable {
                     // Skip temp files (hidden files starting with .)
                     let filename = (event.path as NSString).lastPathComponent
                     guard !filename.hasPrefix(".") else {
-                        print("[ExecutionEngine] Skipping temp file: \(event.path)")
                         return
                     }
-                    print("[ExecutionEngine] FileModifiedEvent received: \(event.path)")
                     await self.executeFileEventHandler(
                         analyzedFS,
                         program: program,
@@ -365,7 +346,6 @@ public final class ExecutionEngine: @unchecked Sendable {
             } else if lowercaseName.contains("deleted") {
                 eventBus.subscribe(to: FileDeletedEvent.self) { [weak self] event in
                     guard let self = self else { return }
-                    print("[ExecutionEngine] FileDeletedEvent received: \(event.path)")
                     await self.executeFileEventHandler(
                         analyzedFS,
                         program: program,
@@ -413,9 +393,7 @@ public final class ExecutionEngine: @unchecked Sendable {
 
         do {
             _ = try await executor.execute(analyzedFS, context: handlerContext)
-            print("[ExecutionEngine] File handler '\(analyzedFS.featureSet.name)' completed successfully")
         } catch {
-            print("[ExecutionEngine] File handler '\(analyzedFS.featureSet.name)' failed: \(error)")
             eventBus.publish(ErrorOccurredEvent(
                 error: String(describing: error),
                 context: analyzedFS.featureSet.name,

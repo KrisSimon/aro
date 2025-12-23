@@ -514,3 +514,23 @@ public func aro_action_map(
 ) -> UnsafeMutableRawPointer? {
     return executeAction(verb: "map", contextPtr: contextPtr, resultPtr: resultPtr, objectPtr: objectPtr)
 }
+
+// MARK: - System Exec Action (ARO-0033)
+
+@_cdecl("aro_action_exec")
+public func aro_action_exec(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ resultPtr: UnsafeRawPointer?,
+    _ objectPtr: UnsafeRawPointer?
+) -> UnsafeMutableRawPointer? {
+    return executeAction(verb: "exec", contextPtr: contextPtr, resultPtr: resultPtr, objectPtr: objectPtr)
+}
+
+@_cdecl("aro_action_shell")
+public func aro_action_shell(
+    _ contextPtr: UnsafeMutableRawPointer?,
+    _ resultPtr: UnsafeRawPointer?,
+    _ objectPtr: UnsafeRawPointer?
+) -> UnsafeMutableRawPointer? {
+    return executeAction(verb: "shell", contextPtr: contextPtr, resultPtr: resultPtr, objectPtr: objectPtr)
+}
