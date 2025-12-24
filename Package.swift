@@ -56,6 +56,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
         // Yams for YAML parsing (OpenAPI contracts)
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.0"),
+        // Language Server Protocol types for LSP server
+        .package(url: "https://github.com/ChimeHQ/LanguageServerProtocol", from: "0.14.0"),
     ],
     targets: [
         // Core parser library
@@ -80,6 +82,15 @@ let package = Package(
             ],
             path: "Sources/AROCompiler"
         ),
+        // Language Server Protocol implementation
+        .target(
+            name: "AROLSP",
+            dependencies: [
+                "AROParser",
+                .product(name: "LanguageServerProtocol", package: "LanguageServerProtocol"),
+            ],
+            path: "Sources/AROLSP"
+        ),
         // CLI tool
         .executableTarget(
             name: "AROCLI",
@@ -87,6 +98,7 @@ let package = Package(
                 "AROParser",
                 "ARORuntime",
                 "AROCompiler",
+                "AROLSP",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
             path: "Sources/AROCLI"
