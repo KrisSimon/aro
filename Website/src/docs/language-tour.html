@@ -218,19 +218,38 @@
 
         <p>All feature sets are automatically visible to each other.</p>
 
-        <h2>Control Flow</h2>
-        <p>ARO supports conditional logic:</p>
+        <h2>Conditional Execution</h2>
+        <p>ARO uses <strong>when clauses</strong> for conditional execution and <strong>match/case</strong> for multi-way branching:</p>
 
-        <pre><code><span class="code-feature">(getUser: User API)</span> {
-    <span class="code-keyword">&lt;Extract&gt;</span> the <span class="code-result">&lt;user-id&gt;</span> from the &lt;pathParameters: id&gt;.
-    <span class="code-keyword">&lt;Retrieve&gt;</span> the <span class="code-result">&lt;user&gt;</span> from the &lt;user-repository&gt; where id = &lt;user-id&gt;.
+        <h3>When Clauses</h3>
+        <p>A statement executes only if its <code>when</code> condition is true:</p>
 
-    if &lt;user&gt; is empty then {
-        <span class="code-keyword">&lt;Return&gt;</span> a <span class="code-result">&lt;NotFound: status&gt;</span> for the &lt;missing: user&gt;.
+        <pre><code><span class="code-comment">(* Only send notification when user has email *)</span>
+<span class="code-keyword">&lt;Send&gt;</span> the &lt;notification&gt; to the &lt;user: email&gt; when &lt;user: email&gt; exists.
+
+<span class="code-comment">(* Log admin access *)</span>
+<span class="code-keyword">&lt;Log&gt;</span> the <span class="code-result">&lt;admin-access&gt;</span> for the &lt;audit&gt; when &lt;user: role&gt; == <span class="code-string">"admin"</span>.</code></pre>
+
+        <h3>Match Expressions</h3>
+        <p>For multi-way branching, use <code>match/case/otherwise</code>:</p>
+
+        <pre><code>match &lt;user: status&gt; {
+    case <span class="code-string">"active"</span> {
+        <span class="code-keyword">&lt;Return&gt;</span> an <span class="code-result">&lt;OK: status&gt;</span> with &lt;user&gt;.
     }
-
-    <span class="code-keyword">&lt;Return&gt;</span> an <span class="code-result">&lt;OK: status&gt;</span> with &lt;user&gt;.
+    case <span class="code-string">"pending"</span> {
+        <span class="code-keyword">&lt;Send&gt;</span> the &lt;verification-email&gt; to the &lt;user: email&gt;.
+        <span class="code-keyword">&lt;Return&gt;</span> a <span class="code-result">&lt;PendingVerification: status&gt;</span> for the &lt;request&gt;.
+    }
+    case <span class="code-string">"locked"</span> {
+        <span class="code-keyword">&lt;Return&gt;</span> an <span class="code-result">&lt;AccountLocked: error&gt;</span> for the &lt;request&gt;.
+    }
+    otherwise {
+        <span class="code-keyword">&lt;Return&gt;</span> an <span class="code-result">&lt;InvalidStatus: error&gt;</span> for the &lt;request&gt;.
+    }
 }</code></pre>
+
+        <p><strong>Note:</strong> ARO follows the "happy path" philosophy—you write only the success case, and the runtime handles errors automatically.</p>
 
         <h2>Response Status Codes</h2>
         <p>ARO maps return statuses to HTTP status codes:</p>
