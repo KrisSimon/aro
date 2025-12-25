@@ -3,6 +3,7 @@
 // AROLSP - Find References Provider
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -192,3 +193,5 @@ public struct ReferencesHandler: Sendable {
         ]
     }
 }
+
+#endif

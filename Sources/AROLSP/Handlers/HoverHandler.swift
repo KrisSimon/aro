@@ -3,6 +3,7 @@
 // AROLSP - Hover Information Provider
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -163,3 +164,5 @@ public struct HoverHandler: Sendable {
         ]
     }
 }
+
+#endif

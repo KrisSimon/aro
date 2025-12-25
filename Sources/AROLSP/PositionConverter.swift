@@ -3,6 +3,7 @@
 // AROLSP - Position Conversion between ARO and LSP
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -74,3 +75,5 @@ public struct PositionConverter {
         return offset
     }
 }
+
+#endif

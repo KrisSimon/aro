@@ -3,6 +3,7 @@
 // AROLSP - Convert ARO diagnostics to LSP diagnostics
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -65,3 +66,5 @@ public struct DiagnosticsHandler: Sendable {
         }
     }
 }
+
+#endif

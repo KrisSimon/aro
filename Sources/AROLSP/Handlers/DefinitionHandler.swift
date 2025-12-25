@@ -3,6 +3,7 @@
 // AROLSP - Go to Definition Provider
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -131,3 +132,5 @@ public struct DefinitionHandler: Sendable {
         ]
     }
 }
+
+#endif

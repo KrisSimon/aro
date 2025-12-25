@@ -3,6 +3,7 @@
 // AROLSP - Completion Provider
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -242,3 +243,5 @@ public struct CompletionHandler: Sendable {
         ]
     }
 }
+
+#endif

@@ -3,6 +3,7 @@
 // AROLSP - Document Symbol Provider (Outline)
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -132,3 +133,5 @@ public struct DocumentSymbolHandler: Sendable {
         ]
     }
 }
+
+#endif

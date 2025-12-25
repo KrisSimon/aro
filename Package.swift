@@ -2,9 +2,12 @@
 import PackageDescription
 
 // Platform-specific dependencies
-// swift-nio and async-http-client have Windows compatibility issues
+// swift-nio, async-http-client, and LSP libraries have Windows compatibility issues
 var platformDependencies: [Package.Dependency] = []
 var runtimePlatformDependencies: [Target.Dependency] = []
+var lspDependencies: [Package.Dependency] = []
+var lspTargetDependencies: [Target.Dependency] = []
+var cliLspDependency: [Target.Dependency] = []
 
 #if !os(Windows)
 platformDependencies = [
@@ -21,6 +24,16 @@ runtimePlatformDependencies = [
     .product(name: "NIOFoundationCompat", package: "swift-nio"),
     .product(name: "AsyncHTTPClient", package: "async-http-client"),
     .product(name: "FileMonitor", package: "FileMonitor"),
+]
+// LSP dependencies (JSONRPC doesn't support Windows)
+lspDependencies = [
+    .package(url: "https://github.com/ChimeHQ/LanguageServerProtocol", from: "0.14.0"),
+]
+lspTargetDependencies = [
+    .product(name: "LanguageServerProtocol", package: "LanguageServerProtocol"),
+]
+cliLspDependency = [
+    "AROLSP",
 ]
 #endif
 
@@ -51,13 +64,11 @@ let package = Package(
             targets: ["AROCLI"]
         )
     ],
-    dependencies: platformDependencies + [
+    dependencies: platformDependencies + lspDependencies + [
         // Swift Argument Parser for CLI
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
         // Yams for YAML parsing (OpenAPI contracts)
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.0"),
-        // Language Server Protocol types for LSP server
-        .package(url: "https://github.com/ChimeHQ/LanguageServerProtocol", from: "0.14.0"),
     ],
     targets: [
         // Core parser library
@@ -82,13 +93,12 @@ let package = Package(
             ],
             path: "Sources/AROCompiler"
         ),
-        // Language Server Protocol implementation
+        // Language Server Protocol implementation (not available on Windows)
         .target(
             name: "AROLSP",
             dependencies: [
                 "AROParser",
-                .product(name: "LanguageServerProtocol", package: "LanguageServerProtocol"),
-            ],
+            ] + lspTargetDependencies,
             path: "Sources/AROLSP"
         ),
         // CLI tool
@@ -98,9 +108,8 @@ let package = Package(
                 "AROParser",
                 "ARORuntime",
                 "AROCompiler",
-                "AROLSP",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
+            ] + cliLspDependency,
             path: "Sources/AROCLI"
         ),
         // Parser tests

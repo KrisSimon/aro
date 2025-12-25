@@ -3,6 +3,7 @@
 // AROLSP - Main Language Server Implementation
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -444,3 +445,5 @@ public final class AROLanguageServer: Sendable {
         return try? JSONSerialization.data(withJSONObject: response)
     }
 }
+
+#endif

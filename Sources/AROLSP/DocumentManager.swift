@@ -3,6 +3,7 @@
 // AROLSP - Document State Management
 // ============================================================
 
+#if !os(Windows)
 import Foundation
 import AROParser
 import LanguageServerProtocol
@@ -124,3 +125,5 @@ public actor DocumentManager {
         documents[uri] != nil
     }
 }
+
+#endif

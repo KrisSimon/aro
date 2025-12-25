@@ -3,6 +3,7 @@
 // AROCLI - Language Server Protocol Command
 // ============================================================
 
+#if !os(Windows)
 import ArgumentParser
 import Foundation
 import AROLSP
@@ -43,3 +44,4 @@ struct LSPCommand: AsyncParsableCommand {
         try await server.runStdio()
     }
 }
+#endif
