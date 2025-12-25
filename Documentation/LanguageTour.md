@@ -245,46 +245,48 @@ Handle TCP connections:
 }
 ```
 
-## Control Flow
+## Conditional Execution
 
-ARO supports conditional logic:
+ARO uses **when clauses** for conditional execution and **match/case** for multi-way branching.
 
-### If-Then-Else
+### When Clauses
+
+A statement executes only if its `when` condition is true:
 
 ```aro
-(getUser: User API) {
-    <Extract> the <user-id> from the <pathParameters: id>.
-    <Retrieve> the <user> from the <user-repository> where id = <user-id>.
+(* Only send notification when user has email *)
+<Send> the <notification> to the <user: email> when <user: email> exists.
 
-    if <user> is empty then {
-        <Return> a <NotFound: status> for the <missing: user>.
+(* Log admin access *)
+<Log> the <admin-access> for the <audit> when <user: role> == "admin".
+
+(* Return error when validation fails *)
+<Return> a <BadRequest: status> for the <request> when <user-id> is empty.
+```
+
+### Match Expressions
+
+For multi-way branching, use `match/case/otherwise`:
+
+```aro
+match <user: status> {
+    case "active" {
+        <Return> an <OK: status> with <user>.
     }
-
-    <Return> an <OK: status> with <user>.
+    case "pending" {
+        <Send> the <verification-email> to the <user: email>.
+        <Return> a <PendingVerification: status> for the <request>.
+    }
+    case "locked" {
+        <Return> an <AccountLocked: error> for the <request>.
+    }
+    otherwise {
+        <Return> an <InvalidStatus: error> for the <request>.
+    }
 }
 ```
 
-### Guards
-
-```aro
-(updateUser: User API) {
-    <Extract> the <user-id> from the <pathParameters: id>.
-    <Extract> the <updates> from the <request: body>.
-
-    when <user-id> is empty {
-        <Return> a <BadRequest: status> for the <missing: id>.
-    }
-
-    when <updates> is empty {
-        <Return> a <BadRequest: status> for the <missing: data>.
-    }
-
-    <Retrieve> the <user> from the <user-repository> where id = <user-id>.
-    <Transform> the <updated-user> from the <user> with <updates>.
-    <Store> the <updated-user> into the <user-repository>.
-    <Return> an <OK: status> with <updated-user>.
-}
-```
+**Note:** ARO follows the "happy path" philosophy—you write only the success case, and the runtime handles errors automatically.
 
 ## Multi-File Applications
 
