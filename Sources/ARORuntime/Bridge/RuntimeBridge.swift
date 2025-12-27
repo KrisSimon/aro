@@ -51,7 +51,7 @@ final class AROCContextHandle {
 
     init(runtime: AROCRuntimeHandle, featureSetName: String) {
         self.runtime = runtime
-        self.context = RuntimeContext(featureSetName: featureSetName)
+        self.context = RuntimeContext(featureSetName: featureSetName, isCompiled: true)
     }
 }
 

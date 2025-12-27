@@ -104,7 +104,33 @@ Logging becomes more important when detailed runtime output is not available. In
 
 ---
 
-## 17.8 Development Workflow
+## 17.8 Output Formatting
+
+Native binaries produce cleaner output than interpreted execution. This difference is intentional and reflects the different contexts in which each mode is used.
+
+When running with the interpreter using `aro run`, log messages include a feature set name prefix:
+
+```
+[Application-Start] Starting server...
+[Application-Start] Server ready on port 8080
+[listUsers] Processing request...
+```
+
+When running a compiled binary, the same log messages appear without the prefix:
+
+```
+Starting server...
+Server ready on port 8080
+Processing request...
+```
+
+The interpreter's prefix identifies which feature set produced each message. This visibility aids debugging during development—when something goes wrong, you can see exactly where messages originated. The prefix becomes unnecessary noise in production, where the focus shifts from debugging to clean operation.
+
+Response formatting remains unchanged between modes. The `[OK]` status prefix and response data appear identically in both cases, providing consistent machine-parseable output for scripts and monitoring tools.
+
+---
+
+## 17.9 Development Workflow
 
 Development typically uses interpreted execution for rapid iteration. The interpreted mode has faster turnaround—you change code and immediately run the updated version without a compile step. Verbose output shows what the runtime does, aiding debugging and understanding.
 
@@ -116,7 +142,7 @@ Release processes should produce native binaries with release optimizations. Tag
 
 ---
 
-## 17.9 Limitations
+## 17.10 Limitations
 
 Native compilation has limitations compared to interpreted execution.
 
@@ -130,7 +156,7 @@ The compilation step adds time to the development cycle. For rapid iteration, th
 
 ---
 
-## 17.10 Best Practices
+## 17.11 Best Practices
 
 Use interpreted mode during development for fast iteration and detailed diagnostics. Switch to native compilation for deployment testing and release.
 
