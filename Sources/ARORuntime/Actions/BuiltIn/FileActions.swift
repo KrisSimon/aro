@@ -4,8 +4,6 @@
 // ARO-0036: Native File and Directory Operations
 // ============================================================
 
-#if !os(Windows)
-
 import Foundation
 import AROParser
 
@@ -476,5 +474,3 @@ public struct AppendResult: Sendable, Equatable {
     public let path: String
     public let success: Bool
 }
-
-#endif  // !os(Windows)
