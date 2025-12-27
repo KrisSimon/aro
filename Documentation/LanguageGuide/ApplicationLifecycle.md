@@ -184,6 +184,28 @@ aro run ./MyApp
 
 The application runs and exits when Application-Start completes.
 
+### Output Differences: Interpreter vs Compiled
+
+When running with the interpreter (`aro run`), log messages include a feature set name prefix for debugging visibility:
+
+```
+[Application-Start] Starting server...
+[Application-Start] Server ready on port 8080
+[OK] startup
+```
+
+When running a compiled binary (`aro build`), log messages are clean without the prefix:
+
+```
+Starting server...
+Server ready on port 8080
+[OK] startup
+```
+
+This difference is intentional:
+- **Interpreter mode**: The prefix helps identify which feature set produced each log message during development and debugging
+- **Compiled mode**: Clean output is more appropriate for production deployment
+
 ### Keeping Applications Alive
 
 For servers that should run indefinitely, use the `<Keepalive>` action:

@@ -234,6 +234,9 @@ public protocol ExecutionContext: AnyObject, Sendable {
 
     /// Whether execution is in test mode
     var isTestMode: Bool { get }
+
+    /// Whether execution is from a compiled binary (vs interpreter)
+    var isCompiled: Bool { get }
 }
 
 // MARK: - Default Implementations
@@ -245,4 +248,7 @@ public extension ExecutionContext {
         }
         return value
     }
+
+    /// Default: not compiled (interpreter mode)
+    var isCompiled: Bool { false }
 }
