@@ -91,6 +91,125 @@ Directories are created automatically when writing:
 <Delete> the <file: path>.
 ```
 
+## Directory Operations
+
+### Listing Directory Contents
+
+List all files in a directory:
+
+```aro
+<Create> the <uploads-path> with "./uploads".
+<List> the <entries> from the <directory: uploads-path>.
+```
+
+Filter with glob patterns:
+
+```aro
+<Create> the <src-path> with "./src".
+<List> the <aro-files> from the <directory: src-path> matching "*.aro".
+```
+
+List recursively:
+
+```aro
+<Create> the <project-path> with "./project".
+<List> the <all-files> from the <directory: project-path> recursively.
+```
+
+Each entry contains:
+- `name` - file or directory name
+- `path` - full path
+- `size` - file size in bytes
+- `isFile` - true if file
+- `isDirectory` - true if directory
+- `modified` - last modification date
+
+### Checking Existence
+
+Check if a file exists:
+
+```aro
+<Exists> the <found> for the <file: "./config.json">.
+
+when <found> is false {
+    <Log> the <warning> for the <console> with "Config not found!".
+}
+```
+
+Check if a directory exists:
+
+```aro
+<Exists> the <dir-exists> for the <directory: "./output">.
+```
+
+### Creating Directories
+
+Create a directory (including parent directories):
+
+```aro
+<CreateDirectory> the <output-dir> to the <path: "./output/reports/2024">.
+```
+
+### Getting File Stats
+
+Get detailed metadata for a file:
+
+```aro
+<Stat> the <info> for the <file: "./document.pdf">.
+<Log> the <size> for the <console> with <info: size>.
+<Log> the <modified> for the <console> with <info: modified>.
+```
+
+Get directory metadata:
+
+```aro
+<Stat> the <dir-info> for the <directory: "./src">.
+```
+
+### Copying Files and Directories
+
+Copy a file:
+
+```aro
+<Copy> the <file: "./template.txt"> to the <destination: "./copy.txt">.
+```
+
+Copy a directory (recursive by default):
+
+```aro
+<Copy> the <directory: "./src"> to the <destination: "./backup/src">.
+```
+
+### Moving and Renaming
+
+Rename a file:
+
+```aro
+<Move> the <file: "./draft.txt"> to the <destination: "./final.txt">.
+```
+
+Move to a different directory:
+
+```aro
+<Move> the <file: "./inbox/report.pdf"> to the <destination: "./archive/report.pdf">.
+```
+
+Move a directory:
+
+```aro
+<Move> the <directory: "./temp"> to the <destination: "./processed">.
+```
+
+### Appending to Files
+
+Append data to a file:
+
+```aro
+<Append> the <log-line> to the <file: "./logs/app.log">.
+```
+
+Creates the file if it doesn't exist.
+
 ## File Watching
 
 ### Starting a Watcher

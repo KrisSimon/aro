@@ -11,6 +11,9 @@ Complete reference for all built-in actions in ARO.
 | **Request** | REQUEST | Make HTTP request | `<Request> the <data> from the <api-url>.` |
 | **Fetch** | REQUEST | Fetch from external API | `<Fetch> the <weather> from <WeatherAPI: GET /forecast>.` |
 | **Read** | REQUEST | Read from file | `<Read> the <config> from the <file: "./config.json">.` |
+| **List** | REQUEST | List directory contents | `<List> the <files> from the <directory: src-path>.` |
+| **Stat** | REQUEST | Get file metadata | `<Stat> the <info> for the <file: "./doc.pdf">.` |
+| **Exists** | REQUEST | Check file existence | `<Exists> the <found> for the <file: "./config.json">.` |
 | **Parse** | REQUEST | Parse structured data | `<Parse> the <json> from the <raw-string>.` |
 | **Receive** | REQUEST | Receive event data | `<Receive> the <message> from the <event>.` |
 | **Exec** | REQUEST | Execute shell command | `<Exec> the <result> for the <command> with "ls -la".` |
@@ -20,6 +23,9 @@ Complete reference for all built-in actions in ARO.
 | **Validate** | OWN | Check against rules | `<Validate> the <data> for the <schema>.` |
 | **Compare** | OWN | Compare values | `<Compare> the <hash> against the <stored>.` |
 | **Update** | OWN | Modify existing data | `<Update> the <user> with <changes>.` |
+| **CreateDirectory** | OWN | Create directory | `<CreateDirectory> the <dir> to the <path: "./out">.` |
+| **Copy** | OWN | Copy file/directory | `<Copy> the <file: "./a.txt"> to the <destination: "./b.txt">.` |
+| **Move** | OWN | Move/rename file | `<Move> the <file: "./old.txt"> to the <destination: "./new.txt">.` |
 | **Map** | OWN | Transform collection elements | `<Map> the <names> from the <users: name>.` |
 | **Filter** | OWN | Select matching elements | `<Filter> the <active> from the <users> where status = "active".` |
 | **Reduce** | OWN | Aggregate collection | `<Reduce> the <total> from the <items> with sum(<amount>).` |
@@ -30,6 +36,7 @@ Complete reference for all built-in actions in ARO.
 | **Log** | EXPORT | Write to logs | `<Log> the <msg> for the <console> with "Done".` |
 | **Store** | EXPORT | Save to repository | `<Store> the <user> into the <users>.` |
 | **Write** | EXPORT | Write to file | `<Write> the <data> to the <file: "./out.txt">.` |
+| **Append** | EXPORT | Append to file | `<Append> the <line> to the <file: "./log.txt">.` |
 | **Send** | EXPORT | Send to destination | `<Send> the <email> to the <recipient>.` |
 | **Emit** | EXPORT | Emit domain event | `<Emit> a <UserCreated: event> with <user>.` |
 | **Publish** | EXPORT | Make globally available | `<Publish> as <config> <settings>.` |
@@ -613,6 +620,157 @@ Writes to files.
 ```aro
 <Write> the <content> to the <file: "./output.txt">.
 <Write> the <data: JSON> to the <file: "./data.json">.
+```
+
+**Valid Prepositions:** `to`
+
+---
+
+### Append
+
+Appends content to a file.
+
+**Syntax:**
+```aro
+<Append> the <data> to the <file: path>.
+```
+
+**Examples:**
+```aro
+<Append> the <log-line> to the <file: "./logs/app.log">.
+<Append> the <entry> to the <file: "./data.txt">.
+```
+
+**Valid Prepositions:** `to`, `into`
+
+---
+
+### List
+
+Lists directory contents.
+
+**Syntax:**
+```aro
+<Create> the <dir-path> with "./path".
+<List> the <result> from the <directory: dir-path>.
+<List> the <result> from the <directory: dir-path> matching "pattern".
+<List> the <result> from the <directory: dir-path> recursively.
+```
+
+**Examples:**
+```aro
+<Create> the <uploads-path> with "./uploads".
+<List> the <entries> from the <directory: uploads-path>.
+<List> the <aro-files> from the <directory: src-path> matching "*.aro".
+<List> the <all-files> from the <directory: project-path> recursively.
+```
+
+**Valid Prepositions:** `from`
+
+---
+
+### Stat
+
+Gets file or directory metadata.
+
+**Syntax:**
+```aro
+<Stat> the <result> for the <file: path>.
+<Stat> the <result> for the <directory: path>.
+```
+
+**Examples:**
+```aro
+<Stat> the <info> for the <file: "./document.pdf">.
+<Stat> the <dir-info> for the <directory: "./src">.
+```
+
+**Result Properties:**
+- `name` - file or directory name
+- `path` - full path
+- `size` - size in bytes
+- `isFile` - true if file
+- `isDirectory` - true if directory
+- `created` - creation date (ISO 8601)
+- `modified` - modification date (ISO 8601)
+- `permissions` - Unix-style permissions
+
+**Valid Prepositions:** `for`
+
+---
+
+### Exists
+
+Checks if a file or directory exists.
+
+**Syntax:**
+```aro
+<Exists> the <result> for the <file: path>.
+<Exists> the <result> for the <directory: path>.
+```
+
+**Examples:**
+```aro
+<Exists> the <found> for the <file: "./config.json">.
+<Exists> the <dir-exists> for the <directory: "./output">.
+```
+
+**Valid Prepositions:** `for`
+
+---
+
+### CreateDirectory
+
+Creates a directory with all intermediate directories.
+
+**Syntax:**
+```aro
+<CreateDirectory> the <result> to the <path: path>.
+```
+
+**Examples:**
+```aro
+<CreateDirectory> the <output-dir> to the <path: "./output/reports/2024">.
+```
+
+**Valid Prepositions:** `to`, `for`
+
+---
+
+### Copy
+
+Copies files or directories.
+
+**Syntax:**
+```aro
+<Copy> the <file: source> to the <destination: dest>.
+<Copy> the <directory: source> to the <destination: dest>.
+```
+
+**Examples:**
+```aro
+<Copy> the <file: "./template.txt"> to the <destination: "./copy.txt">.
+<Copy> the <directory: "./src"> to the <destination: "./backup/src">.
+```
+
+**Valid Prepositions:** `to`
+
+---
+
+### Move
+
+Moves or renames files and directories.
+
+**Syntax:**
+```aro
+<Move> the <file: source> to the <destination: dest>.
+<Move> the <directory: source> to the <destination: dest>.
+```
+
+**Examples:**
+```aro
+<Move> the <file: "./draft.txt"> to the <destination: "./final.txt">.
+<Move> the <directory: "./temp"> to the <destination: "./processed">.
 ```
 
 **Valid Prepositions:** `to`

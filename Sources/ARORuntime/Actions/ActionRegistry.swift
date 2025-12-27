@@ -89,6 +89,15 @@ public final class ActionRegistry: @unchecked Sendable {
         // File actions
         register(WatchAction.self)
 
+        // File operations (ARO-0036)
+        register(ListAction.self)
+        register(StatAction.self)
+        register(ExistsAction.self)
+        register(CreateDirectoryAction.self)
+        register(CopyAction.self)
+        register(MoveAction.self)
+        register(AppendAction.self)
+
         // Wait action for long-running applications
         register(WaitForEventsAction.self)
 
