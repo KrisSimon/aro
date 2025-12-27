@@ -44,3 +44,6 @@
 /Examples/DirectoryLister/DirectoryLister
 /Examples/Calculator/Calculator
 /Examples/ZipService/plugins/ZipPlugin/.build
+/Examples/UserService/UserService
+/Examples/SystemMonitor/SystemMonitor
+/Examples/RepositoryObserver/RepositoryObserver
