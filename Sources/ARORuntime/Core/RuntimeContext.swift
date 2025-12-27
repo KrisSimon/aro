@@ -39,6 +39,9 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
     /// Output context for formatting
     private let _outputContext: OutputContext
 
+    /// Whether this is a compiled binary execution
+    private let _isCompiled: Bool
+
     // MARK: - Metadata
 
     public let featureSetName: String
@@ -55,12 +58,14 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
     ///   - outputContext: Output context for formatting (defaults to .human)
     ///   - eventBus: Optional event bus for event emission
     ///   - parent: Optional parent context for nested execution
+    ///   - isCompiled: Whether this is a compiled binary execution (defaults to false)
     public init(
         featureSetName: String,
         businessActivity: String = "",
         outputContext: OutputContext = .human,
         eventBus: EventBus? = nil,
-        parent: ExecutionContext? = nil
+        parent: ExecutionContext? = nil,
+        isCompiled: Bool = false
     ) {
         self.featureSetName = featureSetName
         self.businessActivity = businessActivity
@@ -68,6 +73,7 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
         self._outputContext = outputContext
         self.eventBus = eventBus
         self.parent = parent
+        self._isCompiled = isCompiled
     }
 
     // MARK: - Variable Management
@@ -191,7 +197,8 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
             businessActivity: businessActivity,
             outputContext: _outputContext,
             eventBus: eventBus,
-            parent: self
+            parent: self,
+            isCompiled: _isCompiled
         )
     }
 
@@ -202,7 +209,8 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
             businessActivity: businessActivity,
             outputContext: _outputContext,
             eventBus: eventBus,
-            parent: self
+            parent: self,
+            isCompiled: _isCompiled
         )
     }
 
@@ -250,6 +258,10 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
 
     public var isTestMode: Bool {
         _outputContext == .developer
+    }
+
+    public var isCompiled: Bool {
+        _isCompiled
     }
 }
 
