@@ -10,12 +10,12 @@ ARO is in active development. Security fixes are applied to the latest version o
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please report it responsibly:
+If you discover a security vulnerability, please open a public issue! We appreciate your help in making ARO better.
 
-1. **Do not** open a public issue
-2. Email the maintainers directly or use [GitHub's private vulnerability reporting](https://github.com/KrisSimon/aro/security/advisories/new)
-3. Include steps to reproduce the issue
-4. Allow reasonable time for a fix before public disclosure
+When reporting, please include:
+- Steps to reproduce the issue
+- The potential impact
+- Any suggestions for a fix (optional but welcome!)
 
 ## What to Report
 
@@ -23,10 +23,6 @@ If you discover a security vulnerability, please report it responsibly:
 - Path traversal issues
 - Unsafe deserialization
 - Any issue that could compromise systems running ARO applications
-
-## Response
-
-We aim to acknowledge reports within 48 hours and provide a fix or mitigation plan as soon as possible.
 
 ## Scope
 
