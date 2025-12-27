@@ -117,9 +117,7 @@ Check if a file or directory exists:
 (* Check file existence *)
 <Exists> the <found> for the <file: "./config.json">.
 
-when <found> is false {
-    <Log> the <warning> for the <console> with "Config not found!".
-}
+<Log> the <warning> for the <console> with "Config not found!" when <found> is false.
 
 (* Check directory existence *)
 <Exists> the <dir-exists> for the <directory: "./output">.
@@ -142,9 +140,7 @@ Create a directory with all intermediate directories:
 (* Check and create *)
 <Exists> the <exists> for the <directory: "./cache">.
 
-when <exists> is false {
-    <CreateDirectory> the <cache-dir> at the <path: "./cache">.
-}
+<CreateDirectory> the <cache-dir> at the <path: "./cache"> when <exists> is false.
 ```
 
 ### Behavior
@@ -279,10 +275,8 @@ ARO normalizes paths for cross-platform compatibility:
     (* Check and create output directory *)
     <Exists> the <dir-exists> for the <directory: "./demo-output">.
 
-    when <dir-exists> is false {
-        <CreateDirectory> the <output> at the <path: "./demo-output">.
-        <Log> the <created> for the <console> with "Created directory".
-    }
+    <CreateDirectory> the <output> at the <path: "./demo-output"> when <dir-exists> is false.
+    <Log> the <created> for the <console> with "Created directory" when <dir-exists> is false.
 
     (* Write a file *)
     <Write> the <content> to the <file: "./demo-output/hello.txt">

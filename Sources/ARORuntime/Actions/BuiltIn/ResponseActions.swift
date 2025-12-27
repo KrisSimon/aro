@@ -374,7 +374,12 @@ public struct LogAction: ActionImplementation {
             formattedMessage = "{\"level\":\"info\",\"source\":\"\(context.featureSetName)\",\"message\":\"\(message.replacingOccurrences(of: "\"", with: "\\\""))\"}"
         case .human:
             // Readable format for CLI/console
-            formattedMessage = "[\(context.featureSetName)] \(message)"
+            // Compiled binaries get clean output without feature set prefix
+            if context.isCompiled {
+                formattedMessage = message
+            } else {
+                formattedMessage = "[\(context.featureSetName)] \(message)"
+            }
         case .developer:
             // Diagnostic format for testing/debugging
             formattedMessage = "LOG[\(target)] \(context.featureSetName): \(message)"

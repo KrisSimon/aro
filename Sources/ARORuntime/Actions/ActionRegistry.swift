@@ -89,8 +89,7 @@ public final class ActionRegistry: @unchecked Sendable {
         // File actions
         register(WatchAction.self)
 
-        // File operations (ARO-0036) - not available on Windows
-        #if !os(Windows)
+        // File operations (ARO-0036)
         register(ListAction.self)
         register(StatAction.self)
         register(ExistsAction.self)
@@ -98,7 +97,6 @@ public final class ActionRegistry: @unchecked Sendable {
         register(CopyAction.self)
         register(MoveAction.self)
         register(AppendAction.self)
-        #endif
 
         // Wait action for long-running applications
         register(WaitForEventsAction.self)
