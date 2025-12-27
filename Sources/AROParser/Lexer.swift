@@ -9,11 +9,12 @@ import Foundation
 public final class Lexer: @unchecked Sendable {
     
     // MARK: - Properties
-    
+
     private let source: String
     private var currentIndex: String.Index
     private var location: SourceLocation
     private var tokens: [Token] = []
+    private var lastTokenKind: TokenKind?
     
     /// Keywords mapped to their token kinds
     private static let keywords: [String: TokenKind] = [
@@ -125,7 +126,19 @@ public final class Lexer: @unchecked Sendable {
         case "/":
             // Check if this could be a regex literal
             // Regex starts with / and contains at least one character before closing /
-            if !isAtEnd && peek() != " " && peek() != "\n" && peek() != "\t" {
+            // Don't try regex after dots (used in import paths like ../../shared/common)
+            // or after identifiers (division: a / b)
+            let isAfterIdentifier: Bool
+            if case .identifier = lastTokenKind {
+                isAfterIdentifier = true
+            } else {
+                isAfterIdentifier = false
+            }
+            let shouldTryRegex = !isAtEnd &&
+                peek() != " " && peek() != "\n" && peek() != "\t" &&
+                lastTokenKind != .dot &&
+                !isAfterIdentifier
+            if shouldTryRegex {
                 // Try to scan as regex - if we find a closing /, it's a regex
                 if let regexResult = tryScanRegex(start: startLocation) {
                     addToken(.regexLiteral(pattern: regexResult.pattern, flags: regexResult.flags), start: startLocation)
@@ -661,6 +674,7 @@ public final class Lexer: @unchecked Sendable {
     private func addToken(_ kind: TokenKind, lexeme: String, start: SourceLocation) {
         let span = SourceSpan(start: start, end: location)
         tokens.append(Token(kind: kind, span: span, lexeme: lexeme))
+        lastTokenKind = kind
     }
 }
 
