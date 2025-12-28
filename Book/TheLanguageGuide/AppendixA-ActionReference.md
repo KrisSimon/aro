@@ -490,22 +490,30 @@ Creates a directory, including parent directories.
 ## Service Actions
 
 ### Start
-Starts a service.
+Starts a service. All services use the standardized `with` preposition.
 
 ```aro
-<Start> the <http-server> for the <contract>.
-<Start> the <socket-server> on port 9000.
+(* HTTP server from OpenAPI contract *)
+<Start> the <http-server> with <contract>.
+
+(* Socket server with port configuration *)
+<Start> the <socket-server> with { port: 9000 }.
+
+(* File monitor with directory path *)
+<Start> the <file-monitor> with ".".
+<Start> the <file-monitor> with { directory: "./data" }.
 ```
 *Source: [Examples/HTTPServer/main.aro:7](../Examples/HTTPServer/main.aro)*
 
 ---
 
 ### Stop
-Stops a service.
+Stops a service gracefully.
 
 ```aro
-<Stop> the <http-server> for the <application>.
-<Stop> the <socket-server> for the <application>.
+<Stop> the <http-server> with <application>.
+<Stop> the <socket-server> with <application>.
+<Stop> the <file-monitor> with <application>.
 ```
 
 ---
@@ -527,16 +535,6 @@ Closes a connection.
 <Disconnect> the <database> for the <application>.
 <Close> the <socket> for the <connection>.
 ```
-
----
-
-### Watch
-Starts watching for changes.
-
-```aro
-<Watch> the <file-monitor> for the <directory> with "./data".
-```
-*Source: [Examples/FileWatcher/main.aro:7](../Examples/FileWatcher/main.aro)*
 
 ---
 
