@@ -217,6 +217,7 @@ public enum Preposition: String, Sendable, CaseIterable {
     case via = "via"            // Through
     case with = "with"          // Accompaniment
     case on = "on"              // Location/attachment (e.g., "on port 8080")
+    case by = "by"              // Delimiter/grouping (e.g., "by /,/")
 
     /// Indicates if this preposition typically references an external source
     public var indicatesExternalSource: Bool {

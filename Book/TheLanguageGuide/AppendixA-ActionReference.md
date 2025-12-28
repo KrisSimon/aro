@@ -240,6 +240,21 @@ Sorts a collection.
 
 ---
 
+### Split
+**Role:** OWN
+**Verbs:** `Split`
+**Prepositions:** `from`, `by`
+
+Splits a string into parts using a regex delimiter.
+
+```aro
+<Split> the <parts> from the <csv-line> by /,/.
+<Split> the <words> from the <sentence> by /\s+/.
+<Split> the <tokens> from the <code> by /[;{}]/.
+```
+
+---
+
 ### Merge
 **Role:** OWN
 **Verbs:** `Merge`
