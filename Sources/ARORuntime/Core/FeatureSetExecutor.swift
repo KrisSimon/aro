@@ -175,6 +175,15 @@ public final class FeatureSetExecutor: @unchecked Sendable {
         _ statement: AROStatement,
         context: ExecutionContext
     ) async throws {
+        // ARO-0004: Evaluate when condition before processing statement
+        // If condition is present and evaluates to false, skip this statement entirely
+        if let whenCondition = statement.whenCondition {
+            let conditionResult = try await expressionEvaluator.evaluate(whenCondition, context: context)
+            guard asBool(conditionResult) else {
+                return  // Condition is false - skip this statement
+            }
+        }
+
         let verb = statement.action.verb
         let resultDescriptor = ResultDescriptor(from: statement.result)
         let objectDescriptor = ObjectDescriptor(from: statement.object)
@@ -692,6 +701,18 @@ public final class FeatureSetExecutor: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    // MARK: - When Clause Helpers
+
+    /// Evaluate a value as a boolean for when clause conditions
+    /// Follows JavaScript-like truthiness rules for convenience
+    private func asBool(_ value: any Sendable) -> Bool {
+        if let b = value as? Bool { return b }
+        if let i = value as? Int { return i != 0 }
+        if let s = value as? String { return !s.isEmpty }
+        if let array = value as? [any Sendable] { return !array.isEmpty }
+        return true  // Non-nil values are truthy
     }
 }
 
