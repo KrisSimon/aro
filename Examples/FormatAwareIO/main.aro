@@ -1,0 +1,73 @@
+(* ARO-0040: Format-Aware File I/O Example *)
+(* Demonstrates automatic format detection based on file extension *)
+
+(Application-Start: Format-Aware I/O Demo) {
+    (* Create sample data *)
+    <Create> the <users> with [
+        { "id": 1, "name": "Alice", "email": "alice@example.com" },
+        { "id": 2, "name": "Bob", "email": "bob@example.com" },
+        { "id": 3, "name": "Charlie", "email": "charlie@example.com" }
+    ].
+
+    <Log> the <message> for the <console> with "Writing data to multiple formats...".
+
+    (* Write to JSON - automatically serialized as JSON *)
+    <Write> the <users> to "./output/users.json".
+    <Log> the <message> for the <console> with "Wrote users.json".
+
+    (* Write to YAML - automatically serialized as YAML *)
+    <Write> the <users> to "./output/users.yaml".
+    <Log> the <message> for the <console> with "Wrote users.yaml".
+
+    (* Write to CSV - automatically serialized as CSV with header row *)
+    <Write> the <users> to "./output/users.csv".
+    <Log> the <message> for the <console> with "Wrote users.csv".
+
+    (* Write to Markdown - automatically serialized as markdown table *)
+    <Write> the <users> to "./output/users.md".
+    <Log> the <message> for the <console> with "Wrote users.md".
+
+    (* Write to XML - automatically serialized as XML with <users> root element *)
+    <Write> the <users> to "./output/users.xml".
+    <Log> the <message> for the <console> with "Wrote users.xml".
+
+    (* Write to SQL - automatically serialized as INSERT statements *)
+    <Write> the <users> to "./output/users.sql".
+    <Log> the <message> for the <console> with "Wrote users.sql".
+
+    (* Write to TOML - automatically serialized as TOML *)
+    <Write> the <users> to "./output/users.toml".
+    <Log> the <message> for the <console> with "Wrote users.toml".
+
+    (* Write to HTML - automatically serialized as HTML table *)
+    <Write> the <users> to "./output/users.html".
+    <Log> the <message> for the <console> with "Wrote users.html".
+
+    (* Write to plain text - automatically serialized as key=value *)
+    <Create> the <config> with { "host": "localhost", "port": 8080, "debug": true }.
+    <Write> the <config> to "./output/config.txt".
+    <Log> the <message> for the <console> with "Wrote config.txt".
+
+    <Log> the <message> for the <console> with "".
+    <Log> the <message> for the <console> with "Reading data back...".
+
+    (* Read JSON - automatically parsed to structured data *)
+    <Read> the <json-data> from "./output/users.json".
+    <Log> the <message> for the <console> with "Read JSON: ".
+    <Log> the <message> for the <console> with <json-data>.
+
+    (* Read CSV - automatically parsed to array of objects *)
+    <Read> the <csv-data> from "./output/users.csv".
+    <Log> the <message> for the <console> with "Read CSV: ".
+    <Log> the <message> for the <console> with <csv-data>.
+
+    (* Read with "as String" to bypass parsing *)
+    <Read> the <raw-json: as String> from "./output/users.json".
+    <Log> the <message> for the <console> with "Read raw JSON string: ".
+    <Log> the <message> for the <console> with <raw-json>.
+
+    <Log> the <message> for the <console> with "".
+    <Log> the <message> for the <console> with "Format-Aware I/O demo complete!".
+
+    <Return> an <OK: status> for the <demo>.
+}

@@ -1,0 +1,318 @@
+import XCTest
+@testable import ARORuntime
+
+/// Tests for ARO-0040: Format-Aware File I/O
+final class FormatSerializerTests: XCTestCase {
+
+    // MARK: - FileFormat Detection Tests
+
+    func testDetectJSON() {
+        XCTAssertEqual(FileFormat.detect(from: "data.json"), .json)
+        XCTAssertEqual(FileFormat.detect(from: "/path/to/file.JSON"), .json)
+    }
+
+    func testDetectYAML() {
+        XCTAssertEqual(FileFormat.detect(from: "config.yaml"), .yaml)
+        XCTAssertEqual(FileFormat.detect(from: "config.yml"), .yaml)
+    }
+
+    func testDetectXML() {
+        XCTAssertEqual(FileFormat.detect(from: "data.xml"), .xml)
+    }
+
+    func testDetectTOML() {
+        XCTAssertEqual(FileFormat.detect(from: "config.toml"), .toml)
+    }
+
+    func testDetectCSV() {
+        XCTAssertEqual(FileFormat.detect(from: "data.csv"), .csv)
+    }
+
+    func testDetectTSV() {
+        XCTAssertEqual(FileFormat.detect(from: "data.tsv"), .tsv)
+    }
+
+    func testDetectMarkdown() {
+        XCTAssertEqual(FileFormat.detect(from: "report.md"), .markdown)
+    }
+
+    func testDetectHTML() {
+        XCTAssertEqual(FileFormat.detect(from: "page.html"), .html)
+        XCTAssertEqual(FileFormat.detect(from: "page.htm"), .html)
+    }
+
+    func testDetectText() {
+        XCTAssertEqual(FileFormat.detect(from: "config.txt"), .text)
+    }
+
+    func testDetectSQL() {
+        XCTAssertEqual(FileFormat.detect(from: "backup.sql"), .sql)
+    }
+
+    func testDetectBinary() {
+        XCTAssertEqual(FileFormat.detect(from: "data.obj"), .binary)
+        XCTAssertEqual(FileFormat.detect(from: "data.bin"), .binary)
+    }
+
+    func testUnknownExtensionDefaultsToBinary() {
+        XCTAssertEqual(FileFormat.detect(from: "data.xyz"), .binary)
+        XCTAssertEqual(FileFormat.detect(from: "noextension"), .binary)
+    }
+
+    // MARK: - JSON Serialization Tests
+
+    func testSerializeJSONObject() {
+        let data: [String: any Sendable] = ["id": 1, "name": "Alice"]
+        let json = FormatSerializer.serialize(data, format: .json, variableName: "user")
+
+        XCTAssertTrue(json.contains("\"id\""))
+        XCTAssertTrue(json.contains("\"name\""))
+        XCTAssertTrue(json.contains("\"Alice\""))
+    }
+
+    func testSerializeJSONArray() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let json = FormatSerializer.serialize(data, format: .json, variableName: "users")
+
+        XCTAssertTrue(json.hasPrefix("["))
+        XCTAssertTrue(json.contains("Alice"))
+        XCTAssertTrue(json.contains("Bob"))
+    }
+
+    // MARK: - YAML Serialization Tests
+
+    func testSerializeYAMLObject() {
+        let data: [String: any Sendable] = ["id": 1, "name": "Alice"]
+        let yaml = FormatSerializer.serialize(data, format: .yaml, variableName: "user")
+
+        XCTAssertTrue(yaml.contains("id: 1"))
+        XCTAssertTrue(yaml.contains("name: Alice"))
+    }
+
+    func testSerializeYAMLArray() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let yaml = FormatSerializer.serialize(data, format: .yaml, variableName: "users")
+
+        // YAML array items start with "- "
+        XCTAssertTrue(yaml.contains("- "))
+        XCTAssertTrue(yaml.contains("id"))
+        XCTAssertTrue(yaml.contains("Alice"))
+    }
+
+    // MARK: - CSV Serialization Tests
+
+    func testSerializeCSVArray() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let csv = FormatSerializer.serialize(data, format: .csv, variableName: "users")
+
+        let lines = csv.split(separator: "\n")
+        XCTAssertEqual(lines.count, 3) // header + 2 rows
+        XCTAssertTrue(lines[0].contains("id"))
+        XCTAssertTrue(lines[0].contains("name"))
+    }
+
+    func testSerializeCSVSingleObject() {
+        let data: [String: any Sendable] = ["id": 1, "name": "Alice"]
+        let csv = FormatSerializer.serialize(data, format: .csv, variableName: "user")
+
+        XCTAssertTrue(csv.contains("key,value"))
+        XCTAssertTrue(csv.contains("id,1"))
+        XCTAssertTrue(csv.contains("name,Alice"))
+    }
+
+    // MARK: - Markdown Serialization Tests
+
+    func testSerializeMarkdownTable() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let md = FormatSerializer.serialize(data, format: .markdown, variableName: "users")
+
+        XCTAssertTrue(md.contains("| id | name |"))
+        XCTAssertTrue(md.contains("|---|"))
+        XCTAssertTrue(md.contains("| 1 | Alice |"))
+    }
+
+    // MARK: - SQL Serialization Tests
+
+    func testSerializeSQLInsert() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let sql = FormatSerializer.serialize(data, format: .sql, variableName: "users")
+
+        XCTAssertTrue(sql.contains("INSERT INTO users"))
+        XCTAssertTrue(sql.contains("VALUES (1, 'Alice')"))
+        XCTAssertTrue(sql.contains("VALUES (2, 'Bob')"))
+    }
+
+    // MARK: - XML Serialization Tests
+
+    func testSerializeXML() {
+        let data: [String: any Sendable] = ["id": 1, "name": "Alice"]
+        let xml = FormatSerializer.serialize(data, format: .xml, variableName: "user")
+
+        XCTAssertTrue(xml.contains("<?xml version="))
+        XCTAssertTrue(xml.contains("<user>"))
+        XCTAssertTrue(xml.contains("<id>1</id>"))
+        XCTAssertTrue(xml.contains("<name>Alice</name>"))
+        XCTAssertTrue(xml.contains("</user>"))
+    }
+
+    // MARK: - TOML Serialization Tests
+
+    func testSerializeTOML() {
+        let data: [String: any Sendable] = ["id": 1, "name": "Alice"]
+        let toml = FormatSerializer.serialize(data, format: .toml, variableName: "user")
+
+        XCTAssertTrue(toml.contains("id = 1"))
+        XCTAssertTrue(toml.contains("name = \"Alice\""))
+    }
+
+    // MARK: - Text Serialization Tests
+
+    func testSerializeText() {
+        let data: [String: any Sendable] = ["id": 1, "name": "Alice"]
+        let text = FormatSerializer.serialize(data, format: .text, variableName: "user")
+
+        XCTAssertTrue(text.contains("id=1"))
+        XCTAssertTrue(text.contains("name=Alice"))
+    }
+}
+
+// MARK: - Format Deserializer Tests
+
+final class FormatDeserializerTests: XCTestCase {
+
+    // MARK: - JSON Deserialization Tests
+
+    func testDeserializeJSONObject() {
+        let json = """
+        {"id": 1, "name": "Alice"}
+        """
+        let result = FormatDeserializer.deserialize(json, format: .json)
+
+        guard let dict = result as? [String: any Sendable] else {
+            XCTFail("Expected dictionary")
+            return
+        }
+        XCTAssertEqual(dict["id"] as? Int, 1)
+        XCTAssertEqual(dict["name"] as? String, "Alice")
+    }
+
+    func testDeserializeJSONArray() {
+        let json = """
+        [{"id": 1}, {"id": 2}]
+        """
+        let result = FormatDeserializer.deserialize(json, format: .json)
+
+        guard let array = result as? [any Sendable] else {
+            XCTFail("Expected array")
+            return
+        }
+        XCTAssertEqual(array.count, 2)
+    }
+
+    // MARK: - YAML Deserialization Tests
+
+    func testDeserializeYAMLObject() {
+        let yaml = """
+        id: 1
+        name: Alice
+        """
+        let result = FormatDeserializer.deserialize(yaml, format: .yaml)
+
+        guard let dict = result as? [String: any Sendable] else {
+            XCTFail("Expected dictionary")
+            return
+        }
+        XCTAssertEqual(dict["id"] as? Int, 1)
+        XCTAssertEqual(dict["name"] as? String, "Alice")
+    }
+
+    // MARK: - CSV Deserialization Tests
+
+    func testDeserializeCSVArray() {
+        let csv = """
+        id,name
+        1,Alice
+        2,Bob
+        """
+        let result = FormatDeserializer.deserialize(csv, format: .csv)
+
+        guard let array = result as? [[String: any Sendable]] else {
+            XCTFail("Expected array of dictionaries")
+            return
+        }
+        XCTAssertEqual(array.count, 2)
+        XCTAssertEqual(array[0]["id"] as? Int, 1)
+        XCTAssertEqual(array[0]["name"] as? String, "Alice")
+    }
+
+    func testDeserializeCSVKeyValue() {
+        let csv = """
+        key,value
+        id,1
+        name,Alice
+        """
+        let result = FormatDeserializer.deserialize(csv, format: .csv)
+
+        guard let dict = result as? [String: any Sendable] else {
+            XCTFail("Expected dictionary")
+            return
+        }
+        XCTAssertEqual(dict["id"] as? Int, 1)
+        XCTAssertEqual(dict["name"] as? String, "Alice")
+    }
+
+    // MARK: - Text Deserialization Tests
+
+    func testDeserializeText() {
+        let text = """
+        id=1
+        name=Alice
+        """
+        let result = FormatDeserializer.deserialize(text, format: .text)
+
+        guard let dict = result as? [String: any Sendable] else {
+            XCTFail("Expected dictionary")
+            return
+        }
+        XCTAssertEqual(dict["id"] as? Int, 1)
+        XCTAssertEqual(dict["name"] as? String, "Alice")
+    }
+
+    // MARK: - Non-Deserializable Formats
+
+    func testMarkdownReturnsRawString() {
+        let md = "| id | name |\n|---|---|\n| 1 | Alice |"
+        let result = FormatDeserializer.deserialize(md, format: .markdown)
+
+        XCTAssertEqual(result as? String, md)
+    }
+
+    func testHTMLReturnsRawString() {
+        let html = "<table><tr><td>1</td></tr></table>"
+        let result = FormatDeserializer.deserialize(html, format: .html)
+
+        XCTAssertEqual(result as? String, html)
+    }
+
+    func testSQLReturnsRawString() {
+        let sql = "INSERT INTO users (id) VALUES (1);"
+        let result = FormatDeserializer.deserialize(sql, format: .sql)
+
+        XCTAssertEqual(result as? String, sql)
+    }
+}

@@ -1,0 +1,535 @@
+// FormatSerializer.swift - ARO-0040: Format-Aware File I/O
+// Serialization of ARO values to various file formats
+
+import Foundation
+
+/// Serializes ARO values to string representations based on file format
+public struct FormatSerializer: Sendable {
+
+    /// Serialize a value to the specified format
+    /// - Parameters:
+    ///   - value: The value to serialize
+    ///   - format: Target file format
+    ///   - variableName: Variable name (used as root element for XML/SQL)
+    /// - Returns: Serialized string representation
+    public static func serialize(
+        _ value: any Sendable,
+        format: FileFormat,
+        variableName: String
+    ) -> String {
+        switch format {
+        case .json:
+            return serializeJSON(value)
+        case .yaml:
+            return serializeYAML(value)
+        case .xml:
+            return serializeXML(value, rootName: variableName)
+        case .toml:
+            return serializeTOML(value, tableName: variableName)
+        case .csv:
+            return serializeCSV(value, delimiter: ",")
+        case .tsv:
+            return serializeCSV(value, delimiter: "\t")
+        case .markdown:
+            return serializeMarkdown(value)
+        case .html:
+            return serializeHTML(value)
+        case .text:
+            return serializeText(value)
+        case .sql:
+            return serializeSQL(value, tableName: variableName)
+        case .binary:
+            // Binary format: convert to string representation
+            if let str = value as? String {
+                return str
+            }
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - JSON Serialization
+
+    private static func serializeJSON(_ value: any Sendable) -> String {
+        let jsonValue = convertToJSONSerializable(value)
+        do {
+            let data = try JSONSerialization.data(
+                withJSONObject: jsonValue,
+                options: [.prettyPrinted, .sortedKeys]
+            )
+            return String(data: data, encoding: .utf8) ?? "{}"
+        } catch {
+            // Fallback for non-JSON-serializable values
+            if let str = value as? String {
+                return "\"\(escapeJSON(str))\""
+            }
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - YAML Serialization
+
+    private static func serializeYAML(_ value: any Sendable) -> String {
+        return serializeYAMLValue(value, indent: 0)
+    }
+
+    private static func serializeYAMLValue(_ value: any Sendable, indent: Int) -> String {
+        let indentStr = String(repeating: "  ", count: indent)
+
+        switch value {
+        case let str as String:
+            if str.contains("\n") || str.contains(":") || str.contains("#") {
+                return "|\n" + str.split(separator: "\n", omittingEmptySubsequences: false)
+                    .map { indentStr + "  " + $0 }.joined(separator: "\n")
+            }
+            return str
+        case let int as Int:
+            return String(int)
+        case let double as Double:
+            return String(double)
+        case let bool as Bool:
+            return bool ? "true" : "false"
+        case let array as [any Sendable]:
+            if array.isEmpty { return "[]" }
+            return array.map { item in
+                let itemYaml = serializeYAMLValue(item, indent: indent + 1)
+                if item is [String: any Sendable] {
+                    // Object in array - format with proper indentation
+                    let lines = itemYaml.split(separator: "\n", omittingEmptySubsequences: false)
+                    if let first = lines.first {
+                        let rest = lines.dropFirst().map { String($0) }.joined(separator: "\n")
+                        return indentStr + "- " + first + (rest.isEmpty ? "" : "\n" + rest)
+                    }
+                }
+                return indentStr + "- " + itemYaml
+            }.joined(separator: "\n")
+        case let dict as [String: any Sendable]:
+            if dict.isEmpty { return "{}" }
+            return dict.keys.sorted().map { key in
+                let val = dict[key]!
+                let valYaml = serializeYAMLValue(val, indent: indent + 1)
+                if val is [any Sendable] || val is [String: any Sendable] {
+                    return indentStr + key + ":\n" + valYaml
+                }
+                return indentStr + key + ": " + valYaml
+            }.joined(separator: "\n")
+        default:
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - XML Serialization
+
+    private static func serializeXML(_ value: any Sendable, rootName: String) -> String {
+        var result = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        result += serializeXMLElement(value, name: rootName, indent: 0)
+        return result
+    }
+
+    private static func serializeXMLElement(_ value: any Sendable, name: String, indent: Int) -> String {
+        let indentStr = String(repeating: "  ", count: indent)
+
+        switch value {
+        case let str as String:
+            return indentStr + "<\(name)>\(escapeXML(str))</\(name)>"
+        case let int as Int:
+            return indentStr + "<\(name)>\(int)</\(name)>"
+        case let double as Double:
+            return indentStr + "<\(name)>\(double)</\(name)>"
+        case let bool as Bool:
+            return indentStr + "<\(name)>\(bool)</\(name)>"
+        case let array as [any Sendable]:
+            var lines: [String] = []
+            lines.append(indentStr + "<\(name)>")
+            for item in array {
+                lines.append(serializeXMLElement(item, name: "item", indent: indent + 1))
+            }
+            lines.append(indentStr + "</\(name)>")
+            return lines.joined(separator: "\n")
+        case let dict as [String: any Sendable]:
+            var lines: [String] = []
+            lines.append(indentStr + "<\(name)>")
+            for key in dict.keys.sorted() {
+                lines.append(serializeXMLElement(dict[key]!, name: key, indent: indent + 1))
+            }
+            lines.append(indentStr + "</\(name)>")
+            return lines.joined(separator: "\n")
+        default:
+            return indentStr + "<\(name)>\(escapeXML(String(describing: value)))</\(name)>"
+        }
+    }
+
+    // MARK: - TOML Serialization
+
+    private static func serializeTOML(_ value: any Sendable, tableName: String) -> String {
+        switch value {
+        case let array as [any Sendable]:
+            // Array of objects -> array of tables
+            return array.compactMap { item -> String? in
+                guard let dict = item as? [String: any Sendable] else { return nil }
+                var lines = ["[[\(tableName)]]"]
+                for key in dict.keys.sorted() {
+                    lines.append(serializeTOMLKeyValue(key: key, value: dict[key]!))
+                }
+                return lines.joined(separator: "\n")
+            }.joined(separator: "\n\n")
+        case let dict as [String: any Sendable]:
+            // Single object -> key-value pairs
+            return dict.keys.sorted().map { key in
+                serializeTOMLKeyValue(key: key, value: dict[key]!)
+            }.joined(separator: "\n")
+        default:
+            return String(describing: value)
+        }
+    }
+
+    private static func serializeTOMLKeyValue(key: String, value: any Sendable) -> String {
+        switch value {
+        case let str as String:
+            return "\(key) = \"\(escapeTOML(str))\""
+        case let int as Int:
+            return "\(key) = \(int)"
+        case let double as Double:
+            return "\(key) = \(double)"
+        case let bool as Bool:
+            return "\(key) = \(bool)"
+        case let array as [any Sendable]:
+            let items = array.map { serializeTOMLValue($0) }.joined(separator: ", ")
+            return "\(key) = [\(items)]"
+        case let dict as [String: any Sendable]:
+            let items = dict.keys.sorted().map { k in
+                "\(k) = \(serializeTOMLValue(dict[k]!))"
+            }.joined(separator: ", ")
+            return "\(key) = { \(items) }"
+        default:
+            return "\(key) = \"\(String(describing: value))\""
+        }
+    }
+
+    private static func serializeTOMLValue(_ value: any Sendable) -> String {
+        switch value {
+        case let str as String:
+            return "\"\(escapeTOML(str))\""
+        case let int as Int:
+            return String(int)
+        case let double as Double:
+            return String(double)
+        case let bool as Bool:
+            return String(bool)
+        default:
+            return "\"\(String(describing: value))\""
+        }
+    }
+
+    // MARK: - CSV/TSV Serialization
+
+    private static func serializeCSV(_ value: any Sendable, delimiter: String) -> String {
+        switch value {
+        case let array as [any Sendable]:
+            guard let firstDict = array.first as? [String: any Sendable] else {
+                // Not array of objects - serialize as single column
+                return array.map { escapeCSV(String(describing: $0), delimiter: delimiter) }
+                    .joined(separator: "\n")
+            }
+            // Array of objects - header row + data rows
+            let headers = firstDict.keys.sorted()
+            var lines = [headers.map { escapeCSV($0, delimiter: delimiter) }.joined(separator: delimiter)]
+            for item in array {
+                if let dict = item as? [String: any Sendable] {
+                    let row = headers.map { key -> String in
+                        if let val = dict[key] {
+                            return escapeCSV(stringValue(val), delimiter: delimiter)
+                        }
+                        return ""
+                    }
+                    lines.append(row.joined(separator: delimiter))
+                }
+            }
+            return lines.joined(separator: "\n")
+        case let dict as [String: any Sendable]:
+            // Single object - key,value format
+            var lines = ["key\(delimiter)value"]
+            for key in dict.keys.sorted() {
+                let val = escapeCSV(stringValue(dict[key]!), delimiter: delimiter)
+                lines.append("\(escapeCSV(key, delimiter: delimiter))\(delimiter)\(val)")
+            }
+            return lines.joined(separator: "\n")
+        default:
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - Markdown Serialization
+
+    private static func serializeMarkdown(_ value: any Sendable) -> String {
+        switch value {
+        case let array as [any Sendable]:
+            guard let firstDict = array.first as? [String: any Sendable] else {
+                // Not array of objects - simple list
+                return array.map { "- \(String(describing: $0))" }.joined(separator: "\n")
+            }
+            // Array of objects - table
+            let headers = firstDict.keys.sorted()
+            var lines: [String] = []
+            lines.append("| " + headers.joined(separator: " | ") + " |")
+            lines.append("|" + headers.map { _ in "---" }.joined(separator: "|") + "|")
+            for item in array {
+                if let dict = item as? [String: any Sendable] {
+                    let row = headers.map { key -> String in
+                        if let val = dict[key] {
+                            return escapeMarkdown(stringValue(val))
+                        }
+                        return ""
+                    }
+                    lines.append("| " + row.joined(separator: " | ") + " |")
+                }
+            }
+            return lines.joined(separator: "\n")
+        case let dict as [String: any Sendable]:
+            // Single object - key-value table
+            var lines: [String] = []
+            lines.append("| Key | Value |")
+            lines.append("|-----|-------|")
+            for key in dict.keys.sorted() {
+                let val = escapeMarkdown(stringValue(dict[key]!))
+                lines.append("| \(key) | \(val) |")
+            }
+            return lines.joined(separator: "\n")
+        default:
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - HTML Serialization
+
+    private static func serializeHTML(_ value: any Sendable) -> String {
+        switch value {
+        case let array as [any Sendable]:
+            guard let firstDict = array.first as? [String: any Sendable] else {
+                // Not array of objects - simple list
+                return "<ul>\n" + array.map { "  <li>\(escapeHTML(String(describing: $0)))</li>" }
+                    .joined(separator: "\n") + "\n</ul>"
+            }
+            // Array of objects - table
+            let headers = firstDict.keys.sorted()
+            var lines: [String] = []
+            lines.append("<table>")
+            lines.append("  <thead>")
+            lines.append("    <tr>" + headers.map { "<th>\(escapeHTML($0))</th>" }.joined() + "</tr>")
+            lines.append("  </thead>")
+            lines.append("  <tbody>")
+            for item in array {
+                if let dict = item as? [String: any Sendable] {
+                    let cells = headers.map { key -> String in
+                        if let val = dict[key] {
+                            return "<td>\(escapeHTML(stringValue(val)))</td>"
+                        }
+                        return "<td></td>"
+                    }
+                    lines.append("    <tr>" + cells.joined() + "</tr>")
+                }
+            }
+            lines.append("  </tbody>")
+            lines.append("</table>")
+            return lines.joined(separator: "\n")
+        case let dict as [String: any Sendable]:
+            // Single object - key-value table
+            var lines: [String] = []
+            lines.append("<table>")
+            lines.append("  <thead>")
+            lines.append("    <tr><th>Key</th><th>Value</th></tr>")
+            lines.append("  </thead>")
+            lines.append("  <tbody>")
+            for key in dict.keys.sorted() {
+                let val = escapeHTML(stringValue(dict[key]!))
+                lines.append("    <tr><td>\(escapeHTML(key))</td><td>\(val)</td></tr>")
+            }
+            lines.append("  </tbody>")
+            lines.append("</table>")
+            return lines.joined(separator: "\n")
+        default:
+            return escapeHTML(String(describing: value))
+        }
+    }
+
+    // MARK: - Plain Text Serialization
+
+    private static func serializeText(_ value: any Sendable) -> String {
+        return serializeTextValue(value, prefix: "")
+    }
+
+    private static func serializeTextValue(_ value: any Sendable, prefix: String) -> String {
+        switch value {
+        case let str as String:
+            return str
+        case let int as Int:
+            return String(int)
+        case let double as Double:
+            return String(double)
+        case let bool as Bool:
+            return String(bool)
+        case let array as [any Sendable]:
+            return array.enumerated().map { index, item in
+                let itemPrefix = prefix.isEmpty ? "[\(index)]" : "\(prefix)[\(index)]"
+                if let dict = item as? [String: any Sendable] {
+                    return dict.keys.sorted().map { key in
+                        "\(itemPrefix).\(key)=\(stringValue(dict[key]!))"
+                    }.joined(separator: "\n")
+                }
+                return "\(itemPrefix)=\(stringValue(item))"
+            }.joined(separator: "\n")
+        case let dict as [String: any Sendable]:
+            return dict.keys.sorted().map { key in
+                let val = dict[key]!
+                let keyPath = prefix.isEmpty ? key : "\(prefix).\(key)"
+                if let nestedDict = val as? [String: any Sendable] {
+                    return serializeTextValue(nestedDict, prefix: keyPath)
+                }
+                return "\(keyPath)=\(stringValue(val))"
+            }.joined(separator: "\n")
+        default:
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - SQL Serialization
+
+    private static func serializeSQL(_ value: any Sendable, tableName: String) -> String {
+        switch value {
+        case let array as [any Sendable]:
+            return array.compactMap { item -> String? in
+                guard let dict = item as? [String: any Sendable] else { return nil }
+                return serializeSQLInsert(dict, tableName: tableName)
+            }.joined(separator: "\n")
+        case let dict as [String: any Sendable]:
+            return serializeSQLInsert(dict, tableName: tableName)
+        default:
+            return "-- Cannot serialize non-object value to SQL"
+        }
+    }
+
+    private static func serializeSQLInsert(_ dict: [String: any Sendable], tableName: String) -> String {
+        let columns = dict.keys.sorted()
+        let columnList = columns.joined(separator: ", ")
+        let values = columns.map { key -> String in
+            let val = dict[key]!
+            return serializeSQLValue(val)
+        }
+        let valueList = values.joined(separator: ", ")
+        return "INSERT INTO \(tableName) (\(columnList)) VALUES (\(valueList));"
+    }
+
+    private static func serializeSQLValue(_ value: any Sendable) -> String {
+        switch value {
+        case let str as String:
+            return "'\(escapeSQL(str))'"
+        case let int as Int:
+            return String(int)
+        case let double as Double:
+            return String(double)
+        case let bool as Bool:
+            return bool ? "TRUE" : "FALSE"
+        case is NSNull:
+            return "NULL"
+        default:
+            return "'\(escapeSQL(String(describing: value)))'"
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    private static func convertToJSONSerializable(_ value: any Sendable) -> Any {
+        switch value {
+        case let str as String:
+            return str
+        case let int as Int:
+            return int
+        case let double as Double:
+            return double
+        case let bool as Bool:
+            return bool
+        case let array as [any Sendable]:
+            return array.map { convertToJSONSerializable($0) }
+        case let dict as [String: any Sendable]:
+            var result: [String: Any] = [:]
+            for (key, val) in dict {
+                result[key] = convertToJSONSerializable(val)
+            }
+            return result
+        default:
+            return String(describing: value)
+        }
+    }
+
+    private static func stringValue(_ value: any Sendable) -> String {
+        switch value {
+        case let str as String:
+            return str
+        case let int as Int:
+            return String(int)
+        case let double as Double:
+            return String(double)
+        case let bool as Bool:
+            return String(bool)
+        default:
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - Escape Functions
+
+    private static func escapeJSON(_ str: String) -> String {
+        var result = str
+        result = result.replacingOccurrences(of: "\\", with: "\\\\")
+        result = result.replacingOccurrences(of: "\"", with: "\\\"")
+        result = result.replacingOccurrences(of: "\n", with: "\\n")
+        result = result.replacingOccurrences(of: "\r", with: "\\r")
+        result = result.replacingOccurrences(of: "\t", with: "\\t")
+        return result
+    }
+
+    private static func escapeXML(_ str: String) -> String {
+        var result = str
+        result = result.replacingOccurrences(of: "&", with: "&amp;")
+        result = result.replacingOccurrences(of: "<", with: "&lt;")
+        result = result.replacingOccurrences(of: ">", with: "&gt;")
+        result = result.replacingOccurrences(of: "\"", with: "&quot;")
+        result = result.replacingOccurrences(of: "'", with: "&apos;")
+        return result
+    }
+
+    private static func escapeTOML(_ str: String) -> String {
+        var result = str
+        result = result.replacingOccurrences(of: "\\", with: "\\\\")
+        result = result.replacingOccurrences(of: "\"", with: "\\\"")
+        result = result.replacingOccurrences(of: "\n", with: "\\n")
+        result = result.replacingOccurrences(of: "\t", with: "\\t")
+        return result
+    }
+
+    private static func escapeCSV(_ str: String, delimiter: String) -> String {
+        if str.contains(delimiter) || str.contains("\"") || str.contains("\n") {
+            return "\"" + str.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        }
+        return str
+    }
+
+    private static func escapeMarkdown(_ str: String) -> String {
+        var result = str
+        result = result.replacingOccurrences(of: "|", with: "\\|")
+        result = result.replacingOccurrences(of: "\n", with: " ")
+        return result
+    }
+
+    private static func escapeHTML(_ str: String) -> String {
+        var result = str
+        result = result.replacingOccurrences(of: "&", with: "&amp;")
+        result = result.replacingOccurrences(of: "<", with: "&lt;")
+        result = result.replacingOccurrences(of: ">", with: "&gt;")
+        result = result.replacingOccurrences(of: "\"", with: "&quot;")
+        return result
+    }
+
+    private static func escapeSQL(_ str: String) -> String {
+        return str.replacingOccurrences(of: "'", with: "''")
+    }
+}

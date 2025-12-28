@@ -613,7 +613,19 @@ public struct FetchAction: ActionImplementation {
     }
 }
 
-/// Reads data from a file
+/// Reads data from a file with automatic format detection (ARO-0040)
+/// The file extension determines the parsing format:
+/// - .json: Parse as JSON -> Map or Array
+/// - .yaml/.yml: Parse as YAML -> Map or Array
+/// - .xml: Parse as XML -> Map
+/// - .toml: Parse as TOML -> Map or Array
+/// - .csv: Parse as CSV -> Array of Maps
+/// - .tsv: Parse as TSV -> Array of Maps
+/// - .txt: Parse as key=value -> Map
+/// - .md/.html/.sql/.obj/unknown: Return raw string
+///
+/// Use `as String` specifier to bypass parsing and get raw content:
+/// `<Read> the <raw: as String> from "./data.json".`
 public struct ReadAction: ActionImplementation {
     public static let role: ActionRole = .request
     public static let verbs: Set<String> = ["read"]
@@ -651,7 +663,22 @@ public struct ReadAction: ActionImplementation {
             path = object.base
         }
 
-        return try await fileService.read(path: path)
+        // Read file content
+        let content = try await fileService.read(path: path)
+
+        // Check for "as String" specifier to bypass format detection (ARO-0040)
+        let asString = result.specifiers.contains { specifier in
+            specifier.lowercased() == "string" || specifier.lowercased() == "as string"
+        }
+
+        if asString {
+            // Return raw content without parsing
+            return content
+        }
+
+        // Detect format from file extension and deserialize (ARO-0040)
+        let format = FileFormat.detect(from: path)
+        return FormatDeserializer.deserialize(content, format: format)
     }
 }
 
