@@ -60,6 +60,11 @@ function renderCard(index) {
 
   // Update counter
   counterEl.textContent = `${index + 1} / ${facts.length}`;
+
+  // Update URL with query parameter for deep linking
+  const url = new URL(window.location);
+  url.searchParams.set('card', index + 1);
+  window.history.replaceState({}, '', url);
 }
 
 // Navigation functions
@@ -123,15 +128,13 @@ async function init() {
     const data = jsyaml.load(yamlText);
     facts = data.facts;
 
-    // Check for URL hash to jump to specific card
-    const hash = window.location.hash;
-    if (hash) {
-      const match = hash.match(/#(\d+)/);
-      if (match) {
-        const cardNum = parseInt(match[1], 10) - 1;
-        if (cardNum >= 0 && cardNum < facts.length) {
-          currentIndex = cardNum;
-        }
+    // Check for query parameter to jump to specific card
+    const params = new URLSearchParams(window.location.search);
+    const cardParam = params.get('card');
+    if (cardParam) {
+      const cardNum = parseInt(cardParam, 10) - 1;
+      if (cardNum >= 0 && cardNum < facts.length) {
+        currentIndex = cardNum;
       }
     }
 
