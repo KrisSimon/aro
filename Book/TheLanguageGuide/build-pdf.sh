@@ -108,16 +108,37 @@ else
 
     HTML_OUTPUT="$OUTPUT_DIR/ARO-Language-Guide.html"
 
-    pandoc \
-        --standalone \
-        --toc \
-        --toc-depth=2 \
-        --css="$CSS_FILE" \
-        --metadata title="ARO: Business Logic as Language" \
-        --metadata subtitle="The Language Guide" \
-        --from markdown+raw_html \
-        -o "$HTML_OUTPUT" \
-        $FILE_LIST
+    # Build content files (without cover) for TOC generation
+    CONTENT_FILES=""
+    for chapter in "${CHAPTERS[@]}"; do
+        if [[ "$chapter" != "Cover.md" && -f "$SCRIPT_DIR/$chapter" ]]; then
+            CONTENT_FILES="$CONTENT_FILES $SCRIPT_DIR/$chapter"
+        fi
+    done
+
+    # Build HTML with cover at top, then TOC, then content
+    # First, create a combined HTML with cover outside the TOC structure
+    {
+        echo '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        echo '<title>ARO: Business Logic as Language</title>'
+        echo "<style>$(cat "$CSS_FILE")</style>"
+        echo '</head><body>'
+
+        # Add cover page content directly (converted from markdown)
+        if [[ -f "$SCRIPT_DIR/Cover.md" ]]; then
+            pandoc --from markdown+raw_html --to html "$SCRIPT_DIR/Cover.md"
+        fi
+
+        # Add TOC and content
+        pandoc \
+            --toc \
+            --toc-depth=2 \
+            --from markdown+raw_html \
+            --to html \
+            $CONTENT_FILES
+
+        echo '</body></html>'
+    } > "$HTML_OUTPUT"
 
     echo ""
     echo "Created: $HTML_OUTPUT"
@@ -151,28 +172,36 @@ HTML_OUTPUT="$OUTPUT_DIR/ARO-Language-Guide.html"
 # Copy CSS to output directory for HTML
 cp "$CSS_FILE" "$OUTPUT_DIR/"
 
-pandoc \
-    --standalone \
-    --toc \
-    --toc-depth=2 \
-    --css="unix-style.css" \
-    --metadata title="ARO: Business Logic as Language" \
-    --metadata subtitle="The Language Guide" \
-    --from markdown+raw_html \
-    --embed-resources \
-    --self-contained \
-    -o "$HTML_OUTPUT" \
-    $FILE_LIST 2>/dev/null || \
-pandoc \
-    --standalone \
-    --toc \
-    --toc-depth=2 \
-    --css="unix-style.css" \
-    --metadata title="ARO: Business Logic as Language" \
-    --metadata subtitle="The Language Guide" \
-    --from markdown+raw_html \
-    -o "$HTML_OUTPUT" \
-    $FILE_LIST
+# Build content files (without cover) for TOC generation
+CONTENT_FILES=""
+for chapter in "${CHAPTERS[@]}"; do
+    if [[ "$chapter" != "Cover.md" && -f "$SCRIPT_DIR/$chapter" ]]; then
+        CONTENT_FILES="$CONTENT_FILES $SCRIPT_DIR/$chapter"
+    fi
+done
+
+# Build HTML with cover at top, then TOC, then content
+{
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    echo '<title>ARO: Business Logic as Language - The Language Guide</title>'
+    echo "<style>$(cat "$CSS_FILE")</style>"
+    echo '</head><body>'
+
+    # Add cover page content directly (converted from markdown)
+    if [[ -f "$SCRIPT_DIR/Cover.md" ]]; then
+        pandoc --from markdown+raw_html --to html "$SCRIPT_DIR/Cover.md"
+    fi
+
+    # Add TOC and content
+    pandoc \
+        --toc \
+        --toc-depth=2 \
+        --from markdown+raw_html \
+        --to html \
+        $CONTENT_FILES
+
+    echo '</body></html>'
+} > "$HTML_OUTPUT"
 
 echo "Created: $HTML_OUTPUT"
 echo ""
