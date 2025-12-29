@@ -1,63 +1,158 @@
 # Chapter 18: Plugins
 
-*"Share your actions with the world."*
+*"Package and share your extensions."*
 
 ---
 
 ## 18.1 What Are Plugins?
 
-Plugins are Swift packages that provide custom actions for ARO applications. They allow you to package related actions together, share them across projects, and distribute them to other developers through Swift Package Manager.
+Plugins are Swift packages that provide custom actions and services for ARO applications. They allow you to package extensions together, share them across projects, and distribute them to other developers through Swift Package Manager.
 
-The plugin system exists because real applications often need specialized capabilities that the built-in actions do not provide. Database drivers, payment processors, notification services, analytics platforms, and countless other integrations require custom code. Plugins provide a structured way to create, distribute, and use these extensions.
+The plugin system exists because real applications often need specialized capabilities that the built-in features do not provide. Plugins provide a structured way to create, distribute, and use these extensions.
 
-A plugin is fundamentally a Swift package that follows certain conventions. It depends on the ARO runtime, implements one or more actions, and provides a registration function that the runtime calls at startup. Users of the plugin add it as a dependency and immediately gain access to its actions.
+A plugin can contain two types of extensions:
 
-The benefits of the plugin approach include reusability across projects, independent versioning and maintenance, clear boundaries between core ARO functionality and extensions, and the ability to share useful integrations with the community.
+| Type | Adds | Invocation Pattern | Example |
+|------|------|-------------------|---------|
+| **Actions** | New verbs | `<Verb> the <result> from <object>.` | `<Geocode> the <coords> from <address>.` |
+| **Services** | External integrations | `<Call> from <service: method>` | `<Call> from <zip: compress>` |
+
+The distinction matters for plugin design. Actions extend the language vocabulary—each action adds a new verb. Services extend runtime capabilities—they share the `Call` verb but provide different methods.
 
 ---
 
 ## 18.2 Plugin Structure
 
-A plugin follows standard Swift package conventions with a few ARO-specific requirements. The package contains source files implementing actions, a registration function that the runtime calls, and optionally tests and documentation.
+A plugin follows standard Swift package conventions with ARO-specific requirements. The package contains source files, a registration function, and optionally tests and documentation.
 
-The package manifest declares the plugin as a dynamic library product. This is important for runtime loading scenarios where the plugin is discovered and loaded as a shared library rather than statically linked during compilation.
+The package manifest declares the plugin as a dynamic library product. This enables runtime loading where the plugin is discovered and loaded as a shared library.
 
-The source files contain action implementations following the ActionImplementation protocol described in the previous chapter. Each action has its role, verbs, valid prepositions, and execute method. The actions can depend on external libraries for integrating with services.
+**For Action Plugins:**
+- Implement the `ActionImplementation` protocol
+- Registration function calls `ActionRegistry.shared.register(YourAction.self)`
+- Each action adds a new verb to ARO
 
-The registration function has a specific name that the runtime looks for: aro_plugin_register. When the plugin loads, the runtime calls this function, which registers all the plugin's actions with the action registry. After registration, the actions are available for use in ARO code.
+**For Service Plugins:**
+- Use the C-callable interface with `aro_plugin_init`
+- Return JSON metadata describing services and their symbols
+- Each service is called via `<Call> from <service: method>`
 
 ---
 
-## 18.3 Creating a Plugin
+## 18.3 Creating an Action Plugin
 
-Creating a plugin begins with setting up a Swift package. The package manifest specifies the ARO runtime as a dependency and configures the library product as dynamic. Any additional dependencies your actions need are also specified here.
-
-The entry point file contains the registration function marked with the @_cdecl attribute. This attribute ensures the function is callable from C code, which is how the runtime discovers and calls it. Inside this function, you register each action type with the shared action registry.
-
-Action implementations follow the same patterns described for custom actions. Each action is a struct conforming to ActionImplementation with the required static properties and execute method. You can organize related actions into separate files and use supporting types and services as needed.
-
-Testing follows standard Swift testing practices. You create test targets that depend on your plugin and test the action implementations. Because actions have a well-defined interface, they are straightforward to test with mock contexts and assertions on outputs.
-
-### Complete Example: ZipPlugin
-
-Here is a complete plugin that provides file compression using an external library. This example demonstrates the full plugin structure including Package.swift, the service implementation, and usage from ARO.
+Action plugins add new verbs to ARO. Here is a complete example of a Geocoding action plugin.
 
 **Directory Structure:**
 
 ```
-ZipService/
-├── main.aro                              # ARO application using the plugin
-├── content/                              # Files to compress
-│   ├── file1.txt
-│   └── file2.txt
-└── plugins/
-    └── ZipPlugin/
-        ├── Package.swift                 # Plugin manifest
-        └── Sources/ZipPlugin/
-            └── ZipService.swift          # Plugin implementation
+GeocodePlugin/
+├── Package.swift
+├── Sources/GeocodePlugin/
+│   ├── GeocodeAction.swift
+│   └── Registration.swift
+└── Tests/GeocodePluginTests/
+    └── GeocodeActionTests.swift
 ```
 
-**Package.swift** — Plugin manifest with external dependency:
+**Package.swift:**
+
+```swift
+// swift-tools-version:5.9
+import PackageDescription
+
+let package = Package(
+    name: "GeocodePlugin",
+    platforms: [.macOS(.v13)],
+    products: [
+        .library(name: "GeocodePlugin", type: .dynamic, targets: ["GeocodePlugin"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/your-org/ARORuntime.git", from: "1.0.0")
+    ],
+    targets: [
+        .target(name: "GeocodePlugin", dependencies: ["ARORuntime"])
+    ]
+)
+```
+
+**GeocodeAction.swift:**
+
+```swift
+import ARORuntime
+
+public struct GeocodeAction: ActionImplementation {
+    public static let role: ActionRole = .request
+    public static let verbs: Set<String> = ["Geocode"]
+    public static let validPrepositions: Set<Preposition> = [.from]
+
+    public init() {}
+
+    public func execute(
+        result: ResultDescriptor,
+        object: ObjectDescriptor,
+        context: ExecutionContext
+    ) async throws -> any Sendable {
+        // Get the address from context
+        let address: String = try context.require(object.identifier)
+
+        // Call geocoding API (simplified)
+        let coordinates = try await geocode(address)
+
+        // Bind result
+        context.bind(result.identifier, value: coordinates)
+
+        return coordinates
+    }
+
+    private func geocode(_ address: String) async throws -> [String: Double] {
+        // Implementation using a geocoding service
+        // Returns ["latitude": 37.7749, "longitude": -122.4194]
+    }
+}
+```
+
+**Registration.swift:**
+
+```swift
+import ARORuntime
+
+@_cdecl("aro_plugin_register")
+public func registerPlugin() {
+    ActionRegistry.shared.register(GeocodeAction.self)
+}
+```
+
+**Usage in ARO:**
+
+```aro
+(Get Location: Address Lookup) {
+    <Create> the <address> with "1600 Amphitheatre Parkway, Mountain View, CA".
+
+    (* Custom action - new verb *)
+    <Geocode> the <coordinates> from the <address>.
+
+    <Log> the <message> for the <console> with <coordinates>.
+    <Return> an <OK: status> with <coordinates>.
+}
+```
+
+---
+
+## 18.4 Creating a Service Plugin
+
+Service plugins provide external integrations called via the `Call` action. Here is a complete example of a Zip service plugin.
+
+**Directory Structure:**
+
+```
+ZipPlugin/
+├── Package.swift
+└── Sources/ZipPlugin/
+    └── ZipService.swift
+```
+
+**Package.swift:**
 
 ```swift
 // swift-tools-version:5.9
@@ -78,7 +173,7 @@ let package = Package(
 )
 ```
 
-**ZipService.swift** — Plugin implementation with three methods:
+**ZipService.swift:**
 
 ```swift
 import Foundation
@@ -103,7 +198,6 @@ public func zipCall(
     let method = String(cString: methodPtr)
     let argsJSON = String(cString: argsPtr)
 
-    // Parse arguments and execute method
     do {
         let args = try parseJSON(argsJSON)
         let result = try executeMethod(method, args: args)
@@ -144,92 +238,134 @@ enum PluginError: Error {
 }
 ```
 
-**main.aro** — Using the plugin in an ARO application:
+**Usage in ARO:**
 
 ```aro
-(* ZipService - Demonstrates using a plugin with external dependencies *)
-
-(Application-Start: Zip Service Demo) {
-    <Log> the <message> for the <console> with "Testing zip plugin...".
-
-    (* Compress files into a zip archive *)
+(Compress Files: Archive) {
+    (* Service call - uses Call action *)
     <Call> the <result> from the <zip: compress> with {
-        files: ["content/file1.txt", "content/file2.txt"],
-        output: "content/archive.zip"
+        files: ["file1.txt", "file2.txt"],
+        output: "archive.zip"
     }.
 
-    <Log> the <message> for the <console> with "Zip result:".
     <Log> the <message> for the <console> with <result>.
-
-    <Return> an <OK: status> for the <startup>.
+    <Return> an <OK: status> for the <compression>.
 }
 ```
 
-> **Source:** See `Examples/ZipService` in the ARO repository for the complete working example.
+---
+
+## 18.5 Choosing Between Action and Service Plugins
+
+When designing a plugin, consider which approach fits better:
+
+### Choose Action Plugin When:
+
+- The operation feels like a language feature
+- You want natural syntax: `<Geocode>`, `<Encrypt>`, `<Validate>`
+- The operation is single-purpose
+- Readability is paramount
+
+```aro
+(* Natural, domain-specific syntax *)
+<Geocode> the <coordinates> from the <address>.
+<Encrypt> the <ciphertext> from the <plaintext> with <key>.
+<Validate> the <result> for the <order>.
+```
+
+### Choose Service Plugin When:
+
+- You are wrapping an external system with multiple operations
+- You want a uniform interface: `<Call> from <service: method>`
+- The integration has many related methods
+- Portability across projects matters
+
+```aro
+(* Uniform service pattern *)
+<Call> the <result> from the <postgres: query> with { sql: "..." }.
+<Call> the <result> from the <postgres: insert> with { table: "...", data: ... }.
+<Call> the <result> from the <zip: compress> with { files: [...] }.
+<Call> the <result> from the <zip: decompress> with { archive: "..." }.
+```
+
+### Comparison Table
+
+| Aspect | Action Plugin | Service Plugin |
+|--------|---------------|----------------|
+| Syntax | `<Verb> the <result>...` | `<Call> from <service: method>` |
+| Protocol | `ActionImplementation` | C-callable with JSON |
+| Methods | One per action | Multiple per service |
+| Registration | `ActionRegistry.register()` | `aro_plugin_init` JSON |
+| Best for | Domain operations | External integrations |
 
 ---
 
-## 18.4 Using Plugins
+## 18.6 Plugin Loading
 
-Using a plugin in your application involves adding it as a dependency and optionally loading it at runtime. The simplest approach is compile-time linking where the plugin is a package dependency.
+Plugins load in two ways: compile-time linking and runtime discovery.
 
-In your application's Package.swift, you add the plugin package as a dependency and include it in your target's dependencies. When you build and run your application, the plugin's registration function is called during initialization, making its actions available.
+**Compile-time linking** adds the plugin as a package dependency. When you build your application, the plugin is linked in. The registration function runs during initialization.
 
-For runtime loading, you place compiled plugin libraries in a plugins directory within your application. During Application-Start, you execute a Load action that scans this directory and loads any plugins found. This approach allows adding plugins without recompiling the application.
+**Runtime discovery** scans a `plugins/` directory for compiled libraries. During startup, ARO loads each library and calls its registration function. This allows adding plugins without recompiling.
 
-Once a plugin is loaded, its actions are indistinguishable from built-in actions. You use them with the same statement syntax, the same prepositions, the same patterns. The plugin nature is transparent to ARO code.
-
----
-
-## 18.5 Plugin Design
-
-Good plugin design follows several principles that make plugins useful and maintainable.
-
-Cohesion means grouping related actions together. A database plugin provides connect, query, insert, update, and delete actions for that database. A payment plugin provides charge, refund, and status actions. Each plugin has a focused purpose.
-
-Naming should be distinctive to avoid conflicts. If your plugin provides a Query action and another plugin also provides Query, there is a conflict. Prefixing verbs with your domain—QueryDB, QueryMongo, QueryRedis—avoids this problem while remaining readable.
-
-Configuration should be explicit. If your actions need configuration like connection strings or API keys, provide clear patterns for supplying them. Common approaches include configuration actions that run during startup or reading from environment variables.
-
-Error handling should produce clear messages. When your plugin's actions fail, users see the error messages you provide. Include relevant context—which resource could not be found, why the connection failed, what validation rule was violated.
+For runtime loading, place compiled `.dylib` (macOS), `.so` (Linux), or `.dll` (Windows) files in `./plugins/`. ARO loads them automatically during Application-Start.
 
 ---
 
-## 18.6 Documentation
+## 18.7 Plugin Design Guidelines
 
-Plugin documentation is essential for users to effectively use your actions. Without documentation, users must read source code to understand what actions are available and how to use them.
+**Cohesion**: Group related functionality. A database plugin provides all database operations. A compression plugin provides all compression methods.
 
-Document each action with its purpose, valid prepositions, expected inputs, outputs, and possible errors. Include example ARO statements showing typical usage. Explain any configuration requirements or prerequisites.
+**Naming**: Use distinctive names. For actions, prefix with your domain if conflicts are possible. For services, choose clear names that describe the integration.
 
-A README file should provide installation instructions, a quick start example, and references to detailed documentation. Users should be able to get started quickly and find comprehensive information when they need it.
+**Configuration**: Use environment variables for credentials and connection strings. This keeps configuration separate from code and allows different values per environment.
 
-Consider including an example application that demonstrates your plugin in context. Seeing actions used in a complete application helps users understand how to integrate the plugin into their own projects.
-
----
-
-## 18.7 Publishing
-
-Publishing a plugin makes it available to other developers. Swift Package Manager works with Git repositories, so publishing means tagging releases in a repository.
-
-Create a Git repository for your plugin, push your code, and create tags for releases. Follow semantic versioning: major versions for breaking changes, minor versions for new features, patch versions for bug fixes. Users depend on version ranges, so breaking changes in minor versions cause problems.
-
-Consider publishing to GitHub where the Swift community can discover your plugin. Include clear documentation, a permissive license for broad adoption, and issue tracking for bug reports and feature requests.
-
-Announce your plugin in relevant communities—forums, social media, newsletters—so developers who might benefit learn about it.
+**Error messages**: Provide clear, actionable errors. Include what failed, why, and ideally what to do about it.
 
 ---
 
-## 18.8 Best Practices
+## 18.8 Documentation
 
-Choose verb names that read naturally and avoid conflicts. Prefixing with your domain is safer than using generic names. "Geocode" might conflict with another plugin; "MapboxGeocode" is distinctive.
+Document your plugin thoroughly:
 
-Provide comprehensive error messages. Users of your plugin will debug issues using the messages you provide. Clear, specific messages save everyone time.
+- **Actions**: List verbs, valid prepositions, expected inputs, outputs, errors
+- **Services**: List methods, arguments for each, return values
+- **Configuration**: Environment variables, required setup
+- **Examples**: Show typical usage in ARO code
 
-Test thoroughly. Your actions may be used in ways you did not anticipate. Test edge cases, error conditions, and unusual inputs. Automated tests help maintain quality as you evolve the plugin.
+A README should provide quick start instructions. Users should be productive within minutes of adding your plugin.
 
-Version carefully. Breaking changes require major version bumps. Document changes in release notes so users know what to expect when upgrading.
+---
 
-Keep dependencies minimal. Each dependency you add is a dependency your users must accept. Heavy dependencies increase build times, binary sizes, and potential for conflicts.
+## 18.9 Publishing
+
+Publish plugins through Git repositories. Swift Package Manager resolves dependencies from URLs.
+
+1. Create a Git repository for your plugin
+2. Tag releases following semantic versioning
+3. Document installation in your README
+4. Announce in relevant communities
+
+Example installation instruction:
+
+```swift
+// In your Package.swift
+dependencies: [
+    .package(url: "https://github.com/your-org/GeocodePlugin.git", from: "1.0.0")
+]
+```
+
+---
+
+## 18.10 Best Practices
+
+**Test thoroughly.** Plugins may be used in unexpected ways. Test edge cases and error conditions.
+
+**Version carefully.** Breaking changes require major version bumps. Users depend on stability.
+
+**Keep dependencies minimal.** Each dependency is a dependency for your users. Heavy dependencies cause conflicts.
+
+**Document everything.** Users should not need to read source code to use your plugin.
 
 ---
 

@@ -26,8 +26,10 @@
 
 ## Part V: Services & Extensions
 16. **Built-in Services** — HTTP, files, sockets
-17. **Custom Actions** — Writing Swift extensions
-18. **Plugins** — Package.swift integration
+16B. **Format-Aware File I/O** — Automatic serialization by file extension
+17. **Custom Actions** — Adding new verbs to ARO
+17B. **Custom Services** — External integrations via Call action
+18. **Plugins** — Packaging and distributing extensions
 
 ## Part VI: Production
 19. **Native Compilation** — `aro build` and the C runtime
