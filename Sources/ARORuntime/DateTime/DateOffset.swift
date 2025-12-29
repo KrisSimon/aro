@@ -70,7 +70,7 @@ public struct DateOffset: Sendable, Equatable {
 
     /// Check if this string looks like an offset pattern
     public static func isOffsetPattern(_ string: String) -> Bool {
-        let pattern = #"^[+-]?\d+[smhdwMy]|seconds?|minutes?|min|hours?|days?|weeks?|months?|years?$"#
+        let pattern = #"^[+-]?\d+(?:[smhdwMy]|seconds?|minutes?|min|hours?|days?|weeks?|months?|years?)$"#
         return string.range(of: pattern, options: .regularExpression) != nil
     }
 
