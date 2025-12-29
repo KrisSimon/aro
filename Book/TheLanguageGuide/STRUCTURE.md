@@ -26,8 +26,10 @@
 
 ## Part V: Services & Extensions
 16. **Built-in Services** — HTTP, files, sockets
-17. **Custom Actions** — Writing Swift extensions
-18. **Plugins** — Package.swift integration
+16B. **Format-Aware File I/O** — Automatic serialization by file extension
+17. **Custom Actions** — Adding new verbs to ARO
+17B. **Custom Services** — External integrations via Call action
+18. **Plugins** — Packaging and distributing extensions
 
 ## Part VI: Production
 19. **Native Compilation** — `aro build` and the C runtime
@@ -37,14 +39,14 @@
 23. **Modules and Imports** — Modular architecture and cross-module visibility
 
 ## Part VII: Advanced Topics
-23. **Control Flow** — Guards, match expressions, conditional execution
-24. **Data Pipelines** — Map, Filter, Reduce for collection processing
-25. **Repositories** — Persistent in-memory storage and observers
-26. **System Commands** — Shell execution with the Exec action
-27. **HTTP Client** — Making requests to external services
-28. **Concurrency** — Feature sets are async, statements are sync
-29. **Context-Aware Responses** — Human, machine, and developer output formatting
-30. **Type System** — Primitives, collections, and OpenAPI schemas
+24. **Control Flow** — Guards, match expressions, conditional execution
+25. **Data Pipelines** — Map, Filter, Reduce for collection processing
+26. **Repositories** — Persistent in-memory storage and observers
+27. **System Commands** — Shell execution with the Exec action
+28. **HTTP Client** — Making requests to external services
+29. **Concurrency** — Feature sets are async, statements are sync
+30. **Context-Aware Responses** — Human, machine, and developer output formatting
+31. **Type System** — Primitives, collections, and OpenAPI schemas
 
 ## Appendices
 - A: Action Reference (all 50 built-in actions)

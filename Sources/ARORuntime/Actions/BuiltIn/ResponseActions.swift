@@ -465,7 +465,19 @@ public struct StoreAction: ActionImplementation {
     }
 }
 
-/// Writes data to a file
+/// Writes data to a file with automatic format detection (ARO-0040)
+/// The file extension determines the output format:
+/// - .json: JSON
+/// - .yaml/.yml: YAML
+/// - .xml: XML (root element = variable name)
+/// - .toml: TOML
+/// - .csv: CSV
+/// - .tsv: TSV
+/// - .md: Markdown table
+/// - .html: HTML table
+/// - .txt: key=value format
+/// - .sql: INSERT statements
+/// - .obj/unknown: Binary (pass-through)
 public struct WriteAction: ActionImplementation {
     public static let role: ActionRole = .response
     public static let verbs: Set<String> = ["write"]
@@ -480,17 +492,6 @@ public struct WriteAction: ActionImplementation {
     ) async throws -> any Sendable {
         try validatePreposition(object.preposition)
 
-        // Get data to write
-        let content: String
-        if let value: String = context.resolve(result.base) {
-            content = value
-        } else if let value = context.resolveAny(result.base) {
-            // Try to serialize as JSON if it's a dictionary
-            content = serializeToJSON(value)
-        } else {
-            content = ""
-        }
-
         // Get file path - check specifiers first (e.g., <file: file-path>), then base
         let path: String
         if let specifier = object.specifiers.first, let resolvedPath: String = context.resolve(specifier) {
@@ -501,6 +502,43 @@ public struct WriteAction: ActionImplementation {
             path = object.base
         }
 
+        // Detect format from file extension (ARO-0040)
+        let format = FileFormat.detect(from: path)
+
+        // Get format options from "with" clause (ARO-0040)
+        // Options can include: delimiter, header, quote, encoding
+        var formatOptions: [String: any Sendable] = [:]
+        if let configDict = context.resolveAny("_literal_") as? [String: any Sendable] {
+            // Check for format options in the literal
+            if let delimiter = configDict["delimiter"] as? String {
+                formatOptions["delimiter"] = delimiter
+            }
+            if let header = configDict["header"] as? Bool {
+                formatOptions["header"] = header
+            }
+            if let quote = configDict["quote"] as? String {
+                formatOptions["quote"] = quote
+            }
+            if let encoding = configDict["encoding"] as? String {
+                formatOptions["encoding"] = encoding
+            }
+        }
+
+        // Get data to write - prefer resolveAny to get structured data,
+        // only fall back to string if no structured data available
+        let content: String
+        if let value = context.resolveAny(result.base) {
+            // Check if it's a simple string (for binary format passthrough)
+            if format == .binary, let strValue = value as? String {
+                content = strValue
+            } else {
+                // Serialize structured data to the detected format
+                content = FormatSerializer.serialize(value, format: format, variableName: result.base, options: formatOptions)
+            }
+        } else {
+            content = ""
+        }
+
         // Try file service
         if let fileService = context.service(FileSystemService.self) {
             try await fileService.write(path: path, content: content)
@@ -508,71 +546,6 @@ public struct WriteAction: ActionImplementation {
         }
 
         throw ActionError.missingService("FileSystemService")
-    }
-
-    /// Serialize a value to JSON string, handling both [String: Any] and [String: any Sendable]
-    private func serializeToJSON(_ value: any Sendable) -> String {
-        // Try direct [String: Any] cast first (fastest path)
-        if let dict = value as? [String: Any] {
-            if let jsonData = try? JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted, .sortedKeys]),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                return jsonString
-            }
-        }
-
-        // Handle [String: any Sendable] by converting to [String: Any]
-        if let sendableDict = value as? [String: any Sendable] {
-            let converted = convertToJSONSerializable(sendableDict)
-            if let jsonData = try? JSONSerialization.data(withJSONObject: converted, options: [.prettyPrinted, .sortedKeys]),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                return jsonString
-            }
-        }
-
-        // Handle arrays
-        if let array = value as? [any Sendable] {
-            let converted = array.map { convertValueToJSONSerializable($0) }
-            if let jsonData = try? JSONSerialization.data(withJSONObject: converted, options: [.prettyPrinted, .sortedKeys]),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                return jsonString
-            }
-        }
-
-        // Fallback to string description
-        return String(describing: value)
-    }
-
-    /// Convert [String: any Sendable] to [String: Any] for JSON serialization
-    private func convertToJSONSerializable(_ dict: [String: any Sendable]) -> [String: Any] {
-        var result: [String: Any] = [:]
-        for (key, value) in dict {
-            result[key] = convertValueToJSONSerializable(value)
-        }
-        return result
-    }
-
-    /// Convert a single Sendable value to a JSON-serializable value
-    private func convertValueToJSONSerializable(_ value: any Sendable) -> Any {
-        switch value {
-        case let str as String:
-            return str
-        case let int as Int:
-            return int
-        case let double as Double:
-            return double
-        case let bool as Bool:
-            return bool
-        case let dict as [String: any Sendable]:
-            return convertToJSONSerializable(dict)
-        case let dict as [String: Any]:
-            return dict
-        case let array as [any Sendable]:
-            return array.map { convertValueToJSONSerializable($0) }
-        case let array as [Any]:
-            return array
-        default:
-            return String(describing: value)
-        }
     }
 }
 

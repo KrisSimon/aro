@@ -1,4 +1,4 @@
-# Chapter 23: Control Flow
+# Chapter 24: Control Flow
 
 ARO provides control flow constructs for conditional execution. This chapter covers how to make decisions in your feature sets using guarded statements and match expressions.
 
@@ -36,7 +36,7 @@ The `when` clause conditionally executes a single statement. If the condition is
 <Send> the <notification> to the <user: email> when <user: email> exists.
 
 (* Log admin access only for admins *)
-<Log> the <admin-access> for the <audit> when <user: role> == "admin".
+<Log> the <admin-access> for the <audit> when <user: role> = "admin".
 
 (* Return error when validation fails *)
 <Return> a <BadRequest: status> for the <invalid: input> when <validation> is failed.
@@ -57,7 +57,7 @@ The `when` clause conditionally executes a single statement. If the condition is
 | `<` | Less than |
 | `>=` | Greater than or equal |
 | `<=` | Less than or equal |
-| `==` | Strict equality |
+| `=` | Equality |
 | `!=` | Strict inequality |
 
 ### Boolean Operators
@@ -450,3 +450,7 @@ match <order: status> {
 (* Avoid - implicit truthiness *)
 <Grant> the <access> for the <user> when <user: active> and <user: verified>.
 ```
+
+---
+
+*Next: Chapter 25 — Data Pipelines*

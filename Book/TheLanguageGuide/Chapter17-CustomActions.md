@@ -20,13 +20,22 @@ Create custom actions when you want domain-specific operations that make your AR
 
 ## 17.2 The Escape Hatch Pattern
 
-No constrained language survives contact with reality without an extension mechanism. This is the pattern that made other constrained languages successful: Terraform has providers, Ansible has modules, Make has recipes—and ARO has actions.
+No constrained language survives contact with reality without an extension mechanism. This is the pattern that made other constrained languages successful: Terraform has providers, Ansible has modules, Make has recipes—and ARO has actions and services.
 
 The contract is clear: ARO gives you rails; you build the track extensions when the rails don't go where you need.
 
-ARO provides two extension mechanisms. Custom actions, written in Swift, let you add new verbs to the language. When you implement a custom action, you can write statements like `<Geocode> the <coordinates> from the <user: address>` that feel native to ARO while executing arbitrary Swift code underneath.
+ARO provides two extension mechanisms:
 
-Plugins, distributed through Swift Package Manager, let you share actions across projects and with the community. Your geocoding action becomes a distributable package that other ARO applications can import. The next chapter covers plugins in detail.
+| Mechanism | What It Adds | Syntax | Best For |
+|-----------|--------------|--------|----------|
+| **Custom Actions** | New verbs | `<Geocode> the <coords> from <addr>.` | Domain-specific operations |
+| **Custom Services** | External integrations | `<Call> from <postgres: query>` | Systems with multiple methods |
+
+Custom actions, covered in this chapter, let you add new verbs to the language. When you implement a custom action, you can write statements like `<Geocode> the <coordinates> from the <address>` that feel native to ARO.
+
+Custom services, covered in Chapter 17B, let you integrate external systems through the `Call` action. Services provide multiple methods under a single service name: `<Call> from <postgres: query>`, `<Call> from <postgres: insert>`.
+
+Plugins, covered in Chapter 18, let you package and share both actions and services with the community.
 
 The rest of this chapter focuses on implementing custom actions—the fundamental building block of ARO's extensibility.
 
@@ -136,4 +145,4 @@ Test actions independently. Because actions have a well-defined interface, they 
 
 ---
 
-*Next: Chapter 18 — Plugins*
+*Next: Chapter 17B — Custom Services*
