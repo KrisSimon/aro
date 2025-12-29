@@ -254,6 +254,46 @@ public struct ExtractAction: ActionImplementation {
         }
         #endif
 
+        // Handle ARODate properties (ARO-0041)
+        if let date = source as? ARODate {
+            if let value = date.property(key) {
+                // Convert to appropriate Sendable type
+                if let intVal = value as? Int { return intVal }
+                if let strVal = value as? String { return strVal }
+                if let dateVal = value as? ARODate { return dateVal }
+                if let tzVal = value as? TimeZone { return tzVal.identifier }
+                return String(describing: value)
+            }
+        }
+
+        // Handle ARODateRange properties (ARO-0041)
+        if let range = source as? ARODateRange {
+            if let value = range.property(key) {
+                if let intVal = value as? Int { return intVal }
+                if let dateVal = value as? ARODate { return dateVal }
+                return String(describing: value)
+            }
+        }
+
+        // Handle ARORecurrence properties (ARO-0041)
+        if let recurrence = source as? ARORecurrence {
+            if let value = recurrence.property(key) {
+                if let strVal = value as? String { return strVal }
+                if let dateVal = value as? ARODate { return dateVal }
+                if let arrVal = value as? [ARODate] { return arrVal }
+                return String(describing: value)
+            }
+        }
+
+        // Handle DateDistance properties (ARO-0041)
+        if let distance = source as? DateDistance {
+            if let value = distance.property(key) {
+                if let intVal = value as? Int { return intVal }
+                if let dblVal = value as? Double { return dblVal }
+                return String(describing: value)
+            }
+        }
+
         // Return original source if key not found but exists
         throw ActionError.propertyNotFound(property: key, on: String(describing: type(of: source)))
     }

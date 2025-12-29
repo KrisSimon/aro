@@ -1,0 +1,37 @@
+(* DateTime Demo - Demonstrates ARO-0041 Date and Time Handling *)
+
+(Application-Start: DateTime Demo) {
+    <Log> the <header> for the <console> with "=== DateTime Demo ===".
+
+    (* Basic <now> variable - returns current UTC time *)
+    <Log> the <label1> for the <console> with "Current UTC time:".
+    <Log> the <now1> for the <console> with <now>.
+
+    (* Date parsing - parse ISO 8601 strings *)
+    <Log> the <label2> for the <console> with "Parsed meeting date:".
+    <Compute> the <meeting: date> from "2025-06-15T14:00:00Z".
+    <Log> the <meeting1> for the <console> with <meeting>.
+
+    (* Date property access via year qualifier *)
+    <Log> the <label3> for the <console> with "Year from now:".
+    <Extract> the <year> from the <now: year>.
+    <Log> the <year1> for the <console> with <year>.
+
+    (* Extract month *)
+    <Log> the <label4> for the <console> with "Month from now:".
+    <Extract> the <month> from the <now: month>.
+    <Log> the <month1> for the <console> with <month>.
+
+    (* Extract day *)
+    <Log> the <label5> for the <console> with "Day from now:".
+    <Extract> the <day> from the <now: day>.
+    <Log> the <day1> for the <console> with <day>.
+
+    (* Extract hour *)
+    <Log> the <label6> for the <console> with "Hour from now:".
+    <Extract> the <hour> from the <now: hour>.
+    <Log> the <hour1> for the <console> with <hour>.
+
+    <Log> the <footer> for the <console> with "=== Demo Complete ===".
+    <Return> an <OK: status> for the <demo>.
+}

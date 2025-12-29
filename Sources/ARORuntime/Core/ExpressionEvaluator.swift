@@ -263,6 +263,38 @@ public struct ExpressionEvaluator: Sendable {
 
     /// Access a property on a value (dictionary, AnySendable, etc.)
     private func accessProperty(_ property: String, on value: any Sendable) throws -> any Sendable {
+        // Handle ARODate property access (ARO-0041)
+        if let date = value as? ARODate {
+            if let propValue = date.property(property) {
+                return propValue as! any Sendable
+            }
+            throw ExpressionError.undefinedMember(property)
+        }
+
+        // Handle ARODateRange property access (ARO-0041)
+        if let range = value as? ARODateRange {
+            if let propValue = range.property(property) {
+                return propValue as! any Sendable
+            }
+            throw ExpressionError.undefinedMember(property)
+        }
+
+        // Handle ARORecurrence property access (ARO-0041)
+        if let recurrence = value as? ARORecurrence {
+            if let propValue = recurrence.property(property) {
+                return propValue as! any Sendable
+            }
+            throw ExpressionError.undefinedMember(property)
+        }
+
+        // Handle DateDistance property access (ARO-0041)
+        if let distance = value as? DateDistance {
+            if let propValue = distance.property(property) {
+                return propValue as! any Sendable
+            }
+            throw ExpressionError.undefinedMember(property)
+        }
+
         // Handle [String: any Sendable] dictionary
         if let dict = value as? [String: any Sendable] {
             guard let propValue = dict[property] else {
@@ -302,9 +334,27 @@ public struct ExpressionEvaluator: Sendable {
     }
 
     private func compareValues(_ left: any Sendable, _ right: any Sendable, _ compare: (Double, Double) -> Bool) throws -> Bool {
+        // Date comparison (ARO-0041)
+        if let leftDate = getARODate(from: left), let rightDate = getARODate(from: right) {
+            let leftTime = leftDate.date.timeIntervalSince1970
+            let rightTime = rightDate.date.timeIntervalSince1970
+            return compare(leftTime, rightTime)
+        }
+
         let l = try asDouble(left)
         let r = try asDouble(right)
         return compare(l, r)
+    }
+
+    /// Get an ARODate from various input types (ARO-0041)
+    private func getARODate(from value: any Sendable) -> ARODate? {
+        if let date = value as? ARODate {
+            return date
+        }
+        if let str = value as? String {
+            return try? ARODate.parse(str)
+        }
+        return nil
     }
 
     private func asDouble(_ value: any Sendable) throws -> Double {
@@ -326,6 +376,11 @@ public struct ExpressionEvaluator: Sendable {
         // Handle nil comparison
         if isNil(left) && isNil(right) { return true }
         if isNil(left) || isNil(right) { return false }
+
+        // Date comparison (ARO-0041)
+        if let leftDate = getARODate(from: left), let rightDate = getARODate(from: right) {
+            return leftDate == rightDate
+        }
 
         // String comparison
         if let l = left as? String, let r = right as? String { return l == r }
@@ -350,6 +405,16 @@ public struct ExpressionEvaluator: Sendable {
     }
 
     private func containsValue(_ container: any Sendable, _ element: any Sendable) -> Bool {
+        // Date range membership check (ARO-0041)
+        // For "when <date> in <range>" the container is the range and element is the date
+        if let range = container as? ARODateRange, let date = getARODate(from: element) {
+            return range.contains(date)
+        }
+        // Reverse check: "when <date> in <range>" might have swapped order
+        if let range = element as? ARODateRange, let date = getARODate(from: container) {
+            return range.contains(date)
+        }
+
         if let array = container as? [any Sendable] {
             return array.contains { areEqual($0, element) }
         }
