@@ -220,8 +220,10 @@ public struct FormatSerializer: Sendable {
                     // Object in array - format with proper indentation
                     let lines = itemYaml.split(separator: "\n", omittingEmptySubsequences: false)
                     if let first = lines.first {
+                        // Trim leading whitespace from first line since it follows "- "
+                        let trimmedFirst = String(first).trimmingCharacters(in: .whitespaces)
                         let rest = lines.dropFirst().map { String($0) }.joined(separator: "\n")
-                        return indentStr + "- " + first + (rest.isEmpty ? "" : "\n" + rest)
+                        return indentStr + "- " + trimmedFirst + (rest.isEmpty ? "" : "\n" + rest)
                     }
                 }
                 return indentStr + "- " + itemYaml

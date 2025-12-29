@@ -56,6 +56,23 @@
     <Write> the <config> to "./output/config.txt".
     <Log> the <message> for the <console> with "Wrote config.txt".
 
+    (* Write to .env - automatically serialized with uppercase keys *)
+    (* Nested entries become PARENT_CHILD format *)
+    <Create> the <env-config> with {
+        "database": {
+            "host": "localhost",
+            "port": 5432,
+            "name": "myapp"
+        },
+        "cache": {
+            "enabled": true,
+            "ttl": 3600
+        },
+        "app_name": "FormatAwareIO"
+    }.
+    <Write> the <env-config> to "./output/config.env".
+    <Log> the <message> for the <console> with "Wrote config.env (with nested entries)".
+
     <Log> the <message> for the <console> with "".
     <Log> the <message> for the <console> with "=== Reading data back ===".
 
@@ -78,6 +95,11 @@
     <Read> the <yaml-data> from "./output/users.yaml".
     <Log> the <message> for the <console> with "Read YAML:".
     <Log> the <message> for the <console> with <yaml-data>.
+
+    (* Read .env - automatically parsed to key-value map *)
+    <Read> the <env-data> from "./output/config.env".
+    <Log> the <message> for the <console> with "Read ENV:".
+    <Log> the <message> for the <console> with <env-data>.
 
     <Log> the <message> for the <console> with "".
     <Log> the <message> for the <console> with "=== Format-Aware I/O demo complete! ===".
