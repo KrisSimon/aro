@@ -11,15 +11,19 @@ public struct FormatSerializer: Sendable {
     ///   - value: The value to serialize
     ///   - format: Target file format
     ///   - variableName: Variable name (used as root element for XML/SQL)
+    ///   - options: Optional format-specific options (delimiter, header, quote, encoding)
     /// - Returns: Serialized string representation
     public static func serialize(
         _ value: any Sendable,
         format: FileFormat,
-        variableName: String
+        variableName: String,
+        options: [String: any Sendable] = [:]
     ) -> String {
         switch format {
         case .json:
             return serializeJSON(value)
+        case .jsonl:
+            return serializeJSONL(value)
         case .yaml:
             return serializeYAML(value)
         case .xml:
@@ -27,9 +31,15 @@ public struct FormatSerializer: Sendable {
         case .toml:
             return serializeTOML(value, tableName: variableName)
         case .csv:
-            return serializeCSV(value, delimiter: ",")
+            let delimiter = (options["delimiter"] as? String) ?? ","
+            let includeHeader = (options["header"] as? Bool) ?? true
+            let quoteChar = (options["quote"] as? String) ?? "\""
+            return serializeCSV(value, delimiter: delimiter, includeHeader: includeHeader, quoteChar: quoteChar)
         case .tsv:
-            return serializeCSV(value, delimiter: "\t")
+            let delimiter = (options["delimiter"] as? String) ?? "\t"
+            let includeHeader = (options["header"] as? Bool) ?? true
+            let quoteChar = (options["quote"] as? String) ?? "\""
+            return serializeCSV(value, delimiter: delimiter, includeHeader: includeHeader, quoteChar: quoteChar)
         case .markdown:
             return serializeMarkdown(value)
         case .html:
@@ -59,6 +69,37 @@ public struct FormatSerializer: Sendable {
             return String(data: data, encoding: .utf8) ?? "{}"
         } catch {
             // Fallback for non-JSON-serializable values
+            if let str = value as? String {
+                return "\"\(escapeJSON(str))\""
+            }
+            return String(describing: value)
+        }
+    }
+
+    // MARK: - JSONL Serialization (JSON Lines)
+
+    private static func serializeJSONL(_ value: any Sendable) -> String {
+        switch value {
+        case let array as [any Sendable]:
+            // Each array element on its own line as compact JSON
+            return array.map { item in
+                serializeJSONCompact(item)
+            }.joined(separator: "\n")
+        default:
+            // Single value - output as single line
+            return serializeJSONCompact(value)
+        }
+    }
+
+    private static func serializeJSONCompact(_ value: any Sendable) -> String {
+        let jsonValue = convertToJSONSerializable(value)
+        do {
+            let data = try JSONSerialization.data(
+                withJSONObject: jsonValue,
+                options: [.sortedKeys]  // No prettyPrinted - compact output
+            )
+            return String(data: data, encoding: .utf8) ?? "{}"
+        } catch {
             if let str = value as? String {
                 return "\"\(escapeJSON(str))\""
             }
@@ -222,22 +263,30 @@ public struct FormatSerializer: Sendable {
 
     // MARK: - CSV/TSV Serialization
 
-    private static func serializeCSV(_ value: any Sendable, delimiter: String) -> String {
+    private static func serializeCSV(
+        _ value: any Sendable,
+        delimiter: String,
+        includeHeader: Bool = true,
+        quoteChar: String = "\""
+    ) -> String {
         switch value {
         case let array as [any Sendable]:
             guard let firstDict = array.first as? [String: any Sendable] else {
                 // Not array of objects - serialize as single column
-                return array.map { escapeCSV(String(describing: $0), delimiter: delimiter) }
+                return array.map { escapeCSV(String(describing: $0), delimiter: delimiter, quoteChar: quoteChar) }
                     .joined(separator: "\n")
             }
             // Array of objects - header row + data rows
             let headers = firstDict.keys.sorted()
-            var lines = [headers.map { escapeCSV($0, delimiter: delimiter) }.joined(separator: delimiter)]
+            var lines: [String] = []
+            if includeHeader {
+                lines.append(headers.map { escapeCSV($0, delimiter: delimiter, quoteChar: quoteChar) }.joined(separator: delimiter))
+            }
             for item in array {
                 if let dict = item as? [String: any Sendable] {
                     let row = headers.map { key -> String in
                         if let val = dict[key] {
-                            return escapeCSV(stringValue(val), delimiter: delimiter)
+                            return escapeCSV(stringValue(val), delimiter: delimiter, quoteChar: quoteChar)
                         }
                         return ""
                     }
@@ -247,10 +296,13 @@ public struct FormatSerializer: Sendable {
             return lines.joined(separator: "\n")
         case let dict as [String: any Sendable]:
             // Single object - key,value format
-            var lines = ["key\(delimiter)value"]
+            var lines: [String] = []
+            if includeHeader {
+                lines.append("key\(delimiter)value")
+            }
             for key in dict.keys.sorted() {
-                let val = escapeCSV(stringValue(dict[key]!), delimiter: delimiter)
-                lines.append("\(escapeCSV(key, delimiter: delimiter))\(delimiter)\(val)")
+                let val = escapeCSV(stringValue(dict[key]!), delimiter: delimiter, quoteChar: quoteChar)
+                lines.append("\(escapeCSV(key, delimiter: delimiter, quoteChar: quoteChar))\(delimiter)\(val)")
             }
             return lines.joined(separator: "\n")
         default:
@@ -506,9 +558,11 @@ public struct FormatSerializer: Sendable {
         return result
     }
 
-    private static func escapeCSV(_ str: String, delimiter: String) -> String {
-        if str.contains(delimiter) || str.contains("\"") || str.contains("\n") {
-            return "\"" + str.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    private static func escapeCSV(_ str: String, delimiter: String, quoteChar: String = "\"") -> String {
+        if str.contains(delimiter) || str.contains(quoteChar) || str.contains("\n") {
+            // Escape quote characters by doubling them
+            let escaped = str.replacingOccurrences(of: quoteChar, with: quoteChar + quoteChar)
+            return quoteChar + escaped + quoteChar
         }
         return str
     }

@@ -35,6 +35,7 @@ This is verbose and error-prone. The file extension already indicates the intend
 | Extension | Format | Description |
 |-----------|--------|-------------|
 | `.json` | JSON | JavaScript Object Notation |
+| `.jsonl`, `.ndjson` | JSON Lines | Newline-delimited JSON (one object per line) |
 | `.yaml`, `.yml` | YAML | YAML Ain't Markup Language |
 | `.xml` | XML | Extensible Markup Language |
 | `.toml` | TOML | Tom's Obvious Minimal Language |
@@ -80,7 +81,22 @@ Pretty-printed with sorted keys, UTF-8 encoding.
 }
 ```
 
-### 2.2 YAML (.yaml, .yml)
+### 2.2 JSON Lines (.jsonl, .ndjson)
+
+One JSON object per line, compact format. Ideal for streaming and logging.
+
+**Array of Objects:**
+```jsonl
+{"id":1,"name":"Alice"}
+{"id":2,"name":"Bob"}
+```
+
+**Single Object:**
+```jsonl
+{"id":1,"name":"Alice"}
+```
+
+### 2.3 YAML (.yaml, .yml)
 
 Human-readable YAML with proper indentation.
 
@@ -98,7 +114,7 @@ id: 1
 name: Alice
 ```
 
-### 2.3 XML (.xml)
+### 2.4 XML (.xml)
 
 Root element uses the **variable name** from the ARO statement.
 
@@ -126,7 +142,7 @@ Root element uses the **variable name** from the ARO statement.
 </user>
 ```
 
-### 2.4 TOML (.toml)
+### 2.5 TOML (.toml)
 
 Tables for objects, arrays of tables for collections.
 
@@ -147,7 +163,7 @@ id = 1
 name = "Alice"
 ```
 
-### 2.5 CSV (.csv)
+### 2.6 CSV (.csv)
 
 Comma-separated values with header row.
 
@@ -165,9 +181,40 @@ id,1
 name,Alice
 ```
 
-### 2.6 TSV (.tsv)
+#### CSV Options
 
-Same as CSV but tab-delimited.
+CSV/TSV formats support configurable options via the `with` clause:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `delimiter` | String | `,` (CSV) / `\t` (TSV) | Field separator character |
+| `header` | Boolean | `true` | Include header row on write / expect header on read |
+| `quote` | String | `"` | Quote character for values containing delimiters |
+| `encoding` | String | `UTF-8` | Text encoding |
+
+**Custom Delimiter:**
+```aro
+<Write> the <data> to "./export.csv" with { delimiter: ";" }.
+```
+
+**Without Header Row:**
+```aro
+<Write> the <data> to "./export.csv" with { header: false }.
+```
+
+**Custom Quote Character:**
+```aro
+<Write> the <data> to "./export.csv" with { quote: "'" }.
+```
+
+**Reading with Options:**
+```aro
+<Read> the <data> from "./import.csv" with { delimiter: ";", header: false }.
+```
+
+### 2.7 TSV (.tsv)
+
+Same as CSV but tab-delimited. Supports the same options as CSV.
 
 **Array of Objects:**
 ```
@@ -176,7 +223,7 @@ id	name
 2	Bob
 ```
 
-### 2.7 Markdown (.md)
+### 2.8 Markdown (.md)
 
 Simple markdown tables (pipe-delimited).
 
@@ -196,7 +243,7 @@ Simple markdown tables (pipe-delimited).
 | name | Alice |
 ```
 
-### 2.8 HTML (.html)
+### 2.9 HTML (.html)
 
 HTML table with thead and tbody.
 
@@ -226,7 +273,7 @@ HTML table with thead and tbody.
 </table>
 ```
 
-### 2.9 Plain Text (.txt)
+### 2.10 Plain Text (.txt)
 
 Key=value format, one per line. Nested objects use dot notation.
 
@@ -246,7 +293,7 @@ address.zip=98101
 [1].name=Bob
 ```
 
-### 2.10 SQL (.sql)
+### 2.11 SQL (.sql)
 
 INSERT statements. Table name from the variable name.
 
@@ -261,7 +308,7 @@ INSERT INTO users (id, name) VALUES (2, 'Bob');
 INSERT INTO user (id, name) VALUES (1, 'Alice');
 ```
 
-### 2.11 Binary (.obj, unknown)
+### 2.12 Binary (.obj, unknown)
 
 Raw binary data. Used for unknown extensions as the safe default.
 
@@ -295,6 +342,7 @@ Use the `as String` qualifier to bypass format detection and read raw content:
 | Extension | Parses To |
 |-----------|-----------|
 | `.json` | Map or Array |
+| `.jsonl`, `.ndjson` | Array of Maps (one per line) |
 | `.yaml`, `.yml` | Map or Array |
 | `.xml` | Map (nested elements become maps) |
 | `.toml` | Map or Array |
@@ -313,11 +361,17 @@ Use the `as String` qualifier to bypass format detection and read raw content:
 (* JSON output *)
 <Write> the <users> to "./data/users.json".
 
+(* JSON Lines output - one object per line *)
+<Write> the <logs> to "./logs/events.jsonl".
+
 (* YAML output *)
 <Write> the <config> to "./settings.yaml".
 
 (* CSV report *)
 <Write> the <report> to "./exports/report.csv".
+
+(* CSV with custom options *)
+<Write> the <data> to "./exports/data.csv" with { delimiter: ";", header: false }.
 
 (* Markdown documentation *)
 <Write> the <summary> to "./docs/summary.md".
@@ -338,8 +392,14 @@ Use the `as String` qualifier to bypass format detection and read raw content:
 (* Parse JSON to object *)
 <Read> the <config> from "./settings.json".
 
+(* Parse JSON Lines to array of objects *)
+<Read> the <events> from "./logs/events.jsonl".
+
 (* Parse CSV to array of objects *)
 <Read> the <records> from "./data.csv".
+
+(* Parse CSV with custom options *)
+<Read> the <data> from "./import.csv" with { delimiter: ";", header: false }.
 
 (* Parse YAML config *)
 <Read> the <settings> from "./config.yaml".
@@ -389,7 +449,7 @@ Following ARO's happy-case philosophy:
 
 ```swift
 enum FileFormat {
-    case json, yaml, xml, toml
+    case json, jsonl, yaml, xml, toml
     case csv, tsv
     case markdown, html
     case text, sql
@@ -400,6 +460,7 @@ enum FileFormat {
             .pathExtension.lowercased()
         switch ext {
         case "json": return .json
+        case "jsonl", "ndjson": return .jsonl
         case "yaml", "yml": return .yaml
         case "xml": return .xml
         case "toml": return .toml
@@ -451,7 +512,40 @@ Rejected: Binary is safer - won't corrupt arbitrary data if extension is wrong.
 
 ---
 
-## 8. References
+## 8. Future Considerations
+
+The following formats are being considered for future versions:
+
+### 8.1 Apache Parquet (.parquet)
+
+Columnar storage format for analytics workloads. Would require:
+- Binary format handling (not string-based)
+- External library dependency (e.g., Apache Arrow)
+- Schema inference from ARO types
+
+**Potential Syntax:**
+```aro
+<Write> the <analytics-data> to "./data/report.parquet".
+```
+
+### 8.2 MessagePack (.msgpack)
+
+Binary JSON alternative for compact serialization. Would provide faster parsing than JSON with smaller file sizes.
+
+### 8.3 Protocol Buffers (.proto)
+
+Schema-based binary serialization. Would require schema definition support in ARO.
+
+### 8.4 Explicit Format Override
+
+Allow forcing a format regardless of extension:
+```aro
+<Write> the <data> to "./cache/blob.dat" as "json".
+```
+
+---
+
+## 9. References
 
 - ARO-0020: Execution Model
 - ARO-0036: Native File and Directory Operations

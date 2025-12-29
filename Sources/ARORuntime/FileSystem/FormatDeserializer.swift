@@ -10,14 +10,18 @@ public struct FormatDeserializer: Sendable {
     /// - Parameters:
     ///   - content: The file content as string
     ///   - format: Source file format
+    ///   - options: Optional format-specific options (delimiter, header, quote)
     /// - Returns: Deserialized value (Map, Array, or String)
     public static func deserialize(
         _ content: String,
-        format: FileFormat
+        format: FileFormat,
+        options: [String: any Sendable] = [:]
     ) -> any Sendable {
         switch format {
         case .json:
             return deserializeJSON(content)
+        case .jsonl:
+            return deserializeJSONL(content)
         case .yaml:
             return deserializeYAML(content)
         case .xml:
@@ -25,9 +29,15 @@ public struct FormatDeserializer: Sendable {
         case .toml:
             return deserializeTOML(content)
         case .csv:
-            return deserializeCSV(content, delimiter: ",")
+            let delimiter = (options["delimiter"] as? String) ?? ","
+            let hasHeader = (options["header"] as? Bool) ?? true
+            let quoteChar = (options["quote"] as? String) ?? "\""
+            return deserializeCSV(content, delimiter: delimiter, hasHeader: hasHeader, quoteChar: quoteChar)
         case .tsv:
-            return deserializeCSV(content, delimiter: "\t")
+            let delimiter = (options["delimiter"] as? String) ?? "\t"
+            let hasHeader = (options["header"] as? Bool) ?? true
+            let quoteChar = (options["quote"] as? String) ?? "\""
+            return deserializeCSV(content, delimiter: delimiter, hasHeader: hasHeader, quoteChar: quoteChar)
         case .text:
             return deserializeText(content)
         case .markdown, .html, .sql, .binary:
@@ -76,6 +86,29 @@ public struct FormatDeserializer: Sendable {
         default:
             return String(describing: value)
         }
+    }
+
+    // MARK: - JSONL Deserialization (JSON Lines)
+
+    private static func deserializeJSONL(_ content: String) -> any Sendable {
+        let lines = content.split(separator: "\n", omittingEmptySubsequences: true).map { String($0) }
+        var result: [any Sendable] = []
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+
+            guard let data = trimmed.data(using: .utf8) else { continue }
+            do {
+                let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+                result.append(convertJSONToSendable(jsonObject))
+            } catch {
+                // Skip malformed lines
+                continue
+            }
+        }
+
+        return result
     }
 
     // MARK: - YAML Deserialization
@@ -568,41 +601,62 @@ public struct FormatDeserializer: Sendable {
 
     // MARK: - CSV/TSV Deserialization
 
-    private static func deserializeCSV(_ content: String, delimiter: String) -> any Sendable {
+    private static func deserializeCSV(
+        _ content: String,
+        delimiter: String,
+        hasHeader: Bool = true,
+        quoteChar: String = "\""
+    ) -> any Sendable {
         let lines = content.split(separator: "\n", omittingEmptySubsequences: false).map { String($0) }
-        guard lines.count >= 2 else {
+        guard !lines.isEmpty else {
             return content
         }
 
-        // Parse header
-        let headers = parseCSVLine(lines[0], delimiter: delimiter)
+        let quoteCharacter = quoteChar.first ?? "\""
 
-        // Check if this is a key-value style CSV
-        if headers.count == 2 && headers[0].lowercased() == "key" && headers[1].lowercased() == "value" {
-            var result: [String: any Sendable] = [:]
-            for line in lines.dropFirst() where !line.isEmpty {
-                let values = parseCSVLine(line, delimiter: delimiter)
-                if values.count >= 2 {
-                    result[values[0]] = parseCSVValue(values[1])
+        if hasHeader {
+            guard lines.count >= 2 else {
+                return content
+            }
+
+            // Parse header
+            let headers = parseCSVLine(lines[0], delimiter: delimiter, quoteChar: quoteCharacter)
+
+            // Check if this is a key-value style CSV
+            if headers.count == 2 && headers[0].lowercased() == "key" && headers[1].lowercased() == "value" {
+                var result: [String: any Sendable] = [:]
+                for line in lines.dropFirst() where !line.isEmpty {
+                    let values = parseCSVLine(line, delimiter: delimiter, quoteChar: quoteCharacter)
+                    if values.count >= 2 {
+                        result[values[0]] = parseCSVValue(values[1])
+                    }
                 }
+                return result
+            }
+
+            // Parse as array of objects
+            var result: [[String: any Sendable]] = []
+            for line in lines.dropFirst() where !line.isEmpty {
+                let values = parseCSVLine(line, delimiter: delimiter, quoteChar: quoteCharacter)
+                var row: [String: any Sendable] = [:]
+                for (index, header) in headers.enumerated() where index < values.count {
+                    row[header] = parseCSVValue(values[index])
+                }
+                result.append(row)
+            }
+            return result
+        } else {
+            // No header - return array of arrays
+            var result: [[any Sendable]] = []
+            for line in lines where !line.isEmpty {
+                let values = parseCSVLine(line, delimiter: delimiter, quoteChar: quoteCharacter)
+                result.append(values.map { parseCSVValue($0) })
             }
             return result
         }
-
-        // Parse as array of objects
-        var result: [[String: any Sendable]] = []
-        for line in lines.dropFirst() where !line.isEmpty {
-            let values = parseCSVLine(line, delimiter: delimiter)
-            var row: [String: any Sendable] = [:]
-            for (index, header) in headers.enumerated() where index < values.count {
-                row[header] = parseCSVValue(values[index])
-            }
-            result.append(row)
-        }
-        return result
     }
 
-    private static func parseCSVLine(_ line: String, delimiter: String) -> [String] {
+    private static func parseCSVLine(_ line: String, delimiter: String, quoteChar: Character = "\"") -> [String] {
         var result: [String] = []
         var current = ""
         var inQuotes = false
@@ -610,7 +664,7 @@ public struct FormatDeserializer: Sendable {
         let delimChar = delimiter.first ?? ","
 
         for char in line {
-            if char == "\"" {
+            if char == quoteChar {
                 inQuotes.toggle()
             } else if char == delimChar && !inQuotes {
                 result.append(current)

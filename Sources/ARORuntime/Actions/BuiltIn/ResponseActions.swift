@@ -505,6 +505,25 @@ public struct WriteAction: ActionImplementation {
         // Detect format from file extension (ARO-0040)
         let format = FileFormat.detect(from: path)
 
+        // Get format options from "with" clause (ARO-0040)
+        // Options can include: delimiter, header, quote, encoding
+        var formatOptions: [String: any Sendable] = [:]
+        if let configDict = context.resolveAny("_literal_") as? [String: any Sendable] {
+            // Check for format options in the literal
+            if let delimiter = configDict["delimiter"] as? String {
+                formatOptions["delimiter"] = delimiter
+            }
+            if let header = configDict["header"] as? Bool {
+                formatOptions["header"] = header
+            }
+            if let quote = configDict["quote"] as? String {
+                formatOptions["quote"] = quote
+            }
+            if let encoding = configDict["encoding"] as? String {
+                formatOptions["encoding"] = encoding
+            }
+        }
+
         // Get data to write
         let content: String
         if let value: String = context.resolve(result.base) {
@@ -512,11 +531,11 @@ public struct WriteAction: ActionImplementation {
             if format == .binary {
                 content = value
             } else {
-                content = FormatSerializer.serialize(value, format: format, variableName: result.base)
+                content = FormatSerializer.serialize(value, format: format, variableName: result.base, options: formatOptions)
             }
         } else if let value = context.resolveAny(result.base) {
             // Non-string value - serialize to the detected format
-            content = FormatSerializer.serialize(value, format: format, variableName: result.base)
+            content = FormatSerializer.serialize(value, format: format, variableName: result.base, options: formatOptions)
         } else {
             content = ""
         }

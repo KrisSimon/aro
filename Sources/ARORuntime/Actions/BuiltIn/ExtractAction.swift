@@ -676,9 +676,24 @@ public struct ReadAction: ActionImplementation {
             return content
         }
 
+        // Get format options from "with" clause (ARO-0040)
+        // Options can include: delimiter, header, quote
+        var formatOptions: [String: any Sendable] = [:]
+        if let configDict = context.resolveAny("_literal_") as? [String: any Sendable] {
+            if let delimiter = configDict["delimiter"] as? String {
+                formatOptions["delimiter"] = delimiter
+            }
+            if let header = configDict["header"] as? Bool {
+                formatOptions["header"] = header
+            }
+            if let quote = configDict["quote"] as? String {
+                formatOptions["quote"] = quote
+            }
+        }
+
         // Detect format from file extension and deserialize (ARO-0040)
         let format = FileFormat.detect(from: path)
-        return FormatDeserializer.deserialize(content, format: format)
+        return FormatDeserializer.deserialize(content, format: format, options: formatOptions)
     }
 }
 

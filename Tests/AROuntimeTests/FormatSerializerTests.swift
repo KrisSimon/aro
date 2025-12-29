@@ -316,3 +316,183 @@ final class FormatDeserializerTests: XCTestCase {
         XCTAssertEqual(result as? String, sql)
     }
 }
+
+// MARK: - JSONL Format Tests
+
+final class JSONLFormatTests: XCTestCase {
+
+    func testDetectJSONL() {
+        XCTAssertEqual(FileFormat.detect(from: "data.jsonl"), .jsonl)
+        XCTAssertEqual(FileFormat.detect(from: "logs.ndjson"), .jsonl)
+    }
+
+    func testSerializeJSONLArray() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let jsonl = FormatSerializer.serialize(data, format: .jsonl, variableName: "users")
+
+        let lines = jsonl.split(separator: "\n")
+        XCTAssertEqual(lines.count, 2)
+        XCTAssertTrue(lines[0].contains("\"id\":1"))
+        XCTAssertTrue(lines[0].contains("\"name\":\"Alice\""))
+        XCTAssertTrue(lines[1].contains("\"id\":2"))
+        XCTAssertTrue(lines[1].contains("\"name\":\"Bob\""))
+    }
+
+    func testSerializeJSONLSingleObject() {
+        let data: [String: any Sendable] = ["id": 1, "name": "Alice"]
+        let jsonl = FormatSerializer.serialize(data, format: .jsonl, variableName: "user")
+
+        // Single object should be one line
+        XCTAssertFalse(jsonl.contains("\n"))
+        XCTAssertTrue(jsonl.contains("\"id\":1"))
+        XCTAssertTrue(jsonl.contains("\"name\":\"Alice\""))
+    }
+
+    func testDeserializeJSONLArray() {
+        let jsonl = """
+        {"id":1,"name":"Alice"}
+        {"id":2,"name":"Bob"}
+        """
+        let result = FormatDeserializer.deserialize(jsonl, format: .jsonl)
+
+        guard let array = result as? [any Sendable] else {
+            XCTFail("Expected array")
+            return
+        }
+        XCTAssertEqual(array.count, 2)
+
+        if let first = array[0] as? [String: any Sendable] {
+            XCTAssertEqual(first["id"] as? Int, 1)
+            XCTAssertEqual(first["name"] as? String, "Alice")
+        } else {
+            XCTFail("Expected dictionary")
+        }
+    }
+
+    func testJSONLSupportsDeserialization() {
+        XCTAssertTrue(FileFormat.jsonl.supportsDeserialization)
+    }
+
+    func testJSONLDisplayName() {
+        XCTAssertEqual(FileFormat.jsonl.displayName, "JSON Lines")
+    }
+}
+
+// MARK: - CSV Options Tests
+
+final class CSVOptionsTests: XCTestCase {
+
+    func testSerializeCSVWithCustomDelimiter() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let csv = FormatSerializer.serialize(
+            data,
+            format: .csv,
+            variableName: "users",
+            options: ["delimiter": ";"]
+        )
+
+        let lines = csv.split(separator: "\n")
+        XCTAssertTrue(lines[0].contains(";"))
+        XCTAssertFalse(lines[0].contains(","))
+    }
+
+    func testSerializeCSVWithoutHeader() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice"] as [String: any Sendable],
+            ["id": 2, "name": "Bob"] as [String: any Sendable]
+        ]
+        let csv = FormatSerializer.serialize(
+            data,
+            format: .csv,
+            variableName: "users",
+            options: ["header": false]
+        )
+
+        let lines = csv.split(separator: "\n")
+        XCTAssertEqual(lines.count, 2) // No header row
+        XCTAssertFalse(lines[0].contains("id,name") || lines[0].contains("name,id"))
+    }
+
+    func testSerializeCSVWithCustomQuote() {
+        let data: [any Sendable] = [
+            ["id": 1, "name": "Alice, Bob"] as [String: any Sendable]
+        ]
+        let csv = FormatSerializer.serialize(
+            data,
+            format: .csv,
+            variableName: "users",
+            options: ["quote": "'"]
+        )
+
+        // Values with commas should be quoted with single quotes
+        XCTAssertTrue(csv.contains("'Alice, Bob'"))
+    }
+
+    func testDeserializeCSVWithCustomDelimiter() {
+        let csv = """
+        id;name
+        1;Alice
+        2;Bob
+        """
+        let result = FormatDeserializer.deserialize(
+            csv,
+            format: .csv,
+            options: ["delimiter": ";"]
+        )
+
+        guard let array = result as? [[String: any Sendable]] else {
+            XCTFail("Expected array of dictionaries")
+            return
+        }
+        XCTAssertEqual(array.count, 2)
+        XCTAssertEqual(array[0]["id"] as? Int, 1)
+        XCTAssertEqual(array[0]["name"] as? String, "Alice")
+    }
+
+    func testDeserializeCSVWithoutHeader() {
+        let csv = """
+        1,Alice
+        2,Bob
+        """
+        let result = FormatDeserializer.deserialize(
+            csv,
+            format: .csv,
+            options: ["header": false]
+        )
+
+        guard let array = result as? [[any Sendable]] else {
+            XCTFail("Expected array of arrays")
+            return
+        }
+        XCTAssertEqual(array.count, 2)
+        // Each row should be an array of values
+        if let firstRow = array[0] as? [any Sendable] {
+            XCTAssertEqual(firstRow.count, 2)
+        }
+    }
+
+    func testDeserializeCSVWithCustomQuote() {
+        let csv = """
+        id,name
+        1,'Alice, Bob'
+        """
+        let result = FormatDeserializer.deserialize(
+            csv,
+            format: .csv,
+            options: ["quote": "'"]
+        )
+
+        guard let array = result as? [[String: any Sendable]] else {
+            XCTFail("Expected array of dictionaries")
+            return
+        }
+        XCTAssertEqual(array.count, 1)
+        XCTAssertEqual(array[0]["name"] as? String, "Alice, Bob")
+    }
+}

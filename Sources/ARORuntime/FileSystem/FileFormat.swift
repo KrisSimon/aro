@@ -6,6 +6,7 @@ import Foundation
 /// Supported file formats for automatic serialization/deserialization
 public enum FileFormat: String, Sendable, CaseIterable {
     case json
+    case jsonl  // JSON Lines - one JSON object per line
     case yaml
     case xml
     case toml
@@ -25,6 +26,8 @@ public enum FileFormat: String, Sendable, CaseIterable {
         switch ext {
         case "json":
             return .json
+        case "jsonl", "ndjson":  // JSON Lines / Newline Delimited JSON
+            return .jsonl
         case "yaml", "yml":
             return .yaml
         case "xml":
@@ -53,7 +56,7 @@ public enum FileFormat: String, Sendable, CaseIterable {
     /// Whether this format supports deserialization (parsing back to structured data)
     public var supportsDeserialization: Bool {
         switch self {
-        case .json, .yaml, .xml, .toml, .csv, .tsv, .text:
+        case .json, .jsonl, .yaml, .xml, .toml, .csv, .tsv, .text:
             return true
         case .markdown, .html, .sql, .binary:
             return false  // These are write-only formats or pass-through
@@ -64,6 +67,7 @@ public enum FileFormat: String, Sendable, CaseIterable {
     public var displayName: String {
         switch self {
         case .json: return "JSON"
+        case .jsonl: return "JSON Lines"
         case .yaml: return "YAML"
         case .xml: return "XML"
         case .toml: return "TOML"
