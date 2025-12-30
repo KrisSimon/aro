@@ -298,10 +298,13 @@ public struct ComputeAction: ActionImplementation {
             return result
         }
 
-        // Strings - character union preserving order
+        // Strings - character union (preserves A, adds unique chars from B)
+        // Consistent with list union: start with A, add chars from B not in A's set
         if let strA = a as? String, let strB = b as? String {
-            var seen = Set(strA)
-            var result = strA
+            var seen = Set(strA)  // Characters already in A
+            var result = strA     // Start with all of A (including duplicates)
+
+            // Add characters from B that aren't in A's character set
             for char in strB {
                 if !seen.contains(char) {
                     seen.insert(char)

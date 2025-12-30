@@ -452,7 +452,7 @@ struct SetOperationsTests {
         #expect(str?.isEmpty == true)
     }
 
-    @Test("Union with empty string returns deduplicated chars")
+    @Test("Union with empty string adds unique chars from B")
     func testUnionEmptyString() async throws {
         let action = ComputeAction()
         let context = RuntimeContext(featureSetName: "Test")
@@ -462,7 +462,8 @@ struct SetOperationsTests {
         let (result, object) = createDescriptors(resultBase: "all", resultSpecifiers: ["union"])
         let value = try await action.execute(result: result, object: object, context: context)
 
-        // Union deduplicates characters: "hello" -> "helo" (one 'l')
+        // Union adds unique chars: "" union "hello" = "helo" (unique chars from B)
+        // Consistent with list behavior: [] union [1,2,2] = [1,2]
         let str = value as? String
         #expect(str == "helo")
     }
