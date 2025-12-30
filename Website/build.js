@@ -70,7 +70,10 @@ const docsSubPages = [
     'sockets.html',
     'services.html',
     'file-operations.html',
-    'ai-development-guide.html'
+    'ai-development-guide.html',
+    'format-aware-io.html',
+    'working-with-dates.html',
+    'set-operations.html'
 ];
 docsSubPages.forEach(file => {
     processHtmlFile(`src/docs/${file}`, `dist/docs/${file}`, '../');

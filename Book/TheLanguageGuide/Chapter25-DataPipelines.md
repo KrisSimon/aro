@@ -86,11 +86,31 @@ Filters an existing collection with a predicate.
 | `is not`, `!=` | Inequality | `<role> is not "guest"` |
 | `>`, `>=`, `<`, `<=` | Comparison | `<age> >= 18` |
 | `in` | Set membership | `<status> in ["a", "b"]` |
+| `not in` | Set exclusion | `<status> not in <excluded>` |
 | `between` | Range | `<price> between 10 and 100` |
 | `contains` | Substring | `<name> contains "test"` |
 | `starts with` | Prefix match | `<email> starts with "admin"` |
 | `ends with` | Suffix match | `<file> ends with ".pdf"` |
 | `matches` | Regex pattern | `<email> matches /^admin@/i` |
+
+### Set Membership with `in` and `not in`
+
+The `in` and `not in` operators test set membership. They accept either a CSV string or an array variable:
+
+```aro
+(* Using CSV string *)
+<Filter> the <pending: List<Order>> from the <orders>
+    where <status> in "pending,processing".
+
+(* Using array variable *)
+<Create> the <exclude-statuses> with ["cancelled", "refunded"].
+<Filter> the <active: List<Order>> from the <orders>
+    where <status> not in <exclude-statuses>.
+
+(* Combining with other conditions *)
+<Filter> the <valid-orders: List<Order>> from the <orders>
+    where <amount> > 0 and <status> not in <exclude-statuses>.
+```
 
 The `matches` operator supports regex literals with flags:
 

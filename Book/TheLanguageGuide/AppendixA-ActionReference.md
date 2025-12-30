@@ -314,23 +314,46 @@ Creates new data structures.
 
 ### Compute
 
-Performs calculations.
+Performs calculations and transformations.
 
 **Syntax:**
 ```aro
 <Compute> the <result> for the <input>.
 <Compute> the <result> from <expression>.
+<Compute> the <result: operation> from <input>.
+<Compute> the <result: operation> from <input> with <second-input>.
 ```
+
+**Built-in Operations:**
+
+| Operation | Description | Example |
+|-----------|-------------|---------|
+| `length`, `count` | Count elements | `<Compute> the <len: length> from <text>.` |
+| `uppercase` | Convert to UPPERCASE | `<Compute> the <upper: uppercase> from <text>.` |
+| `lowercase` | Convert to lowercase | `<Compute> the <lower: lowercase> from <text>.` |
+| `hash` | Compute hash value | `<Compute> the <h: hash> from <password>.` |
+| `intersect` | Find common elements | `<Compute> the <common: intersect> from <a> with <b>.` |
+| `difference` | Find elements in A not in B | `<Compute> the <diff: difference> from <a> with <b>.` |
+| `union` | Combine all unique elements | `<Compute> the <all: union> from <a> with <b>.` |
 
 **Examples:**
 ```aro
+(* Basic computations *)
 <Compute> the <total> for the <items>.
 <Compute> the <hash> for the <password>.
-<Compute> the <tax> for the <subtotal>.
 <Compute> the <sum> from <a> + <b>.
+
+(* Set operations *)
+<Create> the <list-a> with [2, 3, 5].
+<Create> the <list-b> with [1, 2, 3, 4].
+<Compute> the <common: intersect> from <list-a> with <list-b>.
+(* Result: [2, 3] *)
+
+<Compute> the <only-in-a: difference> from <list-a> with <list-b>.
+(* Result: [5] *)
 ```
 
-**Valid Prepositions:** `for`, `from`
+**Valid Prepositions:** `for`, `from`, `with`
 
 ---
 

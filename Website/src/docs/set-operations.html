@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Set Operations - ARO Programming Language</title>
+{{head}}
+    <style>
+        .doc-page {
+            padding: 120px 24px 80px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .doc-header {
+            margin-bottom: 48px;
+        }
+
+        .doc-header h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .doc-header .lead {
+            font-size: 1.25rem;
+            color: var(--color-text-muted);
+            line-height: 1.7;
+        }
+
+        .doc-page h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 48px 0 16px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .doc-page h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 32px 0 12px;
+            color: var(--color-secondary);
+        }
+
+        .doc-page p {
+            font-size: 1.1rem;
+            color: var(--color-text-muted);
+            line-height: 1.8;
+            margin-bottom: 16px;
+        }
+
+        .doc-page code {
+            font-family: var(--font-mono);
+            background: var(--color-bg-alt);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: var(--color-secondary);
+        }
+
+        .doc-page pre {
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            overflow-x: auto;
+            margin: 24px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .doc-page pre code {
+            background: none;
+            padding: 0;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            color: var(--color-text);
+        }
+
+        .doc-page ul {
+            color: var(--color-text-muted);
+            margin: 16px 0 16px 24px;
+            line-height: 1.8;
+        }
+
+        .doc-page li {
+            margin-bottom: 8px;
+        }
+
+        .doc-page strong {
+            color: var(--color-text);
+        }
+
+        .doc-page em {
+            color: var(--color-secondary);
+            font-style: normal;
+        }
+
+        .doc-page table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 24px 0;
+        }
+
+        .doc-page th, .doc-page td {
+            padding: 12px 16px;
+            text-align: left;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .doc-page th {
+            background: var(--color-bg-alt);
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .doc-page td {
+            color: var(--color-text-muted);
+        }
+
+        .doc-page td code {
+            font-size: 0.85rem;
+        }
+
+        .highlight-box {
+            background: rgba(124, 58, 237, 0.1);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin: 32px 0;
+        }
+
+        .highlight-box h4 {
+            color: var(--color-primary);
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+        }
+
+        .highlight-box p {
+            margin-bottom: 0;
+        }
+
+        .set-visual {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            margin: 32px 0;
+            padding: 24px;
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-md);
+        }
+
+        .set-diagram {
+            text-align: center;
+        }
+
+        .set-diagram svg {
+            margin-bottom: 8px;
+        }
+
+        .set-diagram-label {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--color-primary);
+            font-weight: 600;
+        }
+
+        .code-comment { color: #6b7280; }
+        .code-keyword { color: #7c3aed; font-weight: 600; }
+        .code-string { color: #10b981; }
+        .code-feature { color: #f472b6; }
+        .code-result { color: #06b6d4; }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--color-text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--color-primary);
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-content">
+            <a href="/aro/" class="logo">
+                <span class="logo-aro">ARO</span>
+            </a>
+            <div class="nav-links">
+                <a href="../fdd.html">The FDD Story</a>
+                <a href="../getting-started.html">Get Started</a>
+                <a href="../docs.html" style="color: var(--color-text);">Docs</a>
+                <a href="../disclaimer.html">Motivation</a>
+                <a href="../download.html">Download</a>
+                <a href="https://github.com/KrisSimon/aro" class="nav-github">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                    <span class="github-stars">
+                        <svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
+                        <span class="github-stars-count"></span>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="doc-page">
+        <a href="../docs.html" class="back-link">&#x2190; Back to Documentation</a>
+
+        <header class="doc-header">
+            <h1 class="gradient-text">Set Operations</h1>
+            <p class="lead">
+                Compute intersections, differences, and unions on lists, strings, and objects.
+                Polymorphic operations that work seamlessly across different data types.
+            </p>
+        </header>
+
+        <div class="highlight-box">
+            <h4>Polymorphic Design</h4>
+            <p>
+                The same operations work on <strong>Lists</strong>, <strong>Strings</strong>, and <strong>Objects</strong>.
+                ARO automatically applies the appropriate comparison logic for each type.
+            </p>
+        </div>
+
+        <div class="set-visual">
+            <div class="set-diagram">
+                <svg width="140" height="90" viewBox="0 0 140 90" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="45" r="30" fill="#dbeafe" fill-opacity="0.6" stroke="#3b82f6" stroke-width="2"/>
+                    <circle cx="90" cy="45" r="30" fill="#dcfce7" fill-opacity="0.6" stroke="#22c55e" stroke-width="2"/>
+                    <path d="M 60 20 A 30 30 0 0 1 60 70 A 30 30 0 0 1 60 20" fill="#7c3aed" fill-opacity="0.4"/>
+                </svg>
+                <div class="set-diagram-label">intersect</div>
+            </div>
+            <div class="set-diagram">
+                <svg width="140" height="90" viewBox="0 0 140 90" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="45" r="30" fill="#f87171" fill-opacity="0.5" stroke="#ef4444" stroke-width="2"/>
+                    <circle cx="90" cy="45" r="30" fill="#e5e7eb" fill-opacity="0.4" stroke="#9ca3af" stroke-width="2"/>
+                    <path d="M 60 20 A 30 30 0 0 1 60 70 A 30 30 0 0 1 60 20" fill="white"/>
+                </svg>
+                <div class="set-diagram-label">difference</div>
+            </div>
+            <div class="set-diagram">
+                <svg width="140" height="90" viewBox="0 0 140 90" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="45" r="30" fill="#fbbf24" fill-opacity="0.5" stroke="#f59e0b" stroke-width="2"/>
+                    <circle cx="90" cy="45" r="30" fill="#fbbf24" fill-opacity="0.5" stroke="#f59e0b" stroke-width="2"/>
+                </svg>
+                <div class="set-diagram-label">union</div>
+            </div>
+        </div>
+
+        <h2>Operations Overview</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Operation</th>
+                    <th>Description</th>
+                    <th>Syntax</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>intersect</code></td>
+                    <td>Elements present in both A and B</td>
+                    <td><code>&lt;Compute&gt; the &lt;result: intersect&gt; from &lt;a&gt; with &lt;b&gt;.</code></td>
+                </tr>
+                <tr>
+                    <td><code>difference</code></td>
+                    <td>Elements in A but not in B</td>
+                    <td><code>&lt;Compute&gt; the &lt;result: difference&gt; from &lt;a&gt; with &lt;b&gt;.</code></td>
+                </tr>
+                <tr>
+                    <td><code>union</code></td>
+                    <td>All unique elements from both</td>
+                    <td><code>&lt;Compute&gt; the &lt;result: union&gt; from &lt;a&gt; with &lt;b&gt;.</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>List Operations</h2>
+        <p>
+            The most common use case. Find common elements, differences, or combine lists:
+        </p>
+
+        <pre><code><span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;list-a&gt;</span> with [2, 3, 5].
+<span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;list-b&gt;</span> with [1, 2, 3, 4].
+
+<span class="code-comment">(* Find elements in both lists *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;common: intersect&gt;</span> from &lt;list-a&gt; with &lt;list-b&gt;.
+<span class="code-comment">(* Result: [2, 3] *)</span>
+
+<span class="code-comment">(* Find elements in A not in B *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;only-in-a: difference&gt;</span> from &lt;list-a&gt; with &lt;list-b&gt;.
+<span class="code-comment">(* Result: [5] *)</span>
+
+<span class="code-comment">(* Combine all unique elements *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;all: union&gt;</span> from &lt;list-a&gt; with &lt;list-b&gt;.
+<span class="code-comment">(* Result: [2, 3, 5, 1, 4] *)</span></code></pre>
+
+        <h3>Multiset Semantics</h3>
+        <p>
+            When lists contain duplicates, <code>intersect</code> preserves duplicates up to the minimum count in either list:
+        </p>
+
+        <pre><code><span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;a&gt;</span> with [1, 2, 2, 3].
+<span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;b&gt;</span> with [2, 2, 2, 4].
+
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;common: intersect&gt;</span> from &lt;a&gt; with &lt;b&gt;.
+<span class="code-comment">(* Result: [2, 2] - two 2s appear in both *)</span></code></pre>
+
+        <h2>String Operations</h2>
+        <p>
+            Set operations work at the character level for strings:
+        </p>
+
+        <pre><code><span class="code-comment">(* Find common characters *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;shared: intersect&gt;</span> from <span class="code-string">"hello"</span> with <span class="code-string">"bello"</span>.
+<span class="code-comment">(* Result: "ello" *)</span>
+
+<span class="code-comment">(* Find unique characters in first string *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;unique: difference&gt;</span> from <span class="code-string">"hello"</span> with <span class="code-string">"bello"</span>.
+<span class="code-comment">(* Result: "h" *)</span>
+
+<span class="code-comment">(* All unique characters *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;combined: union&gt;</span> from <span class="code-string">"hello"</span> with <span class="code-string">"bello"</span>.
+<span class="code-comment">(* Result: "hellob" *)</span></code></pre>
+
+        <h2>Object Operations (Deep Comparison)</h2>
+        <p>
+            For objects, set operations perform <strong>deep recursive comparison</strong>.
+            Only key-value pairs that match exactly are included in intersections:
+        </p>
+
+        <pre><code><span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;obj-a&gt;</span> with {
+    name: <span class="code-string">"Alice"</span>,
+    age: 30,
+    address: { city: <span class="code-string">"NYC"</span>, zip: <span class="code-string">"10001"</span> }
+}.
+
+<span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;obj-b&gt;</span> with {
+    name: <span class="code-string">"Alice"</span>,
+    age: 31,
+    address: { city: <span class="code-string">"NYC"</span>, state: <span class="code-string">"NY"</span> }
+}.
+
+<span class="code-comment">(* Find matching key-value pairs *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;common: intersect&gt;</span> from &lt;obj-a&gt; with &lt;obj-b&gt;.
+<span class="code-comment">(* Result: { name: "Alice", address: { city: "NYC" } } *)</span>
+
+<span class="code-comment">(* Find differences *)</span>
+<span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;diff: difference&gt;</span> from &lt;obj-a&gt; with &lt;obj-b&gt;.
+<span class="code-comment">(* Result: { age: 30, address: { zip: "10001" } } *)</span></code></pre>
+
+        <h2>Type Behavior Summary</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Operation</th>
+                    <th>Lists</th>
+                    <th>Strings</th>
+                    <th>Objects</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>intersect</code></td>
+                    <td>Elements in both (multiset)</td>
+                    <td>Chars in both (order preserved)</td>
+                    <td>Keys with matching values (recursive)</td>
+                </tr>
+                <tr>
+                    <td><code>difference</code></td>
+                    <td>In A, not in B</td>
+                    <td>Chars in A, not in B</td>
+                    <td>Keys/values in A, not matching B</td>
+                </tr>
+                <tr>
+                    <td><code>union</code></td>
+                    <td>All unique elements</td>
+                    <td>All unique chars</td>
+                    <td>Merge keys (A wins conflicts)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Related: Filter with <code>not in</code></h2>
+        <p>
+            The Filter action also supports set membership testing with <code>in</code> and <code>not in</code> operators.
+            These accept either CSV strings or array variables:
+        </p>
+
+        <pre><code><span class="code-comment">(* Create an exclusion list *)</span>
+<span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;exclude-statuses&gt;</span> with [<span class="code-string">"cancelled"</span>, <span class="code-string">"refunded"</span>].
+
+<span class="code-comment">(* Filter using array variable *)</span>
+<span class="code-keyword">&lt;Filter&gt;</span> the <span class="code-result">&lt;active-orders&gt;</span> from the &lt;orders&gt;
+    where &lt;status&gt; not in &lt;exclude-statuses&gt;.
+
+<span class="code-comment">(* Or use CSV string syntax *)</span>
+<span class="code-keyword">&lt;Filter&gt;</span> the <span class="code-result">&lt;pending&gt;</span> from the &lt;orders&gt;
+    where &lt;status&gt; in <span class="code-string">"pending,processing"</span>.</code></pre>
+
+        <h2>Complete Example</h2>
+        <p>
+            Here's a practical example comparing two product catalogs:
+        </p>
+
+        <pre><code><span class="code-feature">(Catalog Comparison: Inventory)</span> {
+    <span class="code-comment">(* Two product ID lists *)</span>
+    <span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;warehouse-a&gt;</span> with [<span class="code-string">"SKU-001"</span>, <span class="code-string">"SKU-002"</span>, <span class="code-string">"SKU-005"</span>].
+    <span class="code-keyword">&lt;Create&gt;</span> the <span class="code-result">&lt;warehouse-b&gt;</span> with [<span class="code-string">"SKU-001"</span>, <span class="code-string">"SKU-003"</span>, <span class="code-string">"SKU-004"</span>].
+
+    <span class="code-comment">(* Find products in both warehouses *)</span>
+    <span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;in-both: intersect&gt;</span> from &lt;warehouse-a&gt; with &lt;warehouse-b&gt;.
+
+    <span class="code-comment">(* Find products only in warehouse A *)</span>
+    <span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;only-in-a: difference&gt;</span> from &lt;warehouse-a&gt; with &lt;warehouse-b&gt;.
+
+    <span class="code-comment">(* Find products only in warehouse B *)</span>
+    <span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;only-in-b: difference&gt;</span> from &lt;warehouse-b&gt; with &lt;warehouse-a&gt;.
+
+    <span class="code-comment">(* Get complete inventory *)</span>
+    <span class="code-keyword">&lt;Compute&gt;</span> the <span class="code-result">&lt;all-products: union&gt;</span> from &lt;warehouse-a&gt; with &lt;warehouse-b&gt;.
+
+    <span class="code-keyword">&lt;Return&gt;</span> an <span class="code-result">&lt;OK: status&gt;</span> with {
+        in-both: &lt;in-both&gt;,
+        exclusive-a: &lt;only-in-a&gt;,
+        exclusive-b: &lt;only-in-b&gt;,
+        total-inventory: &lt;all-products&gt;
+    }.
+}</code></pre>
+
+        <div class="highlight-box">
+            <h4>Learn More</h4>
+            <p>
+                See the full set operations specification in
+                <a href="https://github.com/KrisSimon/aro/blob/main/Proposals/ARO-0042-set-operations.md">ARO-0042: Set Operations</a>.
+            </p>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>Sometime this page should build with ARO. Obviously.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
