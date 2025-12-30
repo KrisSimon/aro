@@ -26,22 +26,22 @@
     (* Intersection: elements in both *)
     <Compute> the <common: intersect> from <list-a> with <list-b>.
     <Log> the <r1> for the <console> with "Intersection (A and B):".
-    <Log> the <r1v> for the <console> with <common>.
+    <Log> the <r1v> for the <console> with <common>.  (* Output: [2, 3] *)
 
     (* Difference A-B: elements in A but not B *)
     <Compute> the <only-a: difference> from <list-a> with <list-b>.
     <Log> the <r2> for the <console> with "Difference (A - B):".
-    <Log> the <r2v> for the <console> with <only-a>.
+    <Log> the <r2v> for the <console> with <only-a>.  (* Output: [5] *)
 
     (* Difference B-A: elements in B but not A *)
     <Compute> the <only-b: difference> from <list-b> with <list-a>.
     <Log> the <r3> for the <console> with "Difference (B - A):".
-    <Log> the <r3v> for the <console> with <only-b>.
+    <Log> the <r3v> for the <console> with <only-b>.  (* Output: [1, 4] *)
 
     (* Union: all unique elements *)
     <Compute> the <all: union> from <list-a> with <list-b>.
     <Log> the <r4> for the <console> with "Union (A or B):".
-    <Log> the <r4v> for the <console> with <all>.
+    <Log> the <r4v> for the <console> with <all>.  (* Output: [2, 3, 5, 1, 4] *)
 
     <Log> the <sep2> for the <console> with "".
 
@@ -77,15 +77,15 @@
 
     <Compute> the <str-common: intersect> from <str-a> with <str-b>.
     <Log> the <s1> for the <console> with "Intersection:".
-    <Log> the <s1v> for the <console> with <str-common>.
+    <Log> the <s1v> for the <console> with <str-common>.  (* Output: "ello" *)
 
     <Compute> the <str-diff: difference> from <str-a> with <str-b>.
     <Log> the <s2> for the <console> with "Difference (A - B):".
-    <Log> the <s2v> for the <console> with <str-diff>.
+    <Log> the <s2v> for the <console> with <str-diff>.  (* Output: "h" *)
 
     <Compute> the <str-union: union> from <str-a> with <str-b>.
     <Log> the <s3> for the <console> with "Union:".
-    <Log> the <s3v> for the <console> with <str-union>.
+    <Log> the <s3v> for the <console> with <str-union>.  (* Output: "hellob" *)
 
     <Log> the <sep6> for the <console> with "".
 
@@ -116,15 +116,15 @@
 
     <Compute> the <obj-common: intersect> from <obj-a> with <obj-b>.
     <Log> the <o1> for the <console> with "Intersection (matching fields):".
-    <Log> the <o1v> for the <console> with <obj-common>.
+    <Log> the <o1v> for the <console> with <obj-common>.  (* Output: { name: Alice, address: { city: NYC } } *)
 
     <Compute> the <obj-diff: difference> from <obj-a> with <obj-b>.
     <Log> the <o2> for the <console> with "Difference (fields in A not matching B):".
-    <Log> the <o2v> for the <console> with <obj-diff>.
+    <Log> the <o2v> for the <console> with <obj-diff>.  (* Output: { age: 30, address: { zip: 10001 } } *)
 
     <Compute> the <obj-union: union> from <obj-a> with <obj-b>.
     <Log> the <o3> for the <console> with "Union (merge, A wins):".
-    <Log> the <o3v> for the <console> with <obj-union>.
+    <Log> the <o3v> for the <console> with <obj-union>.  (* Output: merged with A values winning *)
 
     <Log> the <sep8> for the <console> with "".
 
@@ -145,11 +145,11 @@
 
     <Filter> the <included> from <items> where <value> in <exclude-list>.
     <Log> the <f1> for the <console> with "Items where value IN exclude-list:".
-    <Log> the <f1v> for the <console> with <included>.
+    <Log> the <f1v> for the <console> with <included>.  (* Output: [{id:2,v:3}, {id:3,v:5}] *)
 
     <Filter> the <excluded> from <items> where <value> not in <exclude-list>.
     <Log> the <f2> for the <console> with "Items where value NOT IN exclude-list:".
-    <Log> the <f2v> for the <console> with <excluded>.
+    <Log> the <f2v> for the <console> with <excluded>.  (* Output: [{id:1,v:2}, {id:4,v:7}] *)
 
     <Log> the <sep10> for the <console> with "".
     <Log> the <done> for the <console> with "=== Demo Complete ===".

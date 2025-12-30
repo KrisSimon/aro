@@ -202,7 +202,7 @@ Operations recursively compare nested structures:
 <Create> the <a> with [{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }].
 <Create> the <b> with [{ id: 1, name: "Alice" }, { id: 3, name: "Charlie" }].
 <Compute> the <result: intersect> from <a> with <b>.
-(* Result: [{ id: 1, name: "Alice" }] - deep equality for objects *)
+(* Result: [{ id: 1, name: "Alice" }] - deep recursive comparison for objects *)
 ```
 
 ### Circular References
@@ -227,7 +227,7 @@ Operations recursively compare nested structures:
 | Empty operand | Empty result |
 | Duplicates in lists | Multiset (preserve up to min count) |
 | Mixed types in lists | Strict type equality |
-| Nested objects in lists | Deep equality |
+| Nested objects in lists | Deep recursive comparison |
 
 ## Filter Enhancement
 
