@@ -711,12 +711,40 @@ Usage:
 
 However, Filter enhancement is **included** as a secondary feature for membership testing in object arrays.
 
+## Performance Characteristics
+
+### Time Complexity
+
+| Operation | List | String | Object |
+|-----------|------|--------|--------|
+| `intersect` | O(n*m) multiset | O(n+m) | O(n*m*d) where d=depth |
+| `difference` | O(n*m) | O(n+m) | O(n*m*d) |
+| `union` | O(n+m) | O(n+m) | O(n*m*d) |
+
+### Memory Usage
+
+- **Lists**: O(min(n,m)) for intersection, O(n+m) for union
+- **Strings**: O(n+m) for character counting
+- **Objects**: O(depth * keys) for recursive comparison
+
+### Recursion Depth
+
+Deep nesting is supported without arbitrary limits. However, extremely deep structures (>1000 levels) may cause stack overflow. Consider restructuring data if deep nesting is required.
+
+### Best Practices
+
+- For large lists (>10000 items), prefer database-level set operations
+- String operations are optimized for typical text lengths (<10KB)
+- Object operations perform best with shallow structures (<10 levels)
+
 ## Future Considerations
 
 1. **Case-insensitive string operations**: Could add `intersect-ci` variant
 2. **Custom equality functions**: Allow users to specify comparison logic
 3. **Sorted output**: Option to sort union/intersection results
 4. **Performance optimization**: Lazy evaluation for large collections
+5. **Configurable depth limit**: Runtime-configurable recursion limit for deep structures
+6. **Streaming operations**: Memory-efficient processing for very large collections
 
 ## References
 

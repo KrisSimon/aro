@@ -311,12 +311,13 @@ public struct ComputeAction: ActionImplementation {
             return result
         }
 
-        // Dictionaries - merge (A wins conflicts)
+        // Dictionaries - merge with A winning conflicts
+        // Start with B's keys, then overwrite with all of A's keys (A wins)
         if let dictA = a as? [String: any Sendable],
            let dictB = b as? [String: any Sendable] {
-            var result = dictB  // Start with B
+            var result = dictB
             for (key, value) in dictA {
-                result[key] = value  // A wins
+                result[key] = value
             }
             return result
         }

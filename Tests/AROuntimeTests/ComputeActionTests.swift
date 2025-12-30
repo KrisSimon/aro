@@ -408,6 +408,65 @@ struct SetOperationsTests {
         #expect(address?["state"] == nil) // state only in B
     }
 
+    // MARK: - Empty Collection Tests
+
+    @Test("Intersect with empty list returns empty")
+    func testIntersectEmptyList() async throws {
+        let action = ComputeAction()
+        let context = RuntimeContext(featureSetName: "Test")
+        context.bind("_expression_", value: [] as [any Sendable])
+        context.bind("_with_", value: [1, 2, 3] as [any Sendable])
+
+        let (result, object) = createDescriptors(resultBase: "common", resultSpecifiers: ["intersect"])
+        let value = try await action.execute(result: result, object: object, context: context)
+
+        let arr = value as? [any Sendable]
+        #expect(arr?.isEmpty == true)
+    }
+
+    @Test("Union with empty list returns other list")
+    func testUnionEmptyList() async throws {
+        let action = ComputeAction()
+        let context = RuntimeContext(featureSetName: "Test")
+        context.bind("_expression_", value: [] as [any Sendable])
+        context.bind("_with_", value: [1, 2, 3] as [any Sendable])
+
+        let (result, object) = createDescriptors(resultBase: "all", resultSpecifiers: ["union"])
+        let value = try await action.execute(result: result, object: object, context: context)
+
+        let arr = value as? [any Sendable]
+        #expect(arr?.count == 3)
+    }
+
+    @Test("Intersect with empty string returns empty")
+    func testIntersectEmptyString() async throws {
+        let action = ComputeAction()
+        let context = RuntimeContext(featureSetName: "Test")
+        context.bind("_expression_", value: "")
+        context.bind("_with_", value: "hello")
+
+        let (result, object) = createDescriptors(resultBase: "common", resultSpecifiers: ["intersect"])
+        let value = try await action.execute(result: result, object: object, context: context)
+
+        let str = value as? String
+        #expect(str?.isEmpty == true)
+    }
+
+    @Test("Union with empty string returns deduplicated chars")
+    func testUnionEmptyString() async throws {
+        let action = ComputeAction()
+        let context = RuntimeContext(featureSetName: "Test")
+        context.bind("_expression_", value: "")
+        context.bind("_with_", value: "hello")
+
+        let (result, object) = createDescriptors(resultBase: "all", resultSpecifiers: ["union"])
+        let value = try await action.execute(result: result, object: object, context: context)
+
+        // Union deduplicates characters: "hello" -> "helo" (one 'l')
+        let str = value as? String
+        #expect(str == "helo")
+    }
+
     // MARK: - Error Cases
 
     @Test("Set operation without with clause throws error")

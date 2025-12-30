@@ -309,7 +309,7 @@ public struct FilterAction: ActionImplementation {
             // Support array values (ARO-0042)
             if let arr = expected as? [any Sendable] {
                 return arr.contains { item in
-                    String(describing: item) == actualStr
+                    areValuesEqual(actual, item)
                 }
             }
             // Fallback to comma-separated values
@@ -320,7 +320,7 @@ public struct FilterAction: ActionImplementation {
             // Support array values (ARO-0042)
             if let arr = expected as? [any Sendable] {
                 return !arr.contains { item in
-                    String(describing: item) == actualStr
+                    areValuesEqual(actual, item)
                 }
             }
             // Fallback to comma-separated values
@@ -338,6 +338,28 @@ public struct FilterAction: ActionImplementation {
         if let f = value as? Float { return Double(f) }
         if let s = value as? String { return Double(s) }
         return nil
+    }
+
+    /// Type-safe equality check for set membership operations (ARO-0042)
+    private func areValuesEqual(_ a: Any, _ b: Any) -> Bool {
+        // Integer comparison
+        if let aInt = a as? Int, let bInt = b as? Int {
+            return aInt == bInt
+        }
+        // Double comparison
+        if let aDouble = a as? Double, let bDouble = b as? Double {
+            return aDouble == bDouble
+        }
+        // String comparison
+        if let aStr = a as? String, let bStr = b as? String {
+            return aStr == bStr
+        }
+        // Bool comparison
+        if let aBool = a as? Bool, let bBool = b as? Bool {
+            return aBool == bBool
+        }
+        // Fallback to string representation for other types
+        return String(describing: a) == String(describing: b)
     }
 }
 
