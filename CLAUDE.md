@@ -346,12 +346,12 @@ Examples/
     ├── api.aro         # CRUD operations
     └── observers.aro   # Repository change observers
 
-Proposals/              # 35 evolution proposals (ARO-0001 to ARO-0035)
+Proposals/              # 42 evolution proposals (ARO-0001 to ARO-0042)
 ```
 
 ## Language Proposals
 
-The `Proposals/` directory contains 35 evolution proposals:
+The `Proposals/` directory contains 42 evolution proposals:
 - **0001-0019**: Core language specification
 - **0020-0025**: Runtime architecture (execution, HTTP, files, sockets, actions)
 - **0026**: Native compilation (aro build)
@@ -359,6 +359,10 @@ The `Proposals/` directory contains 35 evolution proposals:
 - **0028**: Long-running applications (Keepalive action)
 - **0029-0034**: Additional features (file monitoring, IDE, responses, repositories, system exec, LSP)
 - **0035**: Qualifier-as-name syntax for computed results
+- **0036-0039**: File system operations, split action, modules, scheduler
+- **0040**: Format-aware file I/O
+- **0041**: DateTime types and operations
+- **0042**: Polymorphic set operations
 
 ## Concurrency
 

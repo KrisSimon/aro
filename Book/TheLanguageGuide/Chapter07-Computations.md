@@ -112,7 +112,126 @@ For backward compatibility, the original syntax still works. Writing `<Compute> 
 
 ---
 
-## 7.4 Extending Computations
+## 7.4 Set Operations
+
+When working with collections, you often need to find commonalities or differences between datasets. ARO provides three polymorphic set operations that work across Lists, Strings, and Objects.
+
+<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5em; margin: 2em 0;">
+
+<div style="text-align: center;">
+<svg width="160" height="100" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="55" cy="50" r="35" fill="#dbeafe" fill-opacity="0.7" stroke="#3b82f6" stroke-width="2"/>
+  <circle cx="105" cy="50" r="35" fill="#dcfce7" fill-opacity="0.7" stroke="#22c55e" stroke-width="2"/>
+  <path d="M 70 25 A 35 35 0 0 1 70 75 A 35 35 0 0 1 70 25" fill="#7c3aed" fill-opacity="0.4"/>
+  <text x="80" y="92" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#7c3aed">intersect</text>
+</svg>
+</div>
+
+<div style="text-align: center;">
+<svg width="160" height="100" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="55" cy="50" r="35" fill="#f87171" fill-opacity="0.5" stroke="#ef4444" stroke-width="2"/>
+  <circle cx="105" cy="50" r="35" fill="#e5e7eb" fill-opacity="0.5" stroke="#9ca3af" stroke-width="2"/>
+  <path d="M 70 25 A 35 35 0 0 1 70 75 A 35 35 0 0 1 70 25" fill="white"/>
+  <text x="80" y="92" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#ef4444">difference</text>
+</svg>
+</div>
+
+<div style="text-align: center;">
+<svg width="160" height="100" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="55" cy="50" r="35" fill="#fbbf24" fill-opacity="0.5" stroke="#f59e0b" stroke-width="2"/>
+  <circle cx="105" cy="50" r="35" fill="#fbbf24" fill-opacity="0.5" stroke="#f59e0b" stroke-width="2"/>
+  <text x="80" y="92" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#d97706">union</text>
+</svg>
+</div>
+
+</div>
+
+### List Operations
+
+The most common use case is comparing two lists:
+
+```aro
+<Create> the <list-a> with [2, 3, 5].
+<Create> the <list-b> with [1, 2, 3, 4].
+
+<Compute> the <common: intersect> from <list-a> with <list-b>.
+(* Result: [2, 3] — elements in both *)
+
+<Compute> the <only-in-a: difference> from <list-a> with <list-b>.
+(* Result: [5] — elements in A but not B *)
+
+<Compute> the <all: union> from <list-a> with <list-b>.
+(* Result: [2, 3, 5, 1, 4] — all unique elements *)
+```
+
+Set operations use **multiset semantics** for duplicates. When lists contain repeated elements, the intersection preserves duplicates up to the minimum count in either list:
+
+```aro
+<Create> the <a> with [1, 2, 2, 3].
+<Create> the <b> with [2, 2, 2, 4].
+
+<Compute> the <common: intersect> from <a> with <b>.
+(* Result: [2, 2] — two 2s appear in both *)
+
+<Compute> the <remaining: difference> from <a> with <b>.
+(* Result: [1, 3] — removes two 2s from a *)
+```
+
+### String Operations
+
+The same operations work on strings at the character level:
+
+```aro
+<Compute> the <shared: intersect> from "hello" with "bello".
+(* Result: "ello" — characters in both, preserving order *)
+
+<Compute> the <unique: difference> from "hello" with "bello".
+(* Result: "h" — characters in first, not in second *)
+
+<Compute> the <combined: union> from "hello" with "bello".
+(* Result: "hellob" — all unique characters *)
+```
+
+### Object Operations (Deep Comparison)
+
+For objects, set operations perform **deep recursive comparison**. The intersection finds keys where both objects have matching values:
+
+```aro
+<Create> the <obj-a> with {
+    name: "Alice",
+    age: 30,
+    address: { city: "NYC", zip: "10001" }
+}.
+
+<Create> the <obj-b> with {
+    name: "Alice",
+    age: 31,
+    address: { city: "NYC", state: "NY" }
+}.
+
+<Compute> the <common: intersect> from <obj-a> with <obj-b>.
+(* Result: { name: "Alice", address: { city: "NYC" } } *)
+(* Only fields with matching values are included *)
+
+<Compute> the <diff: difference> from <obj-a> with <obj-b>.
+(* Result: { age: 30, address: { zip: "10001" } } *)
+(* Fields in A that differ from or don't exist in B *)
+
+<Compute> the <merged: union> from <obj-a> with <obj-b>.
+(* Result: merged object with A winning conflicts *)
+```
+
+### Type Behavior Summary
+
+| Operation | Lists | Strings | Objects |
+|-----------|-------|---------|---------|
+| **intersect** | Elements in both (multiset) | Chars in both (order preserved) | Keys with matching values (recursive) |
+| **difference** | In A, not in B | Chars in A, not in B | Keys/values in A, not matching B |
+| **union** | All unique elements | All unique chars | Merge keys (A wins conflicts) |
+
+---
+
+## 7.5 Extending Computations
 
 The built-in operations cover common cases, but real applications often need domain-specific computations. ARO's plugin system allows you to add custom operations that integrate seamlessly with the Compute action.
 
@@ -146,7 +265,7 @@ See Chapter 17 for the full plugin development guide.
 
 ---
 
-## 7.5 Computation Patterns
+## 7.6 Computation Patterns
 
 Several patterns emerge in how computations are used within feature sets.
 
