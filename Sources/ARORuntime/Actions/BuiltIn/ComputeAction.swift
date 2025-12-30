@@ -70,8 +70,16 @@ public struct ComputeAction: ActionImplementation {
         }
 
         // Computation name from result specifiers or base (for backward compatibility)
-        let knownComputations: Set<String> = ["hash", "length", "count", "uppercase", "lowercase", "identity"]
+        let knownComputations: Set<String> = [
+            "hash", "length", "count", "uppercase", "lowercase", "identity",
+            "date", "format", "distance"  // Date operations (ARO-0041)
+        ]
         let computationName = resolveOperationName(from: result, knownOperations: knownComputations, fallback: "identity")
+
+        // Check for date offset pattern (e.g., +1h, -3d)
+        if DateOffset.isOffsetPattern(computationName) {
+            return try computeDateOffset(input: input, offsetPattern: computationName, context: context)
+        }
 
         // Look up computation service
         if let computeService = context.service(ComputationService.self) {
@@ -113,10 +121,66 @@ public struct ComputeAction: ActionImplementation {
         case "identity":
             return input
 
+        // Date operations (ARO-0041)
+        case "date":
+            // Parse ISO 8601 string to ARODate
+            if let str = input as? String {
+                return try ARODate.parse(str)
+            }
+            if let date = input as? ARODate {
+                return date
+            }
+            throw ActionError.typeMismatch(expected: "String (ISO 8601)", actual: String(describing: type(of: input)))
+
+        case "format":
+            // Format a date using a pattern string
+            // Pattern comes from the 'with' clause (_expression_)
+            guard let date = getARODate(from: input) else {
+                throw ActionError.typeMismatch(expected: "ARODate or ISO 8601 String", actual: String(describing: type(of: input)))
+            }
+            let pattern = context.resolveAny("_expression_") as? String ?? DateFormatPattern.fullDate
+            let dateService = context.service(DateService.self) ?? DefaultDateService()
+            return dateService.format(date, pattern: pattern)
+
+        case "distance":
+            // Calculate distance between two dates
+            // The 'to' date comes from the 'to' clause (_to_)
+            guard let fromDate = getARODate(from: input) else {
+                throw ActionError.typeMismatch(expected: "ARODate", actual: String(describing: type(of: input)))
+            }
+            guard let toValue = context.resolveAny("_to_"),
+                  let toDate = getARODate(from: toValue) else {
+                throw ActionError.runtimeError("Distance calculation requires a 'to' clause: <Compute> the <distance: distance> from <date1> to <date2>.")
+            }
+            let dateService = context.service(DateService.self) ?? DefaultDateService()
+            return dateService.distance(from: fromDate, to: toDate)
+
         default:
             // Return input as-is for unknown computations
             return input
         }
+    }
+
+    /// Get an ARODate from various input types
+    private func getARODate(from input: any Sendable) -> ARODate? {
+        if let date = input as? ARODate {
+            return date
+        }
+        if let str = input as? String {
+            return try? ARODate.parse(str)
+        }
+        return nil
+    }
+
+    /// Compute a date offset (e.g., +1h, -3d from a date)
+    private func computeDateOffset(input: any Sendable, offsetPattern: String, context: ExecutionContext) throws -> ARODate {
+        guard let date = getARODate(from: input) else {
+            throw ActionError.typeMismatch(expected: "ARODate or ISO 8601 String", actual: String(describing: type(of: input)))
+        }
+
+        let offset = try DateOffset.parse(offsetPattern)
+        let dateService = context.service(DateService.self) ?? DefaultDateService()
+        return dateService.offset(date, by: offset)
     }
 }
 
@@ -339,7 +403,7 @@ public struct TransformAction: ActionImplementation {
 public struct CreateAction: ActionImplementation {
     public static let role: ActionRole = .own
     public static let verbs: Set<String> = ["create", "build", "construct"]
-    public static let validPrepositions: Set<Preposition> = [.with, .from, .for]
+    public static let validPrepositions: Set<Preposition> = [.with, .from, .for, .to]
 
     public init() {}
 
@@ -349,6 +413,20 @@ public struct CreateAction: ActionImplementation {
         context: ExecutionContext
     ) async throws -> any Sendable {
         try validatePreposition(object.preposition)
+
+        // Check for special types in result.specifiers (ARO-0041)
+        if let typeSpecifier = result.specifiers.first?.lowercased() {
+            switch typeSpecifier {
+            case "date-range", "daterange":
+                return try createDateRange(object: object, context: context)
+
+            case "recurrence":
+                return try createRecurrence(object: object, context: context)
+
+            default:
+                break  // Fall through to regular entity creation
+            }
+        }
 
         // Get the source value - this is what we're creating from
         // The source can be a literal, a variable, or structured data
@@ -378,6 +456,63 @@ public struct CreateAction: ActionImplementation {
         let timestamp = UInt64(Date().timeIntervalSince1970 * 1000)
         let random = UInt32.random(in: 0..<UInt32.max)
         return String(format: "%llx%08x", timestamp, random)
+    }
+
+    /// Create a date range from start to end (ARO-0041)
+    /// Syntax: <Create> the <range: date-range> from <start> to <end>.
+    private func createDateRange(object: ObjectDescriptor, context: ExecutionContext) throws -> ARODateRange {
+        // Get start date from object.base (the 'from' clause)
+        guard let startValue = context.resolveAny(object.base),
+              let startDate = getARODate(from: startValue) else {
+            throw ActionError.typeMismatch(expected: "ARODate (start)", actual: object.base)
+        }
+
+        // Get end date from _to_ (the 'to' clause)
+        guard let endValue = context.resolveAny("_to_"),
+              let endDate = getARODate(from: endValue) else {
+            throw ActionError.runtimeError("Date range requires a 'to' clause: <Create> the <range: date-range> from <start> to <end>.")
+        }
+
+        let dateService = context.service(DateService.self) ?? DefaultDateService()
+        return dateService.createRange(from: startDate, to: endDate)
+    }
+
+    /// Create a recurrence pattern (ARO-0041)
+    /// Syntax: <Create> the <schedule: recurrence> with "every monday".
+    private func createRecurrence(object: ObjectDescriptor, context: ExecutionContext) throws -> ARORecurrence {
+        // Get pattern from _expression_ (the 'with' clause) or object.base
+        let pattern: String
+        if let expr = context.resolveAny("_expression_") as? String {
+            pattern = expr
+        } else if let literal = context.resolveAny("_literal_") as? String {
+            pattern = literal
+        } else if let resolved = context.resolveAny(object.base) as? String {
+            pattern = resolved
+        } else {
+            pattern = object.base
+        }
+
+        // Get optional start date from _from_ clause
+        let startDate: ARODate?
+        if let fromValue = context.resolveAny("_from_") {
+            startDate = getARODate(from: fromValue)
+        } else {
+            startDate = nil
+        }
+
+        let dateService = context.service(DateService.self) ?? DefaultDateService()
+        return try dateService.createRecurrence(pattern: pattern, from: startDate)
+    }
+
+    /// Get an ARODate from various input types
+    private func getARODate(from input: any Sendable) -> ARODate? {
+        if let date = input as? ARODate {
+            return date
+        }
+        if let str = input as? String {
+            return try? ARODate.parse(str)
+        }
+        return nil
     }
 }
 

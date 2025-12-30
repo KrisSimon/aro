@@ -909,3 +909,68 @@ facts:
     category: "Actions"
     headline: "<Log> the <event> for the <file: ./app.log> with <data>."
     explanation: "Log to files with automatic timestamps. JSON objects logged as JSON. Append mode by default. Rotation configurable."
+
+  # ===== WEEK 53: Date and Time =====
+  - id: "53-1"
+    week: 53
+    day: 1
+    category: "Date"
+    headline: "<now>"
+    explanation: "Magic variable for current UTC timestamp. Available everywhere. No declaration needed. Always evaluates to current time. ISO 8601 format."
+
+  - id: "53-2"
+    week: 53
+    day: 2
+    category: "Date"
+    headline: "<Extract> the <year> from the <now: year>."
+    explanation: "Access date properties via qualifiers. year, month, day, hour, minute, second, dayOfWeek, timestamp, iso. All integers except iso (string)."
+
+  - id: "53-3"
+    week: 53
+    day: 3
+    category: "Date"
+    headline: "<Compute> the <meeting: date> from \"2025-06-15T14:00:00Z\"."
+    explanation: "Parse ISO 8601 strings to date objects. Supports full ISO, date-only, and timezone offsets. Once parsed, all date operations available."
+
+  - id: "53-4"
+    week: 53
+    day: 4
+    category: "Date"
+    headline: "<Compute> the <formatted: format> from <now> with \"MMMM dd, yyyy\"."
+    explanation: "Format dates for display. Patterns: yyyy=year, MMMM=month name, dd=day, HH:mm=time. Use with parameter for pattern string."
+
+  - id: "53-5"
+    week: 53
+    day: 5
+    category: "Date"
+    headline: "<Compute> the <tomorrow: +1d> from <now>."
+    explanation: "Relative date offsets. Units: s/m/h/d/w/M/y. Add (+) or subtract (-). Works with any date, not just <now>. Chain for complex offsets."
+
+  # ===== WEEK 54: Date Ranges and Recurrence =====
+  - id: "54-1"
+    week: 54
+    day: 1
+    category: "Date"
+    headline: "<Create> the <vacation: date-range> from <start> to <end>."
+    explanation: "Date ranges for periods. Properties: days, hours, minutes, seconds, start, end. Use 'in' operator to check if date falls within range."
+
+  - id: "54-2"
+    week: 54
+    day: 2
+    category: "Date"
+    headline: "when <booking> before <deadline>"
+    explanation: "Date comparisons in when clauses. 'before' and 'after' for temporal order. 'in' for range membership. Natural English date logic."
+
+  - id: "54-3"
+    week: 54
+    day: 3
+    category: "Date"
+    headline: "<Create> the <schedule: recurrence> with \"every monday\"."
+    explanation: "Recurrence patterns for scheduling. 'every day', 'every 2 weeks', 'every second friday'. Get next occurrence with <schedule: next>."
+
+  - id: "54-4"
+    week: 54
+    day: 4
+    category: "Date"
+    headline: "<Compute> the <remaining: distance> from <now> to <deadline>."
+    explanation: "Calculate time between dates. Extract in various units: days, hours, minutes, seconds. Positive if future, negative if past."

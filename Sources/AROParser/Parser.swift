@@ -242,6 +242,7 @@ public final class Parser {
         let literalValue: LiteralValue? = nil
         var expression: (any Expression)? = nil
         var aggregation: AggregationClause? = nil
+        var toExpression: (any Expression)? = nil
 
         // Check if we should parse an expression after the preposition
         // This happens for: `to <expr>`, `from <expr>`, `with <expr>`, `for <expr>` when followed by expression-starting token
@@ -275,6 +276,14 @@ public final class Parser {
                     expression = try parseExpression()
                 }
             }
+
+        }
+
+        // Parse optional to clause (ARO-0041): `from <start> to <end>` for date ranges
+        // This is placed outside the if/else to handle both expression and standard object syntax
+        if case .preposition(let p) = peek().kind, p == .to {
+            advance() // consume 'to'
+            toExpression = try parseExpression()
         }
 
         // Parse optional where clause (ARO-0018): `where <field> is "value"` or `where <field> > 1000`
@@ -314,6 +323,7 @@ public final class Parser {
             aggregation: aggregation,
             whereClause: whereClause,
             byClause: byClause,
+            toClause: toExpression,
             whenCondition: whenCondition,
             span: startToken.span.merged(with: endToken.span)
         )
@@ -874,11 +884,21 @@ public final class Parser {
         )
     }
 
-    /// Parses a type annotation: String | Integer | Float | Boolean | List<T> | Map<K,V> | SchemaName
+    /// Parses a type annotation: String | Integer | Float | Boolean | List<T> | Map<K,V> | SchemaName | DateOffset
     /// Note: This function does NOT consume the closing `>` of the enclosing variable reference.
     /// It only consumes `<` and `>` for generic type parameters like `List<User>`.
     /// Type names can be hyphenated like "password-hash" for legacy compatibility.
+    /// Date offsets like "+7d", "-3h" are also supported (ARO-0041).
     private func parseTypeAnnotation() throws -> String {
+        // Check for date offset pattern (ARO-0041): +7d, -3h, etc.
+        // Also check for negative integer literals (lexer may parse "-1" as intLiteral(-1))
+        if check(.plus) || check(.minus) {
+            return try parseDateOffsetPattern()
+        }
+        if case .intLiteral(let value) = peek().kind, value < 0 {
+            return try parseDateOffsetPattern()
+        }
+
         // Parse compound identifier (may contain hyphens like "password-hash")
         var typeStr = try parseCompoundIdentifier()
 
@@ -926,7 +946,43 @@ public final class Parser {
 
         return typeStr
     }
-    
+
+    /// Parses a date offset pattern like +7d, -3h, +2w (ARO-0041)
+    /// Format: ("+" | "-") number unit
+    /// Units: s, m, h, d, w, M, y (or full names like seconds, minutes, hours, days, weeks, months, years)
+    private func parseDateOffsetPattern() throws -> String {
+        var result = ""
+
+        // Check if the number is already signed (lexer may produce intLiteral(-1) for "-1")
+        if case .intLiteral(let signedValue) = peek().kind, signedValue < 0 {
+            // Negative number already includes the sign
+            advance()
+            result = String(signedValue)
+        } else {
+            // Consume explicit sign (+ or -)
+            if check(.plus) {
+                advance()
+                result += "+"
+            } else if check(.minus) {
+                advance()
+                result += "-"
+            }
+
+            // Expect a positive number
+            guard case .intLiteral(let value) = peek().kind else {
+                throw ParserError.unexpectedToken(expected: "integer", got: peek())
+            }
+            advance()
+            result += String(value)
+        }
+
+        // Expect unit identifier (s, m, h, d, w, M, y, or full name)
+        let unitToken = try expectIdentifier(message: "time unit (s, m, h, d, w, M, y)")
+        result += unitToken.lexeme
+
+        return result
+    }
+
     /// Parses: identifier { "-" identifier }
     private func parseCompoundIdentifier() throws -> String {
         var result = try expectIdentifier(message: "identifier").lexeme

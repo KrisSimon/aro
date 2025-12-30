@@ -93,6 +93,12 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
+        // Magic variable: <now> returns current date/time
+        if name == "now" {
+            let dateService = services[ObjectIdentifier(DateService.self)] as? DateService ?? DefaultDateService()
+            return dateService.now(timezone: nil)
+        }
+
         if let value = variables[name] {
             return value
         }
