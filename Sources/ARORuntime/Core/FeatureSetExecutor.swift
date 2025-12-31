@@ -806,9 +806,13 @@ public final class Runtime: @unchecked Sendable {
                 self._compiledHandlers[event.domainEventType] ?? []
             }
 
-            // Execute all matching handlers
-            for (_, callback) in handlers {
-                await callback(event)
+            // Execute all matching handlers concurrently
+            await withTaskGroup(of: Void.self) { group in
+                for (_, callback) in handlers {
+                    group.addTask {
+                        await callback(event)
+                    }
+                }
             }
         }
     }
