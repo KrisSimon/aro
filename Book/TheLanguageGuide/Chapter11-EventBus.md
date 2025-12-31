@@ -1,4 +1,4 @@
-# Chapter 10: The Event Bus
+# Chapter 11: The Event Bus
 
 *"In an event-driven system, everything is a reaction."*
 
@@ -266,4 +266,4 @@ The separation between Accept and observers creates a clean architecture. Accept
 
 ---
 
-*Next: Chapter 11 — Application Lifecycle*
+*Next: Chapter 12 — Application Lifecycle*

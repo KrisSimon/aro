@@ -1,4 +1,4 @@
-# Chapter 14: HTTP Feature Sets
+# Chapter 15: HTTP Feature Sets
 
 *"Every endpoint tells a story."*
 
@@ -198,4 +198,4 @@ Return appropriate status codes. Use Created for successful POST requests that c
 
 ---
 
-*Next: Chapter 15 — Request/Response Patterns*
+*Next: Chapter 16 — Request/Response Patterns*

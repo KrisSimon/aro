@@ -1,10 +1,10 @@
-# Chapter 7: Computations
+# Chapter 8: Computations
 
 *"Transform what you have into what you need."*
 
 ---
 
-## 7.1 The OWN Role
+## 8.1 The OWN Role
 
 Among the four semantic roles in ARO—REQUEST, OWN, RESPONSE, and EXPORT—the OWN role occupies a special place. While REQUEST brings data in and RESPONSE sends it out, OWN is where the actual work happens. OWN actions transform data that already exists within the feature set, producing new values without external side effects.
 
@@ -16,7 +16,7 @@ This pattern—read, transform, bind—is the heartbeat of data processing in AR
 
 ---
 
-## 7.2 Built-in Computations
+## 8.2 Built-in Computations
 
 ARO provides several built-in computations that cover common transformation needs:
 
@@ -72,7 +72,7 @@ Here, the expression `<price> * <quantity>` is the actual computation. The resul
 
 ---
 
-## 7.3 Naming Your Results
+## 8.3 Naming Your Results
 
 A subtle problem arises when you need multiple results of the same operation. Consider computing the lengths of two different messages:
 
@@ -112,7 +112,7 @@ For backward compatibility, the original syntax still works. Writing `<Compute> 
 
 ---
 
-## 7.4 Set Operations
+## 8.4 Set Operations
 
 When working with collections, you often need to find commonalities or differences between datasets. ARO provides three polymorphic set operations that work across Lists, Strings, and Objects.
 
@@ -231,7 +231,7 @@ For objects, set operations perform **deep recursive comparison**. The intersect
 
 ---
 
-## 7.5 Extending Computations
+## 8.5 Extending Computations
 
 The built-in operations cover common cases, but real applications often need domain-specific computations. ARO's plugin system allows you to add custom operations that integrate seamlessly with the Compute action.
 
@@ -265,7 +265,7 @@ See Chapter 17 for the full plugin development guide.
 
 ---
 
-## 7.6 Computation Patterns
+## 8.6 Computation Patterns
 
 Several patterns emerge in how computations are used within feature sets.
 
@@ -305,4 +305,4 @@ Each pattern follows the read-transform-bind rhythm. Data flows forward, transfo
 
 ---
 
-*Next: Chapter 8 — Understanding Qualifiers*
+*Next: Chapter 9 — Understanding Qualifiers*

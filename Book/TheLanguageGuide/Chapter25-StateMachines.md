@@ -1,10 +1,10 @@
-# Chapter 22: State Machines
+# Chapter 25: State Machines
 
 *"A business object is only as valid as its current state."*
 
 ---
 
-## 22.1 Why State Machines Matter
+## 25.1 Why State Machines Matter
 
 Business entities rarely exist in a single state. An order is drafted, placed, paid, shipped, and delivered. A support ticket is opened, assigned, escalated, and resolved. A document is drafted, reviewed, approved, and published. These lifecycles define what operations are valid at each point in time.
 
@@ -14,7 +14,7 @@ State machines make lifecycles explicit. They define what states exist, what tra
 
 ---
 
-## 22.2 ARO's Approach to State
+## 25.2 ARO's Approach to State
 
 ARO takes a deliberately simple approach to state machines. There is no state machine library, no visual editor, no hierarchical states. Instead, ARO provides a single action—`Accept`—that validates and applies state transitions within your existing feature sets.
 
@@ -24,7 +24,7 @@ States in ARO are defined as OpenAPI enum types. This means your API contract do
 
 ---
 
-## 22.3 Defining States in OpenAPI
+## 25.3 Defining States in OpenAPI
 
 States are defined as string enums in your OpenAPI specification. Here is how an order lifecycle might be defined:
 
@@ -67,7 +67,7 @@ This creates a clear contract: orders have a status field that must be one of th
 
 ---
 
-## 22.4 The Accept Action
+## 25.4 The Accept Action
 
 <div style="float: right; margin: 0 0 1em 1.5em;">
 <svg width="180" height="200" viewBox="0 0 180 200" xmlns="http://www.w3.org/2000/svg">
@@ -138,7 +138,7 @@ If the order's status is not `"draft"`, execution stops with an error. The calle
 
 ---
 
-## 22.5 State Transition Validation
+## 25.5 State Transition Validation
 
 The Accept action provides clear error messages when transitions fail. If you attempt to place an order that has already been paid:
 
@@ -154,7 +154,7 @@ Consider what this means for debugging. When a user reports "I can't place my or
 
 ---
 
-## 22.6 Complete Example: Order Lifecycle
+## 25.6 Complete Example: Order Lifecycle
 
 <div style="float: left; margin: 0 1.5em 1em 0;">
 <svg width="140" height="280" viewBox="0 0 140 280" xmlns="http://www.w3.org/2000/svg">
@@ -327,7 +327,7 @@ Each feature set retrieves the order, validates and applies its transition, stor
 
 ---
 
-## 22.7 Cancellation Paths
+## 25.7 Cancellation Paths
 
 Real business processes have more than one terminal state. Orders can be cancelled as well as delivered. The state machine must define which transitions lead to cancellation.
 
@@ -394,7 +394,7 @@ The choice depends on whether the different cancellation paths have different si
 
 ---
 
-## 22.8 What ARO Does Not Do
+## 25.8 What ARO Does Not Do
 
 ARO's state machine approach is deliberately minimal. Understanding what it does not do helps you decide when simpler approaches suffice and when you need external tooling.
 
@@ -412,7 +412,7 @@ These limitations are features, not bugs. They keep the language simple. For mos
 
 ---
 
-## 22.9 Combining States with Events
+## 25.9 Combining States with Events
 
 State transitions naturally pair with events. When an order moves to a new state, other parts of the system often need to react. Shipping needs to know when orders are paid. Notifications need to know when orders are delivered.
 
@@ -489,7 +489,7 @@ State guards enable guaranteed ordering through state-based filtering. Instead o
 
 ---
 
-## 22.10 Best Practices
+## 25.10 Best Practices
 
 **Define all states in OpenAPI.** The contract should be the source of truth for what states exist. Clients and tooling can use this information.
 
@@ -507,4 +507,4 @@ State guards enable guaranteed ordering through state-based filtering. Instead o
 
 ---
 
-*Next: Chapter 23 — Modules and Imports*
+*Next: Chapter 26 — Modules and Imports*

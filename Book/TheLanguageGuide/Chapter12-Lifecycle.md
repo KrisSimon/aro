@@ -1,4 +1,4 @@
-# Chapter 11: Application Lifecycle
+# Chapter 12: Application Lifecycle
 
 *"Every program has a beginning, a middle, and an end."*
 
@@ -116,4 +116,4 @@ Keep shutdown handlers fast. Long shutdown times frustrate operators and can cau
 
 ---
 
-*Next: Chapter 12 — Custom Events*
+*Next: Chapter 13 — Custom Events*

@@ -1,10 +1,10 @@
-# Chapter 32: Date and Time
+# Chapter 35: Date and Time
 
 *"Time is the fire in which we burn."*
 
 ---
 
-## 32.1 The Nature of Time in ARO
+## 35.1 The Nature of Time in ARO
 
 Time is a fundamental dimension of business logic. Orders have timestamps. Contracts have deadlines. Meetings have schedules. Reports have periods. Almost every business domain involves temporal reasoning in some form.
 
@@ -14,7 +14,7 @@ The foundation of ARO's temporal model is UTC (Coordinated Universal Time). All 
 
 ---
 
-## 32.2 The Magic `<now>` Variable
+## 35.2 The Magic `<now>` Variable
 
 ARO provides a special variable that exists without declaration: `<now>`. This magic variable always resolves to the current UTC timestamp:
 
@@ -37,7 +37,7 @@ Unlike regular variables, `<now>` needs no prior binding. It exists in every fea
 
 ---
 
-## 32.3 Extracting Date Components
+## 35.3 Extracting Date Components
 
 Dates contain structured information: years, months, days, hours, minutes, seconds. ARO exposes these components through qualifiers:
 
@@ -92,7 +92,7 @@ Additional properties include `timestamp` (Unix epoch seconds), `iso` (the full 
 
 ---
 
-## 32.4 Parsing Date Strings
+## 35.4 Parsing Date Strings
 
 External systems send dates as strings. Users enter dates in forms. Configuration files specify dates in text. ARO parses these into proper date objects:
 
@@ -113,7 +113,7 @@ The parser is strict. Invalid dates produce errors rather than surprising interp
 
 ---
 
-## 32.5 Formatting Dates
+## 35.5 Formatting Dates
 
 Dates need to be displayed to users, and different contexts call for different formats. Europeans expect day-month-year. Americans expect month-day-year. Formal documents want full month names. Log files want compact timestamps.
 
@@ -136,7 +136,7 @@ The pattern language follows standard conventions. Four `y`s mean four-digit yea
 
 ---
 
-## 32.6 Relative Offsets
+## 35.6 Relative Offsets
 
 Business logic often involves relative dates. "Tomorrow" is one day from now. "Next week" is seven days from now. "The booking expires in 24 hours." These relative calculations are expressed through offset qualifiers:
 
@@ -168,7 +168,7 @@ Offsets can be chained by computing from an already-offset date:
 
 ---
 
-## 32.7 Date Ranges
+## 35.7 Date Ranges
 
 Many business concepts span periods: fiscal quarters, subscription terms, booking windows, sale periods. ARO represents these as date ranges:
 
@@ -195,7 +195,7 @@ when <order-date> in <sale-period> {
 
 ---
 
-## 32.8 Date Comparisons
+## 35.8 Date Comparisons
 
 Dates can be compared using `before` and `after` operators in when clauses:
 
@@ -213,7 +213,7 @@ These temporal comparisons read naturally and express intent clearly. The runtim
 
 ---
 
-## 32.9 Distance Between Dates
+## 35.9 Distance Between Dates
 
 How many days until the deadline? How many hours since the last update? These questions require calculating the distance between two dates:
 
@@ -227,7 +227,7 @@ The distance operation captures the interval between two points in time. You can
 
 ---
 
-## 32.10 Recurrence Patterns
+## 35.10 Recurrence Patterns
 
 Some events repeat: weekly meetings, monthly reports, annual reviews. ARO supports recurrence patterns:
 
@@ -253,7 +253,7 @@ Supported patterns include:
 
 ---
 
-## 32.11 Design Philosophy
+## 35.11 Design Philosophy
 
 ARO's date handling embodies several principles:
 
@@ -269,7 +269,7 @@ ARO's date handling embodies several principles:
 
 ---
 
-## 32.12 Summary
+## 35.12 Summary
 
 Time handling in ARO provides:
 
@@ -284,3 +284,7 @@ Time handling in ARO provides:
 - **Recurrence**: Define repeating patterns
 
 With these tools, ARO handles the temporal dimension of business logic clearly and consistently.
+
+---
+
+*Next: Appendix A — Action Reference*

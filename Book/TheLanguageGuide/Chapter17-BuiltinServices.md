@@ -1,10 +1,10 @@
-# Chapter 16: Built-in Services
+# Chapter 17: Built-in Services
 
 *"Batteries included."*
 
 ---
 
-## 16.1 Available Services
+## 17.1 Available Services
 
 ARO provides five built-in services that handle common infrastructure concerns: an HTTP server for serving web requests, an HTTP client for making outbound requests, a file system service for reading and writing files, and socket services for TCP communication.
 
@@ -16,7 +16,7 @@ The services are designed to be sufficient for most application needs while rema
 
 ---
 
-## 16.2 HTTP Server
+## 17.2 HTTP Server
 
 The HTTP server handles incoming HTTP requests based on your OpenAPI specification. It provides a production-capable server built on SwiftNIO that efficiently handles concurrent connections.
 
@@ -30,7 +30,7 @@ Stopping the server during shutdown allows it to complete in-flight requests gra
 
 ---
 
-## 16.3 HTTP Client
+## 17.3 HTTP Client
 
 The HTTP client makes outbound HTTP requests to external services. It provides a high-performance client built on AsyncHTTPClient that handles connection pooling, timeouts, and retries.
 
@@ -44,7 +44,7 @@ Error handling follows the same happy path philosophy as other ARO operations. I
 
 ---
 
-## 16.4 File System Service
+## 17.4 File System Service
 
 The file system service provides comprehensive operations for reading, writing, and managing files and directories. It handles the mechanics of file I/O while you focus on what data to read or write.
 
@@ -169,7 +169,7 @@ File operations work consistently across macOS, Linux, and Windows. Path separat
 
 ---
 
-## 16.5 Socket Services
+## 17.5 Socket Services
 
 The socket server and client provide low-level TCP communication for applications that need more control than HTTP offers or that need to communicate using custom protocols.
 
@@ -183,7 +183,7 @@ For most web applications, HTTP is the appropriate choice. Use sockets when you 
 
 ---
 
-## 16.6 Service Lifecycle
+## 17.6 Service Lifecycle
 
 Services have a lifecycle that mirrors the application lifecycle. They start during Application-Start, run during the application's lifetime, and stop during Application-End.
 
@@ -197,7 +197,7 @@ The error shutdown handler (Application-End: Error) should also stop services, a
 
 ---
 
-## 16.7 Service Configuration
+## 17.7 Service Configuration
 
 Services accept configuration options that control their behavior. These options are passed when starting or using the service.
 
@@ -211,7 +211,7 @@ Configuration can be hardcoded in your ARO statements or loaded from external fi
 
 ---
 
-## 16.8 Practical Example: Services in Action
+## 17.8 Practical Example: Services in Action
 
 Here is a complete example demonstrating multiple built-in services working together. This application watches a directory for configuration changes and uses the HTTP client to report them to an external monitoring service.
 
@@ -275,7 +275,7 @@ This example shows:
 
 ---
 
-## 16.9 Best Practices
+## 17.9 Best Practices
 
 Start all services during Application-Start. Centralizing service startup in one place makes it clear what your application depends on and ensures consistent initialization order.
 
@@ -289,4 +289,4 @@ Configure services appropriately for your environment. Development might use per
 
 ---
 
-*Next: Chapter 17 — Custom Actions*
+*Next: Chapter 18 — Custom Actions*

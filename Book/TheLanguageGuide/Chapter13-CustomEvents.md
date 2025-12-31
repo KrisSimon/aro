@@ -1,4 +1,4 @@
-# Chapter 12: Custom Events
+# Chapter 13: Custom Events
 
 *"Design your domain events like you design your domain model."*
 
@@ -210,4 +210,4 @@ The goal is to ensure that every event chain has a clear end point where no furt
 
 ---
 
-*Next: Chapter 13 — OpenAPI Integration*
+*Next: Chapter 14 — OpenAPI Integration*
