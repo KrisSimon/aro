@@ -448,14 +448,14 @@ A common pattern is reading data from one format and writing to another. ARO mak
     <Read> the <records> from "./input/data.csv".
 
     (* Process the data *)
-    <Log> the <count> for the <console> with "Processing records...".
+    <Log> "Processing records..." to the <console>.
 
     (* Write to multiple formats *)
     <Write> the <records> to "./output/data.json".
     <Write> the <records> to "./output/data.yaml".
     <Write> the <records> to "./output/report.md".
 
-    <Log> the <done> for the <console> with "Transformation complete!".
+    <Log> "Transformation complete!" to the <console>.
     <Return> an <OK: status> for the <transform>.
 }
 ```

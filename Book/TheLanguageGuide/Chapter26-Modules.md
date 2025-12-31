@@ -88,7 +88,7 @@ Module A provides a single endpoint at `/module-a`:
 (* Module A - Standalone Application *)
 
 (Application-Start: ModuleA) {
-    <Log> the <startup: message> for the <console> with "Module A starting...".
+    <Log> "Module A starting..." to the <console>.
     <Start> the <http-server> for the <contract>.
     <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
@@ -116,7 +116,7 @@ Module B provides a single endpoint at `/module-b`:
 (* Module B - Standalone Application *)
 
 (Application-Start: ModuleB) {
-    <Log> the <startup: message> for the <console> with "Module B starting...".
+    <Log> "Module B starting..." to the <console>.
     <Start> the <http-server> for the <contract>.
     <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
@@ -140,7 +140,7 @@ import ../ModuleA
 import ../ModuleB
 
 (Application-Start: Combined) {
-    <Log> the <startup: message> for the <console> with "Combined application starting...".
+    <Log> "Combined application starting..." to the <console>.
     <Start> the <http-server> for the <contract>.
     <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.

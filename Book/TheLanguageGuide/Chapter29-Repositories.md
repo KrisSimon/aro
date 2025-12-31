@@ -225,7 +225,7 @@ This scoping:
 
 ```aro
 (Application-Start: Simple Chat) {
-    <Log> the <startup: message> for the <console> with "Starting Simple Chat...".
+    <Log> "Starting Simple Chat..." to the <console>.
     <Start> the <http-server> for the <contract>.
     <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
@@ -305,7 +305,7 @@ Create an observer by naming your feature set's business activity as `{repositor
     <Extract> the <newValue> from the <event: newValue>.
     <Extract> the <oldValue> from the <event: oldValue>.
 
-    <Log> the <audit: message> for the <console> with <changeType>.
+    <Log> <changeType> to the <console>.
     <Return> an <OK: status> for the <audit>.
 }
 ```
@@ -343,8 +343,8 @@ Observers are triggered for three types of changes:
     <Extract> the <oldName> from the <event: oldValue: name>.
     <Extract> the <newName> from the <event: newValue: name>.
 
-    <Log> the <change: message> for the <console>
-        with "User " + <entityId> + " renamed from " + <oldName> + " to " + <newName>.
+    <Compute> the <message> from "User " + <entityId> + " renamed from " + <oldName> + " to " + <newName>.
+    <Log> <message> to the <console>.
 
     <Return> an <OK: status> for the <tracking>.
 }
@@ -358,7 +358,7 @@ You can have multiple observers for the same repository:
 (* Audit logging observer *)
 (Log All Changes: user-repository Observer) {
     <Extract> the <changeType> from the <event: changeType>.
-    <Log> the <audit: message> for the <console> with <changeType>.
+    <Log> <changeType> to the <console>.
     <Return> an <OK: status>.
 }
 

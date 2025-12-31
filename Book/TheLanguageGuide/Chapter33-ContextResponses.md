@@ -20,7 +20,7 @@ When you run ARO from the command line, output is formatted for readability:
 
 ```aro
 (Application-Start: Example) {
-    <Log> the <message> for the <console> with "Hello, World!".
+    <Log> "Hello, World!" to the <console>.
     <Return> an <OK: status> for the <startup>.
 }
 ```
@@ -68,7 +68,7 @@ The runtime automatically detects context:
 ```aro
 (getUser: User API) {
     <Retrieve> the <user> from the <user-repository> where id = <id>.
-    <Log> the <status> for the <console> with "User retrieved".
+    <Log> "User retrieved" to the <console>.
     <Return> an <OK: status> with <user>.
 }
 ```
@@ -126,7 +126,7 @@ The runtime automatically detects context:
 The `<Log>` action respects output context:
 
 ```aro
-<Log> the <message> for the <console> with <value>.
+<Log> <value> to the <console>.
 ```
 
 - **Human**: `[FeatureSetName] value`

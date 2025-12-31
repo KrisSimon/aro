@@ -19,7 +19,7 @@ The foundation of ARO's temporal model is UTC (Coordinated Universal Time). All 
 ARO provides a special variable that exists without declaration: `<now>`. This magic variable always resolves to the current UTC timestamp:
 
 ```aro
-<Log> the <timestamp> for the <console> with <now>.
+<Log> <now> to the <console>.
 ```
 
 The output follows ISO 8601 format: `2025-12-29T15:20:49Z`. The trailing `Z` indicates UTC. This format is unambiguous, sortable as text, and universally understood by APIs and databases.
@@ -201,11 +201,11 @@ Dates can be compared using `before` and `after` operators in when clauses:
 
 ```aro
 when <booking-date> before <deadline> {
-    <Log> the <msg> for the <console> with "Booking accepted".
+    <Log> "Booking accepted" to the <console>.
 }
 
 when <event-date> after <now> {
-    <Log> the <msg> for the <console> with "Event is upcoming".
+    <Log> "Event is upcoming" to the <console>.
 }
 ```
 

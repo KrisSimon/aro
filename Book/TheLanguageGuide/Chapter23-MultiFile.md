@@ -90,7 +90,7 @@ ecommerce-api/
 **main.aro** — Lifecycle only, no business logic:
 ```aro
 (Application-Start: E-commerce API) {
-    <Log> the <message> for the <console> with "Starting e-commerce API...".
+    <Log> "Starting e-commerce API..." to the <console>.
     <Start> the <http-server> on port 8080.
     <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
@@ -98,7 +98,7 @@ ecommerce-api/
 
 (Application-End: Success) {
     <Stop> the <http-server>.
-    <Log> the <message> for the <console> with "E-commerce API stopped.".
+    <Log> "E-commerce API stopped." to the <console>.
     <Return> an <OK: status> for the <shutdown>.
 }
 ```

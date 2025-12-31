@@ -116,8 +116,8 @@ When data is stored, updated, or deleted in a repository, observers can react au
     <Extract> the <changeType> from the <event: changeType>.
     <Extract> the <entityId> from the <event: entityId>.
 
-    <Log> the <audit: message> for the <console>
-        with "[AUDIT] user-repository: " + <changeType> + " (id: " + <entityId> + ")".
+    <Compute> the <message> from "[AUDIT] user-repository: " + <changeType> + " (id: " + <entityId> + ")".
+    <Log> <message> to the <console>.
 
     <Return> an <OK: status> for the <audit>.
 }
@@ -570,8 +570,8 @@ Here is a realistic example that uses all three export actions appropriately. Th
     <Extract> the <entityId> from the <event: entityId>.
     <Extract> the <timestamp> from the <event: timestamp>.
 
-    <Log> the <audit: message> for the <console>
-        with "[AUDIT] " + <timestamp> + " user-repository: " + <changeType> + " (id: " + <entityId> + ")".
+    <Compute> the <message> from "[AUDIT] " + <timestamp> + " user-repository: " + <changeType> + " (id: " + <entityId> + ")".
+    <Log> <message> to the <console>.
 
     <Return> an <OK: status> for the <audit>.
 }

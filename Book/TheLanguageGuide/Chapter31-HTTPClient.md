@@ -105,12 +105,12 @@ The `<Request>` action automatically parses JSON responses. After a request, the
 (* Fetch weather data from Open-Meteo API *)
 
 (Application-Start: Weather Client) {
-    <Log> the <message> for the <console> with "Fetching weather...".
+    <Log> "Fetching weather..." to the <console>.
 
     <Create> the <api-url> with "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true".
     <Request> the <weather> from the <api-url>.
 
-    <Log> the <data: message> for the <console> with <weather>.
+    <Log> <weather> to the <console>.
 
     <Return> an <OK: status> for the <startup>.
 }

@@ -83,7 +83,7 @@ The Exists action checks whether a file or directory exists at a given path.
 <Exists> the <found> for the <file: "./config.json">.
 
 when <found> is false {
-    <Log> the <warning> for the <console> with "Config not found!".
+    <Log> "Config not found!" to the <console>.
 }
 ```
 
@@ -93,8 +93,8 @@ The Stat action retrieves detailed metadata about a file or directory, including
 
 ```aro
 <Stat> the <info> for the <file: "./document.pdf">.
-<Log> the <size> for the <console> with <info: size>.
-<Log> the <modified> for the <console> with <info: modified>.
+<Log> <info: size> to the <console>.
+<Log> <info: modified> to the <console>.
 ```
 
 The result contains: name, path, size (bytes), isFile, isDirectory, created, modified, accessed, and permissions.
@@ -219,7 +219,7 @@ Here is a complete example demonstrating multiple built-in services working toge
 (* Config Monitor - Watch files and report changes via HTTP *)
 
 (Application-Start: Config Monitor) {
-    <Log> the <message> for the <console> with "Starting configuration monitor...".
+    <Log> "Starting configuration monitor..." to the <console>.
 
     (* Load the monitoring endpoint from environment or config *)
     <Create> the <webhook-url> with "https://monitoring.example.com/webhook".
@@ -227,7 +227,7 @@ Here is a complete example demonstrating multiple built-in services working toge
     (* Start watching the config directory *)
     <Watch> the <file-monitor> for the <directory> with "./config".
 
-    <Log> the <message> for the <console> with "Watching ./config for changes...".
+    <Log> "Watching ./config for changes..." to the <console>.
 
     (* Keep running until shutdown signal *)
     <Keepalive> the <application> for the <events>.
@@ -240,8 +240,8 @@ Here is a complete example demonstrating multiple built-in services working toge
     <Extract> the <path> from the <event: path>.
     <Extract> the <event-type> from the <event: type>.
 
-    <Log> the <message> for the <console> with "Config changed:".
-    <Log> the <message> for the <console> with <path>.
+    <Log> "Config changed:" to the <console>.
+    <Log> <path> to the <console>.
 
     (* Build notification payload *)
     <Create> the <notification> with {
@@ -251,15 +251,15 @@ Here is a complete example demonstrating multiple built-in services working toge
     }.
 
     (* Send to monitoring webhook *)
-    <Send> the <notification> to the <webhook-url>.
+    <Send> <notification> to the <webhook-url>.
 
-    <Log> the <message> for the <console> with "Change reported to monitoring service.".
+    <Log> "Change reported to monitoring service." to the <console>.
 
     <Return> an <OK: status> for the <event>.
 }
 
 (Application-End: Success) {
-    <Log> the <message> for the <console> with "Config monitor stopped.".
+    <Log> "Config monitor stopped." to the <console>.
     <Return> an <OK: status> for the <shutdown>.
 }
 ```

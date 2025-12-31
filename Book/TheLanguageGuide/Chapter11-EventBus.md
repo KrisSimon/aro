@@ -232,8 +232,7 @@ The observer pattern is declared through business activity naming. A feature set
     <Extract> the <fromState> from the <transition: fromState>.
     <Extract> the <toState> from the <transition: toState>.
 
-    <Log> the <audit: message> for the <console>
-        with "[AUDIT] Order ${orderId}: ${fromState} -> ${toState}".
+    <Log> "[AUDIT] Order ${orderId}: ${fromState} -> ${toState}" to the <console>.
 
     <Return> an <OK: status> for the <audit>.
 }
@@ -241,8 +240,7 @@ The observer pattern is declared through business activity naming. A feature set
 (* Observe ONLY when order is placed *)
 (Notify Order Placed: status StateObserver<draft_to_placed>) {
     <Extract> the <orderId> from the <transition: entityId>.
-    <Log> the <notification> for the <console>
-        with "Order ${orderId} has been placed!".
+    <Log> "Order ${orderId} has been placed!" to the <console>.
     <Return> an <OK: status> for the <notification>.
 }
 
@@ -251,8 +249,7 @@ The observer pattern is declared through business activity naming. A feature set
     <Extract> the <order> from the <transition: entity>.
     <Extract> the <tracking> from the <order: trackingNumber>.
 
-    <Log> the <notification> for the <console>
-        with "Order shipped! Tracking: ${tracking}".
+    <Log> "Order shipped! Tracking: ${tracking}" to the <console>.
 
     <Return> an <OK: status> for the <notification>.
 }

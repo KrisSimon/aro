@@ -175,6 +175,22 @@ public final class FeatureSetExecutor: @unchecked Sendable {
         _ statement: AROStatement,
         context: ExecutionContext
     ) async throws {
+        // Clear transient bindings from previous statements
+        // These are statement-local and should not persist between statements
+        context.unbind("_literal_")
+        context.unbind("_expression_")
+        context.unbind("_expression_name_")
+        context.unbind("_result_expression_")
+        context.unbind("_aggregation_type_")
+        context.unbind("_aggregation_field_")
+        context.unbind("_where_field_")
+        context.unbind("_where_op_")
+        context.unbind("_where_value_")
+        context.unbind("_by_pattern_")
+        context.unbind("_by_flags_")
+        context.unbind("_to_")
+        context.unbind("_with_")
+
         // ARO-0004: Evaluate when condition before processing statement
         // If condition is present and evaluates to false, skip this statement entirely
         if let whenCondition = statement.whenCondition {
@@ -308,6 +324,13 @@ public final class FeatureSetExecutor: @unchecked Sendable {
         if let withClause = statement.withClause {
             let withValue = try await expressionEvaluator.evaluate(withClause, context: context)
             context.bind("_with_", value: withValue)
+        }
+
+        // ARO-0043: Evaluate result expression if present (for sink syntax)
+        // Sink syntax: <Log> "message" to the <console>.
+        if let resultExpression = statement.resultExpression {
+            let resultValue = try await expressionEvaluator.evaluate(resultExpression, context: context)
+            context.bind("_result_expression_", value: resultValue)
         }
 
         // Get action implementation

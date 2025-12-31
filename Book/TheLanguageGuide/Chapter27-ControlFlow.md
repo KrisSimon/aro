@@ -36,7 +36,7 @@ The `when` clause conditionally executes a single statement. If the condition is
 <Send> the <notification> to the <user: email> when <user: email> exists.
 
 (* Log admin access only for admins *)
-<Log> the <admin-access> for the <audit> when <user: role> = "admin".
+<Log> "admin access" to the <audit> when <user: role> = "admin".
 
 (* Return error when validation fails *)
 <Return> a <BadRequest: status> for the <invalid: input> when <validation> is failed.
@@ -185,7 +185,7 @@ match <status-code> {
         <Return> a <NotFound: error> for the <request>.
     }
     case 500 {
-        <Log> the <server-error> for the <monitoring>.
+        <Log> "server error" to the <monitoring>.
         <Return> a <ServerError> for the <request>.
     }
     otherwise {
@@ -201,18 +201,18 @@ Match statements support regex patterns for flexible string matching. Use forwar
 ```aro
 match <message.text> {
     case /^ERROR:/i {
-        <Log> the <error: alert> for the <console> with <message.text>.
+        <Log> <message.text> to the <console>.
         <Emit> an <AlertTriggered: event> with <message>.
     }
     case /^WARN:/i {
-        <Log> the <warning: message> for the <console> with <message.text>.
+        <Log> <message.text> to the <console>.
     }
     case /^[A-Z]{3}-\d{4}$/ {
         (* Matches ticket IDs like "ABC-1234" *)
         <Process> the <ticket-reference> from the <message>.
     }
     otherwise {
-        <Log> the <info: message> for the <console> with <message.text>.
+        <Log> <message.text> to the <console>.
     }
 }
 ```
@@ -366,7 +366,7 @@ Check error conditions early with guarded returns:
     <Retrieve> the <user> from the <user-repository>.
 
     (* Handle user not found - guarded statements *)
-    <Log> the <failed-login: attempt> for the <username> when <user> is null.
+    <Log> <username> to the <console> when <user> is null.
     <Return> an <Unauthorized: error> for the <request> when <user> is null.
 
     (* Check account status with match *)
@@ -385,7 +385,7 @@ Check error conditions early with guarded returns:
             match <password-hash> {
                 case <user: password-hash> {
                     <Create> the <session-token> for the <user>.
-                    <Log> the <successful-login> for the <user>.
+                    <Log> <user> to the <console>.
                     <Return> an <OK: status> with the <session-token>.
                 }
                 otherwise {
