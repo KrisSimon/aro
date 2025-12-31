@@ -752,7 +752,7 @@ Legacy syntax continues to work when the base identifier matches a known operati
 
 | Action | Operations |
 |--------|------------|
-| Compute | `hash`, `length`, `count`, `uppercase`, `lowercase` |
+| Compute | `hash` (SHA256), `length`, `count`, `uppercase`, `lowercase` |
 | Validate | `required`, `exists`, `nonempty`, `email`, `numeric` |
 | Transform | `string`, `int`, `double`, `bool`, `json` |
 | Sort | `ascending`, `descending` |
