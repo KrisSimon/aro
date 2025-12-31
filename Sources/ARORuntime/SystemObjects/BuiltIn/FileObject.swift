@@ -52,21 +52,30 @@ public struct FileObject: SystemObject {
     /// - Parameter path: The file path to validate
     /// - Throws: SystemObjectError.invalidPath if validation fails
     private static func validatePath(_ path: String) throws {
-        // Normalize the path
+        // Check for path traversal patterns in the original path
+        // This catches attempts like "../../../etc/passwd" or "foo/../../bar"
+        let components = path.components(separatedBy: "/")
+
+        // Track directory depth to detect if we escape the base directory
+        var depth = 0
+        for component in components {
+            if component == ".." {
+                depth -= 1
+                // If depth goes negative, we're trying to escape the base directory
+                if depth < 0 {
+                    throw SystemObjectError.invalidPath(path, reason: "Path traversal not allowed")
+                }
+            } else if !component.isEmpty && component != "." {
+                depth += 1
+            }
+        }
+
+        // Additional check: normalize and verify no ".." remains
         let url = URL(fileURLWithPath: path)
         let normalizedPath = url.standardized.path
 
-        // Check for path traversal attempts
-        if normalizedPath.contains("/../") || normalizedPath.hasPrefix("../") || normalizedPath.hasSuffix("/..") {
+        if normalizedPath.contains("/../") || normalizedPath.hasSuffix("/..") {
             throw SystemObjectError.invalidPath(path, reason: "Path traversal not allowed")
-        }
-
-        // For absolute paths, ensure they're within allowed directories
-        if normalizedPath.hasPrefix("/") {
-            let cwd = FileManager.default.currentDirectoryPath
-            if !normalizedPath.hasPrefix(cwd) {
-                throw SystemObjectError.invalidPath(path, reason: "Absolute paths must be within current directory")
-            }
         }
     }
 

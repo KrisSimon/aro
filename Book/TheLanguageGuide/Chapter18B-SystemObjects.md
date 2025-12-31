@@ -1,10 +1,10 @@
-# Chapter 16C: System Objects
+# Chapter 18B: System Objects
 
 *"Every program needs to interact with its environment."*
 
 ---
 
-## 16C.1 What Are System Objects?
+## 18B.1 What Are System Objects?
 
 System objects are special objects in ARO that represent external sources and sinks of data. Unlike regular variables that you create and bind within your feature sets, system objects are provided by the runtime and represent I/O streams, HTTP requests, files, environment variables, and other external resources.
 
@@ -18,9 +18,131 @@ ARO defines a consistent interaction pattern for system objects based on data fl
 
 This pattern aligns with ARO's action roles: REQUEST actions read from sources, EXPORT actions write to sinks.
 
+### The Source/Sink Flow
+
+The following diagram illustrates how data flows between your ARO feature sets and system objects:
+
+<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="400" fill="#f8f9fa"/>
+
+  <!-- Title -->
+  <text x="400" y="30" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" fill="#2c3e50">
+    System Objects: Source/Sink Pattern
+  </text>
+
+  <!-- Feature Set (center) -->
+  <rect x="300" y="150" width="200" height="100" fill="#3498db" stroke="#2980b9" stroke-width="2" rx="5"/>
+  <text x="400" y="185" font-family="monospace" font-size="14" font-weight="bold" text-anchor="middle" fill="white">
+    ARO Feature Set
+  </text>
+  <text x="400" y="210" font-family="monospace" font-size="12" text-anchor="middle" fill="white">
+    Business Logic
+  </text>
+  <text x="400" y="230" font-family="monospace" font-size="12" text-anchor="middle" fill="white">
+    Variables &amp; Computations
+  </text>
+
+  <!-- SOURCE Objects (left side) -->
+  <g id="sources">
+    <!-- stdin -->
+    <rect x="20" y="60" width="120" height="40" fill="#27ae60" stroke="#229954" stroke-width="2" rx="3"/>
+    <text x="80" y="85" font-family="monospace" font-size="12" text-anchor="middle" fill="white">stdin (Source)</text>
+
+    <!-- env -->
+    <rect x="20" y="120" width="120" height="40" fill="#27ae60" stroke="#229954" stroke-width="2" rx="3"/>
+    <text x="80" y="145" font-family="monospace" font-size="12" text-anchor="middle" fill="white">env (Source)</text>
+
+    <!-- request -->
+    <rect x="20" y="180" width="120" height="40" fill="#27ae60" stroke="#229954" stroke-width="2" rx="3"/>
+    <text x="80" y="205" font-family="monospace" font-size="12" text-anchor="middle" fill="white">request (Source)</text>
+
+    <!-- event -->
+    <rect x="20" y="240" width="120" height="40" fill="#27ae60" stroke="#229954" stroke-width="2" rx="3"/>
+    <text x="80" y="265" font-family="monospace" font-size="12" text-anchor="middle" fill="white">event (Source)</text>
+
+    <!-- packet -->
+    <rect x="20" y="300" width="120" height="40" fill="#27ae60" stroke="#229954" stroke-width="2" rx="3"/>
+    <text x="80" y="325" font-family="monospace" font-size="12" text-anchor="middle" fill="white">packet (Source)</text>
+  </g>
+
+  <!-- SINK Objects (right side) -->
+  <g id="sinks">
+    <!-- console -->
+    <rect x="660" y="90" width="120" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="2" rx="3"/>
+    <text x="720" y="115" font-family="monospace" font-size="12" text-anchor="middle" fill="white">console (Sink)</text>
+
+    <!-- stderr -->
+    <rect x="660" y="150" width="120" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="2" rx="3"/>
+    <text x="720" y="175" font-family="monospace" font-size="12" text-anchor="middle" fill="white">stderr (Sink)</text>
+  </g>
+
+  <!-- BIDIRECTIONAL Objects (bottom) -->
+  <g id="bidirectional">
+    <!-- file -->
+    <rect x="260" y="330" width="120" height="40" fill="#9b59b6" stroke="#8e44ad" stroke-width="2" rx="3"/>
+    <text x="320" y="355" font-family="monospace" font-size="11" text-anchor="middle" fill="white">file (Bidirectional)</text>
+
+    <!-- connection -->
+    <rect x="420" y="330" width="120" height="40" fill="#9b59b6" stroke="#8e44ad" stroke-width="2" rx="3"/>
+    <text x="480" y="355" font-family="monospace" font-size="11" text-anchor="middle" fill="white">connection (Bidirectional)</text>
+  </g>
+
+  <!-- Arrows: Sources → Feature Set -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#2c3e50"/>
+    </marker>
+  </defs>
+
+  <!-- REQUEST arrows (Sources to Feature Set) -->
+  <path d="M 140 80 L 300 170" stroke="#27ae60" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="220" y="120" font-family="monospace" font-size="10" fill="#27ae60">&lt;Extract&gt;</text>
+
+  <path d="M 140 140 L 300 180" stroke="#27ae60" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="220" y="155" font-family="monospace" font-size="10" fill="#27ae60">&lt;Read&gt;</text>
+
+  <path d="M 140 200 L 300 200" stroke="#27ae60" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="220" y="195" font-family="monospace" font-size="10" fill="#27ae60">&lt;Fetch&gt;</text>
+
+  <path d="M 140 260 L 300 220" stroke="#27ae60" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <path d="M 140 320 L 300 230" stroke="#27ae60" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- EXPORT arrows (Feature Set to Sinks) -->
+  <path d="M 500 180 L 660 110" stroke="#e74c3c" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="580" y="140" font-family="monospace" font-size="10" fill="#e74c3c">&lt;Log&gt;</text>
+
+  <path d="M 500 210 L 660 170" stroke="#e74c3c" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="580" y="185" font-family="monospace" font-size="10" fill="#e74c3c">&lt;Print&gt;</text>
+
+  <!-- Bidirectional arrows -->
+  <path d="M 320 250 L 320 330" stroke="#9b59b6" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 340 330 L 340 250" stroke="#9b59b6" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="360" y="290" font-family="monospace" font-size="10" fill="#9b59b6">&lt;Read&gt;/&lt;Write&gt;</text>
+
+  <path d="M 460 250 L 480 330" stroke="#9b59b6" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 500 330 L 480 250" stroke="#9b59b6" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="510" y="290" font-family="monospace" font-size="10" fill="#9b59b6">&lt;Send&gt;/&lt;Receive&gt;</text>
+
+  <!-- Legend -->
+  <rect x="20" y="360" width="760" height="30" fill="white" stroke="#bdc3c7" stroke-width="1" rx="3"/>
+  <rect x="30" y="368" width="15" height="12" fill="#27ae60"/>
+  <text x="50" y="378" font-family="monospace" font-size="10" fill="#2c3e50">Source (Read Only)</text>
+
+  <rect x="200" y="368" width="15" height="12" fill="#e74c3c"/>
+  <text x="220" y="378" font-family="monospace" font-size="10" fill="#2c3e50">Sink (Write Only)</text>
+
+  <rect x="370" y="368" width="15" height="12" fill="#9b59b6"/>
+  <text x="390" y="378" font-family="monospace" font-size="10" fill="#2c3e50">Bidirectional (Read &amp; Write)</text>
+
+  <rect x="590" y="368" width="15" height="12" fill="#3498db"/>
+  <text x="610" y="378" font-family="monospace" font-size="10" fill="#2c3e50">Feature Set (Your Code)</text>
+</svg>
+
 ---
 
-## 16C.2 Sink Syntax
+## 18B.2 Sink Syntax
 
 For sink operations, ARO provides a clean, intuitive syntax where the value comes directly after the verb:
 
