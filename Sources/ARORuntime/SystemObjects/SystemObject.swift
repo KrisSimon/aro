@@ -137,6 +137,9 @@ public enum SystemObjectError: Error, CustomStringConvertible, Sendable {
     /// Write operation failed (e.g., plugin error)
     case writeFailed(String, message: String)
 
+    /// Invalid path provided (e.g., directory traversal attempt)
+    case invalidPath(String, reason: String)
+
     public var description: String {
         switch self {
         case .notReadable(let id):
@@ -155,6 +158,8 @@ public enum SystemObjectError: Error, CustomStringConvertible, Sendable {
             return "Failed to read from system object '\(id)': \(message)"
         case .writeFailed(let id, let message):
             return "Failed to write to system object '\(id)': \(message)"
+        case .invalidPath(let path, let reason):
+            return "Invalid file path '\(path)': \(reason)"
         }
     }
 }

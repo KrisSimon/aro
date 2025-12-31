@@ -20,6 +20,11 @@ import Foundation
 /// <Read> the <config> from the <file: "./config.yaml">.
 /// <Write> <data> to the <file: "./output.json">.
 /// ```
+///
+/// ## Security Note
+/// File paths are validated to prevent directory traversal attacks.
+/// Paths containing ".." components or absolute paths outside the
+/// current working directory are rejected.
 public struct FileObject: SystemObject {
     public static let identifier = "file"
     public static let description = "File system I/O with format detection"
@@ -34,9 +39,35 @@ public struct FileObject: SystemObject {
     /// - Parameters:
     ///   - path: The file path
     ///   - fileService: The file system service for I/O operations
-    public init(path: String, fileService: FileSystemService) {
+    /// - Throws: SystemObjectError.invalidPath if path validation fails
+    public init(path: String, fileService: FileSystemService) throws {
+        // Validate path for security
+        try Self.validatePath(path)
         self.path = path
         self.fileService = fileService
+    }
+
+    /// Validate file path to prevent directory traversal attacks
+    ///
+    /// - Parameter path: The file path to validate
+    /// - Throws: SystemObjectError.invalidPath if validation fails
+    private static func validatePath(_ path: String) throws {
+        // Normalize the path
+        let url = URL(fileURLWithPath: path)
+        let normalizedPath = url.standardized.path
+
+        // Check for path traversal attempts
+        if normalizedPath.contains("/../") || normalizedPath.hasPrefix("../") || normalizedPath.hasSuffix("/..") {
+            throw SystemObjectError.invalidPath(path, reason: "Path traversal not allowed")
+        }
+
+        // For absolute paths, ensure they're within allowed directories
+        if normalizedPath.hasPrefix("/") {
+            let cwd = FileManager.default.currentDirectoryPath
+            if !normalizedPath.hasPrefix(cwd) {
+                throw SystemObjectError.invalidPath(path, reason: "Absolute paths must be within current directory")
+            }
+        }
     }
 
     public func read(property: String?) async throws -> any Sendable {
@@ -76,11 +107,12 @@ public struct FileObjectFactory {
     ///   - path: The file path
     ///   - context: The execution context containing the file service
     /// - Returns: A FileObject if the file service is available
-    public static func create(path: String, context: any ExecutionContext) -> FileObject? {
+    /// - Throws: SystemObjectError.invalidPath if path validation fails
+    public static func create(path: String, context: any ExecutionContext) throws -> FileObject? {
         guard let fileService = context.service(FileSystemService.self) else {
             return nil
         }
-        return FileObject(path: path, fileService: fileService)
+        return try FileObject(path: path, fileService: fileService)
     }
 }
 

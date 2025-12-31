@@ -197,8 +197,8 @@ public final class SystemObjectRegistry: @unchecked Sendable {
     // MARK: - Built-in Registration
 
     private func registerBuiltIns() {
-        // Static objects will be registered when their types are defined
-        // This is called during init to set up the registry
+        // Register all built-in system objects
+        registerBuiltInObjects()
     }
 }
 
