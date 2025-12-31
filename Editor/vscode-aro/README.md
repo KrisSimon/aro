@@ -6,13 +6,21 @@ Language support for **ARO** (Action Result Object) - a declarative programming 
 
 ### Syntax Highlighting
 
-Full syntax highlighting with bold, bright colors for ARO code:
+Elegant, semantic syntax highlighting that works beautifully on both light and dark themes. Actions are colored by their **semantic role**:
+
+**Actions by Role:**
+- **REQUEST** (External → Internal) - **Blue/Cyan**: `<Extract>`, `<Retrieve>`, `<Fetch>`, `<Read>`, `<Accept>`
+- **OWN** (Internal → Internal) - **Purple/Violet**: `<Compute>`, `<Validate>`, `<Compare>`, `<Create>`, `<Transform>`, `<Filter>`
+- **RESPONSE** (Internal → External) - **Orange/Red**: `<Return>`, `<Throw>`
+- **EXPORT** (Persistence/Export) - **Green/Teal**: `<Publish>`, `<Store>`, `<Log>`, `<Send>`, `<Emit>`, `<Write>`
+- **LIFECYCLE** (System Management) - **Cyan**: `<Start>`, `<Stop>`, `<Keepalive>`, `<Watch>`, `<Configure>`
+- **TEST** (BDD Testing) - **Yellow/Gold**: `<Given>`, `<When>`, `<Then>`, `<Assert>`
+
+**Other Elements:**
 - **Feature set declarations** - Blue feature names, purple business activities
-- **Actions** - **Bold royal blue** (`<Extract>`, `<Create>`, `<Return>`, `<Start>`, etc.)
-- **Computations** - **Bold dark yellow/goldenrod** (`<Compute>` - very prominent)
-- **Results** - **Bold bright green** (`<result>`, `<user>`, `<data>`)
-- **Objects** - **Bold red** (after prepositions: `<user-repository>`, `<application>`)
-- **Prepositions** - **Bold pink** (`from`, `to`, `with`, `for`, `where`)
+- **Results** - Green (`<result>`, `<user>`, `<data>`)
+- **Objects** - Magenta (after prepositions: `<user-repository>`, `<application>`)
+- **Prepositions** - Pink (`from`, `to`, `with`, `for`, `where`)
 - **Articles** - Subtle gray (`the`, `a`, `an`)
 - **Literals** - String and number values
 - **Comments** - Gray/italic `(* ... *)`
