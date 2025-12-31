@@ -1,4 +1,4 @@
-# Chapter 15: Request/Response Patterns
+# Chapter 16: Request/Response Patterns
 
 *"Input, transform, output. The rhythm of every API."*
 
@@ -126,4 +126,4 @@ Handle edge cases explicitly. What happens when a list endpoint finds no matchin
 
 ---
 
-*Next: Chapter 16 — Built-in Services*
+*Next: Chapter 17 — Built-in Services*

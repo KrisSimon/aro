@@ -1,10 +1,10 @@
-# Chapter 17B: Custom Services
+# Chapter 20: Custom Services
 
 *"When you need to talk to the outside world."*
 
 ---
 
-## 17B.1 Actions vs Services: The Key Distinction
+## 20.1 Actions vs Services: The Key Distinction
 
 Before diving into custom services, it is essential to understand how they differ from custom actions. This distinction shapes how you design extensions to ARO.
 
@@ -42,7 +42,7 @@ When you add a service, you are saying "this external system provides capabiliti
 
 ---
 
-## 17B.2 The Service Protocol
+## 20.2 The Service Protocol
 
 Services implement the `AROService` protocol. This protocol defines the contract between your service and the ARO runtime.
 
@@ -69,7 +69,7 @@ The protocol is simpler than ActionImplementation because services have a unifor
 
 ---
 
-## 17B.3 Implementing a Service
+## 20.3 Implementing a Service
 
 Let us build a PostgreSQL service to illustrate the implementation pattern.
 
@@ -169,7 +169,7 @@ The call method dispatches to different operations based on the method parameter
 
 ---
 
-## 17B.4 Using Your Service in ARO
+## 20.4 Using Your Service in ARO
 
 Once registered, your service is available through the Call action:
 
@@ -209,7 +209,7 @@ Once registered, your service is available through the Call action:
 
 ---
 
-## 17B.5 Service Registration
+## 20.5 Service Registration
 
 Services must be registered before use. Registration happens during application initialization:
 
@@ -229,7 +229,7 @@ For plugin-based services (covered in Chapter 18), registration happens automati
 
 ---
 
-## 17B.6 Error Handling in Services
+## 20.6 Error Handling in Services
 
 Services report errors by throwing Swift exceptions. The runtime converts these to ARO error messages:
 
@@ -263,7 +263,7 @@ Cannot call postgres:query - Connection failed: Connection refused to localhost:
 
 ---
 
-## 17B.7 Complete Example: Redis Service
+## 20.7 Complete Example: Redis Service
 
 Here is a complete service implementation for Redis:
 
@@ -371,7 +371,7 @@ public struct RedisService: AROService {
 
 ---
 
-## 17B.8 Best Practices
+## 20.8 Best Practices
 
 **Name services clearly.** The service name appears in ARO code, so it should be short and recognizable. Use "postgres" not "postgresqlDatabaseService".
 
@@ -387,7 +387,7 @@ public struct RedisService: AROService {
 
 ---
 
-## 17B.9 Services vs Built-in Actions
+## 20.9 Services vs Built-in Actions
 
 Some capabilities in ARO are implemented as built-in actions rather than services. HTTP requests use the `Request` action, not a service:
 
@@ -411,4 +411,4 @@ The distinction: built-in actions are part of the ARO language and have dedicate
 
 ---
 
-*Next: Chapter 18 — Plugins*
+*Next: Chapter 21 — Plugins*

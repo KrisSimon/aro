@@ -1,4 +1,4 @@
-# Chapter 28: HTTP Client
+# Chapter 31: HTTP Client
 
 ARO provides HTTP client capabilities for making requests to external services and APIs.
 
@@ -127,4 +127,4 @@ The `<Request>` action automatically parses JSON responses. After a request, the
 
 ---
 
-*Next: Chapter 29 — Concurrency*
+*Next: Chapter 32 — Concurrency*

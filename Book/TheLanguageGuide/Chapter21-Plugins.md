@@ -1,10 +1,10 @@
-# Chapter 18: Plugins
+# Chapter 21: Plugins
 
 *"Package and share your extensions."*
 
 ---
 
-## 18.1 What Are Plugins?
+## 21.1 What Are Plugins?
 
 Plugins are Swift packages that provide custom actions and services for ARO applications. They allow you to package extensions together, share them across projects, and distribute them to other developers through Swift Package Manager.
 
@@ -21,7 +21,7 @@ The distinction matters for plugin design. Actions extend the language vocabular
 
 ---
 
-## 18.2 Plugin Structure
+## 21.2 Plugin Structure
 
 A plugin follows standard Swift package conventions with ARO-specific requirements. The package contains source files, a registration function, and optionally tests and documentation.
 
@@ -39,7 +39,7 @@ The package manifest declares the plugin as a dynamic library product. This enab
 
 ---
 
-## 18.3 Creating an Action Plugin
+## 21.3 Creating an Action Plugin
 
 Action plugins add new verbs to ARO. Here is a complete example of a Geocoding action plugin.
 
@@ -139,7 +139,7 @@ public func registerPlugin() {
 
 ---
 
-## 18.4 Creating a Service Plugin
+## 21.4 Creating a Service Plugin
 
 Service plugins provide external integrations called via the `Call` action. Here is a complete example of a Zip service plugin.
 
@@ -255,7 +255,7 @@ enum PluginError: Error {
 
 ---
 
-## 18.5 Choosing Between Action and Service Plugins
+## 21.5 Choosing Between Action and Service Plugins
 
 When designing a plugin, consider which approach fits better:
 
@@ -300,7 +300,7 @@ When designing a plugin, consider which approach fits better:
 
 ---
 
-## 18.6 Plugin Loading
+## 21.6 Plugin Loading
 
 Plugins load in two ways: compile-time linking and runtime discovery.
 
@@ -312,7 +312,7 @@ For runtime loading, place compiled `.dylib` (macOS), `.so` (Linux), or `.dll` (
 
 ---
 
-## 18.7 Plugin Design Guidelines
+## 21.7 Plugin Design Guidelines
 
 **Cohesion**: Group related functionality. A database plugin provides all database operations. A compression plugin provides all compression methods.
 
@@ -324,7 +324,7 @@ For runtime loading, place compiled `.dylib` (macOS), `.so` (Linux), or `.dll` (
 
 ---
 
-## 18.8 Documentation
+## 21.8 Documentation
 
 Document your plugin thoroughly:
 
@@ -337,7 +337,7 @@ A README should provide quick start instructions. Users should be productive wit
 
 ---
 
-## 18.9 Publishing
+## 21.9 Publishing
 
 Publish plugins through Git repositories. Swift Package Manager resolves dependencies from URLs.
 
@@ -357,7 +357,7 @@ dependencies: [
 
 ---
 
-## 18.10 Best Practices
+## 21.10 Best Practices
 
 **Test thoroughly.** Plugins may be used in unexpected ways. Test edge cases and error conditions.
 
@@ -369,4 +369,4 @@ dependencies: [
 
 ---
 
-*Next: Chapter 19 — Native Compilation*
+*Next: Chapter 22 — Native Compilation*

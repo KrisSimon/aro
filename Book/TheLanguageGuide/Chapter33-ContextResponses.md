@@ -1,4 +1,4 @@
-# Chapter 30: Context-Aware Response Formatting
+# Chapter 33: Context-Aware Response Formatting
 
 ARO automatically formats responses and log output based on the execution context. The same code produces different output formats depending on how it's invoked.
 
@@ -143,4 +143,4 @@ The `<Return>` action sets the response, which is formatted based on context:
 
 ---
 
-*Next: Chapter 31 — Type System*
+*Next: Chapter 34 — Type System*

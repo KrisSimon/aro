@@ -1,10 +1,10 @@
-# Chapter 16B: Format-Aware File I/O
+# Chapter 18: Format-Aware File I/O
 
 *"Structured data in, structured data out."*
 
 ---
 
-## 16B.1 The Format Detection Pattern
+## 18.1 The Format Detection Pattern
 
 When you write data to a file, ARO examines the file extension and automatically serializes your data to the appropriate format. When you read a file, ARO parses the content back into structured data. This eliminates the boilerplate of manual serialization and deserialization.
 
@@ -59,7 +59,7 @@ This pattern follows ARO's philosophy of reducing ceremony. The file path alread
 
 ---
 
-## 16B.2 Supported Formats
+## 18.2 Supported Formats
 
 ARO supports thirteen file formats out of the box. Each format has specific characteristics that make it suitable for different use cases.
 
@@ -82,7 +82,7 @@ ARO supports thirteen file formats out of the box. Each format has specific char
 
 ---
 
-## 16B.3 Writing Structured Data
+## 18.3 Writing Structured Data
 
 The Write action serializes your data according to the file extension. Each format has its own serialization rules.
 
@@ -315,7 +315,7 @@ debug=true
 
 ---
 
-## 16B.4 Reading Structured Data
+## 18.4 Reading Structured Data
 
 Reading files reverses the process. ARO examines the file extension and parses the content into structured data that you can work with.
 
@@ -402,7 +402,7 @@ This is useful when you need to inspect the raw content or pass it to an externa
 
 ---
 
-## 16B.5 CSV and TSV Options
+## 18.5 CSV and TSV Options
 
 CSV and TSV formats support additional configuration options. These options control how data is formatted when writing and how content is parsed when reading.
 
@@ -436,7 +436,7 @@ When reading, if your CSV has no header row, specify this so the parser knows to
 
 ---
 
-## 16B.6 Round-Trip Patterns
+## 18.6 Round-Trip Patterns
 
 A common pattern is reading data from one format and writing to another. ARO makes this seamless because the data structure is format-independent.
 
@@ -486,7 +486,7 @@ When you need to provide data in multiple formats for different consumers:
 
 ---
 
-## 16B.7 Best Practices
+## 18.7 Best Practices
 
 **Choose the right format for your use case.** JSON and YAML are best for configuration and API data. CSV is best for spreadsheet workflows. JSON Lines is best for logging and streaming. SQL is best for database backup.
 
@@ -500,4 +500,4 @@ When you need to provide data in multiple formats for different consumers:
 
 ---
 
-*Next: Chapter 17 — Custom Actions*
+*Next: Chapter 19 — Custom Actions*

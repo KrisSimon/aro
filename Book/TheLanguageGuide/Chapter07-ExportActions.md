@@ -1,10 +1,10 @@
-# Chapter 6A: Export Actions
+# Chapter 7: Export Actions
 
 *"Know where your data goes."*
 
 ---
 
-## 6A.1 Three Paths Out
+## 7.1 Three Paths Out
 
 When data leaves your feature set, it takes one of three paths. Each path serves a distinct purpose in the ARO architecture. Understanding which path to choose is essential for building well-structured applications.
 
@@ -48,7 +48,7 @@ Each path has different characteristics that make it suitable for different scen
 
 ---
 
-## 6A.2 Store: Persistent Data
+## 7.2 Store: Persistent Data
 
 The Store action saves data to a named repository. Repositories are identified by names ending with `-repository`. This naming convention is not merely a style guide—the runtime uses this suffix to recognize storage targets.
 
@@ -135,7 +135,7 @@ The observer receives an event with details about the change:
 
 ---
 
-## 6A.3 Emit: Event-Driven Communication
+## 7.3 Emit: Event-Driven Communication
 
 The Emit action fires a domain event that triggers handlers in other feature sets. Unlike Store, the event payload is transient—it exists only during handler execution. Once all handlers complete, the event is gone.
 
@@ -233,7 +233,7 @@ This pattern enables complex workflows while keeping each handler focused on a s
 
 ---
 
-## 6A.4 Publish: Shared Values
+## 7.4 Publish: Shared Values
 
 The Publish action makes a value globally accessible without triggering any logic. Published values are available to other feature sets within the same business activity but do not cause handlers to execute.
 
@@ -282,7 +282,7 @@ Published values are scoped to the business activity. Feature sets in different 
 
 ---
 
-## 6A.5 Decision Guide
+## 7.5 Decision Guide
 
 Choosing between Store, Emit, and Publish becomes straightforward when you ask the right question.
 
@@ -339,7 +339,7 @@ Choosing between Store, Emit, and Publish becomes straightforward when you ask t
 
 ---
 
-## 6A.6 Common Mistakes
+## 7.6 Common Mistakes
 
 ### Using Emit for Persistence
 
@@ -466,7 +466,7 @@ Reserve Publish for truly shared values like configuration, not for communicatio
 
 ---
 
-## 6A.7 Complete Example: User Registration
+## 7.7 Complete Example: User Registration
 
 Here is a realistic example that uses all three export actions appropriately. The scenario is user registration with email verification, welcome notifications, and analytics tracking.
 
@@ -588,4 +588,4 @@ Each action serves its intended purpose, creating a well-structured, maintainabl
 
 ---
 
-*Next: Chapter 7 — Computations*
+*Next: Chapter 8 — Computations*
