@@ -473,7 +473,7 @@ State guards use angle bracket syntax after "Handler":
 (* Handle orders that are paid OR shipped *)
 (Track Fulfillment: OrderUpdated Handler<status:paid,shipped>) {
     <Extract> the <order> from the <event: order>.
-    <Log> the <message> for the <console> with "Tracking update".
+    <Log> "Tracking update" to the <console>.
     <Return> an <OK: status> for the <tracking>.
 }
 

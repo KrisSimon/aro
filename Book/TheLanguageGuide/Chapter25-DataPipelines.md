@@ -324,7 +324,7 @@ components:
 ```aro
 (* Application entry point *)
 (Application-Start: Order Analytics) {
-    <Log> the <message> for the <console> with "Order Analytics ready".
+    <Log> "Order Analytics ready" to the <console>.
     <Return> an <OK: status> for the <startup>.
 }
 

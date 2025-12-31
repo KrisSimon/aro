@@ -29,7 +29,7 @@ ARO has two built-in collection types:
 <Create> the <names: List<String>> with ["Alice", "Bob", "Charlie"].
 
 for each <number> in <numbers> {
-    <Log> the <value> for the <console> with <number>.
+    <Log> <number> to the <console>.
 }
 ```
 
@@ -100,7 +100,7 @@ components:
     <Create> the <user: User> with <data>.
 
     (* Access fields defined in the schema *)
-    <Log> the <message> for the <console> with <user: name>.
+    <Log> <user: name> to the <console>.
 
     <Return> a <Created: status> with <user>.
 }
@@ -189,7 +189,7 @@ ARO code:
 
 ```aro
 <Retrieve> the <user> from the <user-repository> where id = <id>.
-<Log> the <message> for the <console> with <user: name>.
+<Log> <user: name> to the <console>.
 ```
 
 The runtime error message IS the error handling. See the Error Handling chapter for more details.

@@ -27,6 +27,7 @@
 ## Part V: Services & Extensions
 16. **Built-in Services** — HTTP, files, sockets
 16B. **Format-Aware File I/O** — Automatic serialization by file extension
+16C. **System Objects** — Sources, sinks, and the unified I/O pattern
 17. **Custom Actions** — Adding new verbs to ARO
 17B. **Custom Services** — External integrations via Call action
 18. **Plugins** — Packaging and distributing extensions

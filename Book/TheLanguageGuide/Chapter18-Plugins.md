@@ -132,7 +132,7 @@ public func registerPlugin() {
     (* Custom action - new verb *)
     <Geocode> the <coordinates> from the <address>.
 
-    <Log> the <message> for the <console> with <coordinates>.
+    <Log> <coordinates> to the <console>.
     <Return> an <OK: status> with <coordinates>.
 }
 ```
@@ -248,7 +248,7 @@ enum PluginError: Error {
         output: "archive.zip"
     }.
 
-    <Log> the <message> for the <console> with <result>.
+    <Log> <result> to the <console>.
     <Return> an <OK: status> for the <compression>.
 }
 ```

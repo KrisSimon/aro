@@ -118,7 +118,7 @@ The runtime performs **data-flow driven execution**:
 (Process Config: File Handler) {
     <Open> the <config-file> from the <path>.        (* 1. Starts file load *)
     <Compute> the <hash> for the <request>.          (* 2. Runs immediately *)
-    <Log> the <status> for the <request>.            (* 3. Runs immediately *)
+    <Log> <request> to the <console>.                 (* 3. Runs immediately *)
     <Parse> the <config> from the <config-file>.     (* 4. Waits for file *)
     <Return> an <OK: status> with <config>.
 }
@@ -228,7 +228,8 @@ These are implementation concerns. The runtime handles them. You write sequentia
 (Handle File Change: File Event Handler) {
     <Extract> the <path> from the <event: path>.
     <Extract> the <type> from the <event: type>.
-    <Log> the <change: message> with <path> and <type>.
+    <Compute> the <message> from "File " + <path> + " " + <type>.
+    <Log> <message> to the <console>.
     <Return> an <OK: status>.
 }
 ```

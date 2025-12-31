@@ -44,11 +44,11 @@ Every `<Exec>` action returns a structured result object:
 <Exec> the <result> for the <command> with "whoami".
 
 (* Access individual fields *)
-<Log> the <user: message> for the <console> with <result.output>.
-<Log> the <exit: code> for the <console> with <result.exitCode>.
+<Log> <result.output> to the <console>.
+<Log> <result.exitCode> to the <console>.
 
 (* Check for errors *)
-<Log> the <error: message> for the <console> with <result.message> when <result.error> = true.
+<Log> <result.message> to the <console> when <result.error> = true.
 ```
 
 ## Error Handling
@@ -59,7 +59,7 @@ Every `<Exec>` action returns a structured result object:
 (Check Disk Space: System Monitor) {
     <Exec> the <result> for the <disk-check> with "df -h".
 
-    <Log> the <error> for the <console> with <result.message> when <result.error> = true.
+    <Log> <result.message> to the <console> when <result.error> = true.
     <Return> an <Error: status> with <result> when <result.error> = true.
 
     <Return> an <OK: status> with <result>.
@@ -72,7 +72,7 @@ Every `<Exec>` action returns a structured result object:
 (Git Status: Version Control) {
     <Exec> the <result> for the <git> with "git status --porcelain".
 
-    <Log> the <warning> for the <console> with "Not a git repository" when <result.exitCode> != 0.
+    <Log> "Not a git repository" to the <console> when <result.exitCode> != 0.
     <Return> a <BadRequest: status> with { error: "Not a git repository" } when <result.exitCode> != 0.
 
     <Return> an <OK: status> with { message: "Working tree clean" } when <result.output> is empty.
@@ -91,7 +91,7 @@ Commands that exceed the timeout return with `exitCode: -1`:
     timeout: 5000
 }.
 
-<Log> the <timeout> for the <console> with "Command timed out" when <result.exitCode> = -1.
+<Log> "Command timed out" to the <console> when <result.exitCode> = -1.
 ```
 
 ## Configuration Options
@@ -160,7 +160,7 @@ output:
 
 ```aro
 (Application-Start: Directory Lister) {
-    <Log> the <startup: message> for the <console> with "Directory Lister".
+    <Log> "Directory Lister" to the <console>.
     <Exec> the <listing> for the <command> with "ls -la".
     <Return> an <OK: status> for the <listing>.
 }
@@ -188,7 +188,7 @@ output:
 
 ```aro
 (Run Build: CI Pipeline) {
-    <Log> the <step> for the <console> with "Installing dependencies...".
+    <Log> "Installing dependencies..." to the <console>.
     <Exec> the <install> for the <npm> with {
         command: "npm install",
         workingDirectory: "./app",
@@ -197,7 +197,7 @@ output:
 
     <Return> an <Error: status> with <install> when <install.error> = true.
 
-    <Log> the <step> for the <console> with "Running tests...".
+    <Log> "Running tests..." to the <console>.
     <Exec> the <test> for the <npm> with {
         command: "npm test",
         workingDirectory: "./app"
@@ -205,7 +205,7 @@ output:
 
     <Return> an <Error: status> with <test> when <test.error> = true.
 
-    <Log> the <step> for the <console> with "Building...".
+    <Log> "Building..." to the <console>.
     <Exec> the <build> for the <npm> with {
         command: "npm run build",
         workingDirectory: "./app"
