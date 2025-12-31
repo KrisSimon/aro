@@ -1,10 +1,10 @@
-# Chapter 8: Understanding Qualifiers
+# Chapter 9: Understanding Qualifiers
 
 *"The colon is context-aware: it navigates data or selects operations."*
 
 ---
 
-## 8.1 The Two Roles of Qualifiers
+## 9.1 The Two Roles of Qualifiers
 
 Throughout ARO, you encounter the colon syntax `<name: qualifier>`. This compact notation carries significant meaning, but that meaning depends on context. Understanding when the colon navigates data versus when it selects operations is essential for writing clear ARO code.
 
@@ -19,7 +19,7 @@ This distinction matters because the same syntax produces fundamentally differen
 
 ---
 
-## 8.2 Operation Qualifiers
+## 9.2 Operation Qualifiers
 
 When using actions like Compute, Validate, Transform, or Sort, the qualifier specifies which operation to apply. The base identifier becomes the variable name for the result.
 
@@ -77,7 +77,7 @@ Now `greeting-length` holds 12 and `farewell-length` holds 8. Both values exist 
 
 ---
 
-## 8.3 Field Navigation Qualifiers
+## 9.3 Field Navigation Qualifiers
 
 When accessing data from objects, events, or requests, the qualifier navigates to nested properties. The qualifier acts as a path into the data structure.
 
@@ -125,7 +125,7 @@ For nested structures, use dot-separated paths:
 
 ---
 
-## 8.4 Type Annotations with `as`
+## 9.4 Type Annotations with `as`
 
 For data pipeline operations (Filter, Reduce, Map), you can optionally specify result types using the `as` keyword:
 
@@ -150,7 +150,7 @@ See ARO-0038 for the full specification.
 
 ---
 
-## 8.5 The Ambiguity Case
+## 9.5 The Ambiguity Case
 
 A natural question arises: what happens when data contains a field named like an operation?
 
@@ -185,7 +185,7 @@ This returns 42—the value of the `length` field.
 
 ---
 
-## 8.6 Best Practices
+## 9.6 Best Practices
 
 **Use descriptive base names with operation qualifiers:**
 
@@ -232,4 +232,4 @@ In summary, qualifiers serve two purposes: navigating data structures and select
 
 ---
 
-*Next: Chapter 9 — The Happy Path*
+*Next: Chapter 10 — The Happy Path*
