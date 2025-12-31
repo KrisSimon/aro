@@ -118,7 +118,7 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
         let isFrameworkVariable = name.hasPrefix("_")
 
         if !isFrameworkVariable && immutableVariables.contains(name) {
-            lock.unlock()
+            // Don't manually unlock - defer handles cleanup (though fatalError terminates)
             fatalError("""
                 Runtime Error: Cannot rebind immutable variable '\(name)'
                 Feature: \(featureSetName)
