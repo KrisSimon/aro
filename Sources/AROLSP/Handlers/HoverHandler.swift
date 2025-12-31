@@ -70,11 +70,7 @@ public struct HoverHandler: Sendable {
                             return createHoverResponse(hoverContent, range: aro.object.noun.span)
                         }
 
-                        // Check preposition
-                        if isPositionInSpan(aroPosition, aro.object.preposition.span) {
-                            let hoverContent = formatPrepositionHover(aro.object.preposition, statement: aro)
-                            return createHoverResponse(hoverContent, range: aro.object.preposition.span)
-                        }
+                        // Note: Preposition hover removed - Preposition enum doesn't have span info
                     }
                 }
             }
@@ -173,7 +169,7 @@ public struct HoverHandler: Sendable {
             content += "**Type**: \(typeStr)\n\n"
             content += "**Visibility**: \(symbol.visibility.rawValue)\n\n"
             content += "**Source**: \(symbol.source)\n\n"
-            content += "**Defined at**: Line \(symbol.definedAt.line)\n\n"
+            content += "**Defined at**: Line \(symbol.definedAt.start.line)\n\n"
 
             // Show usage information
             if isResult {
@@ -214,8 +210,14 @@ public struct HoverHandler: Sendable {
             content += "*Indicates transformation or insertion*"
         case .on:
             content += "*Indicates a subject or location*"
-        case .where:
-            content += "*Introduces a condition or filter*"
+        case .against:
+            content += "*Indicates comparison or opposition*"
+        case .via:
+            content += "*Indicates the path or method*"
+        case .at:
+            content += "*Indicates a specific location or point*"
+        case .by:
+            content += "*Indicates delimiter or grouping*"
         }
 
         return content
@@ -224,36 +226,34 @@ public struct HoverHandler: Sendable {
     private func formatStatement(_ statement: AROStatement) -> String {
         var result = "<\(statement.action.verb)> "
 
-        // Add article if present
-        if let article = statement.result.article {
-            result += "\(article.rawValue) "
-        }
-
-        result += "<\(statement.result.base)"
-        if let qualifier = statement.result.qualifier {
-            result += ": \(qualifier)"
-        }
-        result += ">"
+        // Format result noun (use fullName which includes type annotation if present)
+        result += "the <\(statement.result.fullName)>"
 
         result += " \(statement.object.preposition.rawValue) "
 
-        if let article = statement.object.article {
-            result += "\(article.rawValue) "
-        }
+        // Format object noun
+        result += "the <\(statement.object.noun.fullName)>"
 
-        result += "<\(statement.object.noun.base)"
-        if let qualifier = statement.object.noun.qualifier {
-            result += ": \(qualifier)"
-        }
-        result += ">"
-
-        // Add literal value if present
-        if let literal = statement.object.literalValue {
+        // Add literal value if present on the statement
+        if let literal = statement.literalValue {
             result += " with "
-            if let stringLit = literal as? StringLiteral {
-                result += "\"\(stringLit.value)\""
-            } else if let numLit = literal as? NumericLiteral {
-                result += "\(numLit.value)"
+            switch literal {
+            case .string(let s):
+                result += "\"\(s)\""
+            case .integer(let i):
+                result += "\(i)"
+            case .float(let f):
+                result += "\(f)"
+            case .boolean(let b):
+                result += b ? "true" : "false"
+            case .null:
+                result += "null"
+            case .array(let arr):
+                result += "[\(arr.map { $0.description }.joined(separator: ", "))]"
+            case .object(let fields):
+                result += "{\(fields.map { "\($0.0): \($0.1)" }.joined(separator: ", "))}"
+            case .regex(let pattern, let flags):
+                result += "/\(pattern)/\(flags)"
             }
         }
 
