@@ -58,7 +58,10 @@ public struct StderrObject: SystemObject, Instantiable {
 
     public func write(_ value: any Sendable) async throws {
         let message = formatValue(value)
-        fputs(message + "\n", stderr)
+        // Use FileHandle for concurrency safety
+        if let data = (message + "\n").data(using: .utf8) {
+            try FileHandle.standardError.write(contentsOf: data)
+        }
     }
 
     public func read(property: String?) async throws -> any Sendable {
