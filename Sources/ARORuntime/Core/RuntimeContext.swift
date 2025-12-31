@@ -112,6 +112,12 @@ public final class RuntimeContext: ExecutionContext, @unchecked Sendable {
         variables[name] = value
     }
 
+    public func unbind(_ name: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        variables.removeValue(forKey: name)
+    }
+
     public func exists(_ name: String) -> Bool {
         lock.lock()
         defer { lock.unlock() }
