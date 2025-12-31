@@ -8,11 +8,11 @@
  */
 
 import * as assert from 'assert';
-import * as sinon from 'sinon';
-import { validateAroPath } from '../extension';
-import * as childProcess from 'child_process';
+import proxyquire = require('proxyquire');
 
-// Note: We import the real validateAroPath function and mock execFileAsync
+// Note: For security tests, we use the real validateAroPath function.
+// For valid path tests, we use proxyquire to mock file system operations.
+import { validateAroPath } from '../validation';
 
 describe('ARO Path Validation', () => {
     describe('Security - Command Injection', () => {
@@ -61,16 +61,124 @@ describe('ARO Path Validation', () => {
 
     describe('Valid Paths', () => {
         it('should accept absolute paths without suspicious characters', async () => {
+            // Mock fs/promises and child_process using proxyquire
+            const { validateAroPath } = proxyquire.load('../validation', {
+                'fs/promises': {
+                    realpath: async (path: string) => path,
+                    access: async () => undefined,
+                    constants: {
+                        X_OK: 1
+                    },
+                    '@noCallThru': true
+                },
+                'child_process': {
+                    execFile: (file: string, args: string[], options: any, callback: any) => {
+                        // Simulate successful execution with version output
+                        // Note: promisify expects (error, stdout, stderr) signature
+                        process.nextTick(() => callback(null, 'aro version 1.0.0\n', ''));
+                    },
+                    '@noCallThru': true
+                },
+                'util': {
+                    promisify: (fn: any) => {
+                        return (...args: any[]) => {
+                            return new Promise((resolve, reject) => {
+                                fn(...args, (err: any, stdout: string, stderr: string) => {
+                                    if (err) {
+                                        reject(err);
+                                    } else {
+                                        resolve({ stdout, stderr });
+                                    }
+                                });
+                            });
+                        };
+                    },
+                    '@noCallThru': true
+                }
+            });
+
             const result = await validateAroPath('/usr/local/bin/aro');
             assert.strictEqual(result, true);
         });
 
         it('should accept paths with spaces (when properly quoted)', async () => {
+            // Mock fs/promises and child_process using proxyquire
+            const { validateAroPath } = proxyquire.load('../validation', {
+                'fs/promises': {
+                    realpath: async (path: string) => path,
+                    access: async () => undefined,
+                    constants: {
+                        X_OK: 1
+                    },
+                    '@noCallThru': true
+                },
+                'child_process': {
+                    execFile: (file: string, args: string[], options: any, callback: any) => {
+                        // Simulate successful execution with version output
+                        // Note: promisify expects (error, stdout, stderr) signature
+                        process.nextTick(() => callback(null, 'aro version 1.0.0\n', ''));
+                    },
+                    '@noCallThru': true
+                },
+                'util': {
+                    promisify: (fn: any) => {
+                        return (...args: any[]) => {
+                            return new Promise((resolve, reject) => {
+                                fn(...args, (err: any, stdout: string, stderr: string) => {
+                                    if (err) {
+                                        reject(err);
+                                    } else {
+                                        resolve({ stdout, stderr });
+                                    }
+                                });
+                            });
+                        };
+                    },
+                    '@noCallThru': true
+                }
+            });
+
             const result = await validateAroPath('/usr/local/bin/aro with spaces/aro');
             assert.strictEqual(result, true);
         });
 
         it('should accept paths with hyphens and underscores', async () => {
+            // Mock fs/promises and child_process using proxyquire
+            const { validateAroPath } = proxyquire.load('../validation', {
+                'fs/promises': {
+                    realpath: async (path: string) => path,
+                    access: async () => undefined,
+                    constants: {
+                        X_OK: 1
+                    },
+                    '@noCallThru': true
+                },
+                'child_process': {
+                    execFile: (file: string, args: string[], options: any, callback: any) => {
+                        // Simulate successful execution with version output
+                        // Note: promisify expects (error, stdout, stderr) signature
+                        process.nextTick(() => callback(null, 'aro version 1.0.0\n', ''));
+                    },
+                    '@noCallThru': true
+                },
+                'util': {
+                    promisify: (fn: any) => {
+                        return (...args: any[]) => {
+                            return new Promise((resolve, reject) => {
+                                fn(...args, (err: any, stdout: string, stderr: string) => {
+                                    if (err) {
+                                        reject(err);
+                                    } else {
+                                        resolve({ stdout, stderr });
+                                    }
+                                });
+                            });
+                        };
+                    },
+                    '@noCallThru': true
+                }
+            });
+
             const result = await validateAroPath('/usr/local/bin/aro-lang_v1');
             assert.strictEqual(result, true);
         });
