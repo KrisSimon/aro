@@ -61,6 +61,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Cache Swift packages
         uses: actions/cache@v5
@@ -73,6 +75,58 @@ jobs:
 
       - name: Run tests
         run: swift test --parallel
+
+      - name: Generate version file
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          cat > Sources/AROVersion/Version.swift << 'EOF'
+          // ============================================================
+          // Version.swift
+          // ARO Version Information
+          // ============================================================
+          // This file is auto-generated during build
+
+          import Foundation
+
+          public enum AROVersion {
+              /// Version from git tag (embedded at build time)
+              public static let version: String = "VERSION_PLACEHOLDER"
+
+              /// Short commit hash (embedded at build time)
+              public static let commit: String = "COMMIT_PLACEHOLDER"
+
+              /// Build date in ISO 8601 format (embedded at build time)
+              public static let buildDate: String = "BUILD_DATE_PLACEHOLDER"
+
+              /// Whether this is a release build
+              public static let isRelease: Bool = {
+                  !version.contains("-dirty") && !version.hasPrefix("unknown") && !version.hasPrefix("dev")
+              }()
+
+              /// Full version string with commit and build date
+              public static var fullVersion: String {
+                  "\(version) (\(commit)) built on \(buildDate)"
+              }
+
+              /// Short version string (just the version)
+              public static var shortVersion: String {
+                  version
+              }
+          }
+          EOF
+
+          # Replace placeholders with actual values (Linux uses sed without -i '')
+          sed -i "s|VERSION_PLACEHOLDER|$VERSION|g" Sources/AROVersion/Version.swift
+          sed -i "s|COMMIT_PLACEHOLDER|$COMMIT|g" Sources/AROVersion/Version.swift
+          sed -i "s|BUILD_DATE_PLACEHOLDER|$BUILD_DATE|g" Sources/AROVersion/Version.swift
+
+          echo "Generated version file with:"
+          echo "  Version: $VERSION"
+          echo "  Commit: $COMMIT"
+          echo "  Build Date: $BUILD_DATE"
 
       - name: Build release
         run: swift build -c release --static-swift-stdlib
@@ -100,6 +154,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Swift
         uses: swift-actions/setup-swift@v3
@@ -117,6 +173,58 @@ jobs:
 
       - name: Run tests
         run: swift test --parallel
+
+      - name: Generate version file
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          cat > Sources/AROVersion/Version.swift << 'EOF'
+          // ============================================================
+          // Version.swift
+          // ARO Version Information
+          // ============================================================
+          // This file is auto-generated during build
+
+          import Foundation
+
+          public enum AROVersion {
+              /// Version from git tag (embedded at build time)
+              public static let version: String = "VERSION_PLACEHOLDER"
+
+              /// Short commit hash (embedded at build time)
+              public static let commit: String = "COMMIT_PLACEHOLDER"
+
+              /// Build date in ISO 8601 format (embedded at build time)
+              public static let buildDate: String = "BUILD_DATE_PLACEHOLDER"
+
+              /// Whether this is a release build
+              public static let isRelease: Bool = {
+                  !version.contains("-dirty") && !version.hasPrefix("unknown") && !version.hasPrefix("dev")
+              }()
+
+              /// Full version string with commit and build date
+              public static var fullVersion: String {
+                  "\(version) (\(commit)) built on \(buildDate)"
+              }
+
+              /// Short version string (just the version)
+              public static var shortVersion: String {
+                  version
+              }
+          }
+          EOF
+
+          # Replace placeholders with actual values
+          sed -i '' "s|VERSION_PLACEHOLDER|$VERSION|g" Sources/AROVersion/Version.swift
+          sed -i '' "s|COMMIT_PLACEHOLDER|$COMMIT|g" Sources/AROVersion/Version.swift
+          sed -i '' "s|BUILD_DATE_PLACEHOLDER|$BUILD_DATE|g" Sources/AROVersion/Version.swift
+
+          echo "Generated version file with:"
+          echo "  Version: $VERSION"
+          echo "  Commit: $COMMIT"
+          echo "  Build Date: $BUILD_DATE"
 
       - name: Build release
         run: swift build -c release
@@ -258,6 +366,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Swift
         uses: compnerd/gha-setup-swift@main
@@ -270,6 +380,59 @@ jobs:
 
       - name: Run tests
         run: swift test --parallel
+
+      - name: Generate version file
+        shell: bash
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          cat > Sources/AROVersion/Version.swift << 'EOF'
+          // ============================================================
+          // Version.swift
+          // ARO Version Information
+          // ============================================================
+          // This file is auto-generated during build
+
+          import Foundation
+
+          public enum AROVersion {
+              /// Version from git tag (embedded at build time)
+              public static let version: String = "VERSION_PLACEHOLDER"
+
+              /// Short commit hash (embedded at build time)
+              public static let commit: String = "COMMIT_PLACEHOLDER"
+
+              /// Build date in ISO 8601 format (embedded at build time)
+              public static let buildDate: String = "BUILD_DATE_PLACEHOLDER"
+
+              /// Whether this is a release build
+              public static let isRelease: Bool = {
+                  !version.contains("-dirty") && !version.hasPrefix("unknown") && !version.hasPrefix("dev")
+              }()
+
+              /// Full version string with commit and build date
+              public static var fullVersion: String {
+                  "\(version) (\(commit)) built on \(buildDate)"
+              }
+
+              /// Short version string (just the version)
+              public static var shortVersion: String {
+                  version
+              }
+          }
+          EOF
+
+          # Replace placeholders (Windows bash shell)
+          sed -i "s|VERSION_PLACEHOLDER|$VERSION|g" Sources/AROVersion/Version.swift
+          sed -i "s|COMMIT_PLACEHOLDER|$COMMIT|g" Sources/AROVersion/Version.swift
+          sed -i "s|BUILD_DATE_PLACEHOLDER|$BUILD_DATE|g" Sources/AROVersion/Version.swift
+
+          echo "Generated version file with:"
+          echo "  Version: $VERSION"
+          echo "  Commit: $COMMIT"
+          echo "  Build Date: $BUILD_DATE"
 
       - name: Build release
         run: swift build -c release
