@@ -10,9 +10,9 @@
 <p align="center">
   <a href="https://krissimon.github.io/aro/">Website</a> ·
   <a href="https://github.com/KrisSimon/aro/wiki">Documentation</a> ·
-  <a href="https://github.com/KrisSimon/ARO-Lang/releases">Language Guide (PDF)</a> ·
-  <a href="https://github.com/KrisSimon/ARO-Lang/discussions">Discussions</a> ·
-  <a href="https://github.com/KrisSimon/ARO-Lang/issues">Issues</a>
+  <a href="https://github.com/KrisSimon/aro/releases/latest/download/ARO-Language-Guide.pdf">Language Guide (PDF)</a> ·
+  <a href="https://github.com/KrisSimon/aro/discussions">Discussions</a> ·
+  <a href="https://github.com/KrisSimon/aro/issues">Issues</a>
 </p>
 
 ---
@@ -119,7 +119,7 @@ aro run ./HelloWorld
 
 ## Documentation
 
-The complete language guide is available as a PDF in the [Releases](https://github.com/KrisSimon/ARO-Lang/releases) page. It covers:
+The complete language guide is available as a PDF in the [Releases](https://github.com/KrisSimon/aro/releases) page, or download the [latest version directly](https://github.com/KrisSimon/aro/releases/latest/download/ARO-Language-Guide.pdf). It covers:
 
 - The ARO mental model and philosophy
 - Statement anatomy and feature sets
@@ -181,8 +181,8 @@ ARO is written in Swift 6.2 and uses Swift Package Manager.
 Xcode 16.3 or later includes Swift 6.2.
 
 ```bash
-git clone https://github.com/KrisSimon/ARO-Lang.git
-cd ARO-Lang
+git clone https://github.com/KrisSimon/aro.git
+cd aro
 swift build -c release
 ```
 
@@ -193,8 +193,8 @@ The binary is at `.build/release/aro`.
 Install Swift 6.2 from [swift.org](https://swift.org/download/).
 
 ```bash
-git clone https://github.com/KrisSimon/ARO-Lang.git
-cd ARO-Lang
+git clone https://github.com/KrisSimon/aro.git
+cd aro
 swift build -c release
 ```
 
@@ -205,8 +205,8 @@ The binary is at `.build/release/aro`.
 Install Swift 6.2 from [swift.org](https://swift.org/download/). Ensure the Swift toolchain is in your PATH.
 
 ```powershell
-git clone https://github.com/KrisSimon/ARO-Lang.git
-cd ARO-Lang
+git clone https://github.com/KrisSimon/aro.git
+cd aro
 swift build -c release
 ```
 
@@ -261,8 +261,8 @@ aro run ./Examples/HTTPServer
 
 ARO is in active development. Contributions are welcome.
 
-- [Open an issue](https://github.com/KrisSimon/ARO-Lang/issues) for bugs or feature requests
-- [Join the discussion](https://github.com/KrisSimon/ARO-Lang/discussions) for questions and ideas
+- [Open an issue](https://github.com/KrisSimon/aro/issues) for bugs or feature requests
+- [Join the discussion](https://github.com/KrisSimon/aro/discussions) for questions and ideas
 - Read the [Evolution Proposals](./Proposals/) to understand the language design
 
 ### Code Reviews
