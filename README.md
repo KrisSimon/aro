@@ -12,7 +12,7 @@
   <a href="https://github.com/KrisSimon/aro/wiki">Documentation</a> ·
   <a href="https://github.com/KrisSimon/aro/releases/latest/download/ARO-Language-Guide.pdf">Language Guide (PDF)</a> ·
   <a href="https://github.com/KrisSimon/aro/discussions">Discussions</a> ·
-  <a href="https://github.com/KrisSimon/aro/issues">Issues</a>
+  <a href="https://social.uitsmijter.io/@aro">Mastodon</a>
 </p>
 
 ---
@@ -263,6 +263,7 @@ ARO is in active development. Contributions are welcome.
 
 - [Open an issue](https://github.com/KrisSimon/aro/issues) for bugs or feature requests
 - [Join the discussion](https://github.com/KrisSimon/aro/discussions) for questions and ideas
+- [Follow on Mastodon](https://social.uitsmijter.io/@aro) for daily language tips and updates
 - Read the [Evolution Proposals](./Proposals/) to understand the language design
 
 ### Code Reviews
