@@ -410,7 +410,7 @@ jobs:
       # ========================================================================
 
       - name: Update Homebrew Formula
-        if: secrets.HOMEBREW_TAP_TOKEN != ''
+        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
         continue-on-error: true
         run: |
           # Calculate SHA256 of the macOS release
