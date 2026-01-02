@@ -1,10 +1,10 @@
-# Chapter 18B: System Objects
+# Chapter 19: System Objects
 
 *"Every program needs to interact with its environment."*
 
 ---
 
-## 18B.1 What Are System Objects?
+## 19.1 What Are System Objects?
 
 System objects are special objects in ARO that represent external sources and sinks of data. Unlike regular variables that you create and bind within your feature sets, system objects are provided by the runtime and represent I/O streams, HTTP requests, files, environment variables, and other external resources.
 
@@ -90,8 +90,8 @@ The following diagram illustrates how data flows between your ARO feature sets a
 
   <!-- Arrows: Sources → Feature Set -->
   <defs>
-    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-      <polygon points="0 0, 10 3, 0 6" fill="#2c3e50"/>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" viewBox="0 0 10 6">
+      <polygon points="0,0 10,3 0,6" fill="#2c3e50"/>
     </marker>
   </defs>
 
@@ -142,7 +142,7 @@ The following diagram illustrates how data flows between your ARO feature sets a
 
 ---
 
-## 18B.2 Sink Syntax
+## 19.2 Sink Syntax
 
 For sink operations, ARO provides a clean, intuitive syntax where the value comes directly after the verb:
 

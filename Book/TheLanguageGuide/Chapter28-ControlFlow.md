@@ -1,4 +1,4 @@
-# Chapter 27: Control Flow
+# Chapter 28: Control Flow
 
 ARO provides control flow constructs for conditional execution. This chapter covers how to make decisions in your feature sets using guarded statements and match expressions.
 

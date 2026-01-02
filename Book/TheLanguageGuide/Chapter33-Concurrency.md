@@ -1,4 +1,4 @@
-# Chapter 32: Concurrency
+# Chapter 33: Concurrency
 
 ARO's concurrency model is radically simple: **feature sets are async, statements are sync**. This chapter explains how ARO handles concurrent operations without requiring you to think about threads, locks, or async/await.
 
