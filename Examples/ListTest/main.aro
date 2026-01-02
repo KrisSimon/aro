@@ -1,0 +1,11 @@
+(Application-Start: List Test) {
+    <Create> the <path> with "../template".
+    <Log> "Listing directory..." to the <console>.
+    
+    <List> the <entries> from the <directory: path>.
+    
+    <Compute> the <count: length> from the <entries>.
+    <Log> "Found ${count} entries" to the <console>.
+    
+    <Return> an <OK: status> for the <test>.
+}
