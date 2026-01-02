@@ -1,10 +1,10 @@
-# Chapter 18B: System Objects
+# Chapter 19: System Objects
 
 *"Every program needs to interact with its environment."*
 
 ---
 
-## 18B.1 What Are System Objects?
+## 19.1 What Are System Objects?
 
 System objects are special objects in ARO that represent external sources and sinks of data. Unlike regular variables that you create and bind within your feature sets, system objects are provided by the runtime and represent I/O streams, HTTP requests, files, environment variables, and other external resources.
 
@@ -142,7 +142,7 @@ The following diagram illustrates how data flows between your ARO feature sets a
 
 ---
 
-## 18B.2 Sink Syntax
+## 19.2 Sink Syntax
 
 For sink operations, ARO provides a clean, intuitive syntax where the value comes directly after the verb:
 

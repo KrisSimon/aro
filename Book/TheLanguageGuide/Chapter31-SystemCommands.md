@@ -1,4 +1,4 @@
-# Chapter 30: System Commands
+# Chapter 31: System Commands
 
 ARO provides the `<Exec>` action for executing shell commands on the host system. This chapter covers command execution, result handling, and security considerations.
 

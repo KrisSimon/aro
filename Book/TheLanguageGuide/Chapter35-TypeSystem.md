@@ -1,4 +1,4 @@
-# Chapter 34: Type System
+# Chapter 35: Type System
 
 ARO has a simple type system: four built-in primitives, two collection types, and complex types defined externally in OpenAPI. This chapter explains how types work in ARO.
 

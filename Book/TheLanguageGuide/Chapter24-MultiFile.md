@@ -1,10 +1,10 @@
-# Chapter 23: Multi-file Applications
+# Chapter 24: Multi-file Applications
 
 *"Organize by domain, not by technical layer."*
 
 ---
 
-## 23.1 Application Structure
+## 24.1 Application Structure
 
 An ARO application is a directory containing source files, configuration, and optional auxiliary files. The runtime automatically discovers all ARO source files in this directory and its subdirectories, compiling them together into a unified application.
 
@@ -16,7 +16,7 @@ Certain files have special significance. The openapi.yaml file, if present, defi
 
 ---
 
-## 23.2 Auto-Discovery
+## 24.2 Auto-Discovery
 
 When you run an ARO application, the runtime scans the application directory recursively for files with the .aro extension. Each file is parsed, and its feature sets are registered. This happens automatically without any configuration.
 
@@ -28,7 +28,7 @@ The discovery process validates structural requirements. It checks that exactly 
 
 ---
 
-## 23.3 Global Visibility
+## 24.3 Global Visibility
 
 Feature sets are globally visible without imports. This is a fundamental design choice that enables loose coupling through events.
 
@@ -42,7 +42,7 @@ Repositories are implicitly shared. When one feature set stores data to a reposi
 
 ---
 
-## 23.4 The Application-Start Requirement
+## 24.4 The Application-Start Requirement
 
 Every ARO application must have exactly one Application-Start feature set. This requirement ensures there is an unambiguous entry point for execution.
 
@@ -56,7 +56,7 @@ The Application-End feature sets (Success and Error variants) have similar const
 
 ---
 
-## 23.5 Organization Strategies
+## 24.5 Organization Strategies
 
 Several strategies for organizing multi-file applications have proven effective in practice.
 
@@ -163,7 +163,7 @@ Key points in this layout:
 
 ---
 
-## 23.6 Recommended Patterns
+## 24.6 Recommended Patterns
 
 Experience suggests some patterns that work well across different types of applications.
 
@@ -177,7 +177,7 @@ Use descriptive file names that indicate content. A file named users.aro clearly
 
 ---
 
-## 23.7 Sharing Data Between Files
+## 24.7 Sharing Data Between Files
 
 Feature sets in different files can share data through several mechanisms, each appropriate for different scenarios.
 
@@ -191,7 +191,7 @@ The choice between these mechanisms depends on the relationship between the shar
 
 ---
 
-## 23.8 Best Practices
+## 24.8 Best Practices
 
 Establish naming conventions early and follow them consistently. File names, feature set names, event names, and repository names should follow predictable patterns that team members can learn and apply.
 
