@@ -410,6 +410,8 @@ jobs:
       # ========================================================================
 
       - name: Update Homebrew Formula
+        if: secrets.HOMEBREW_TAP_TOKEN != ''
+        continue-on-error: true
         run: |
           # Calculate SHA256 of the macOS release
           SHA256=$(shasum -a 256 artifacts/aro-macos-arm64.tar.gz | awk '{print $1}')
@@ -424,27 +426,27 @@ jobs:
 
           # Update the formula
           cat > Formula/aro.rb <<EOF
-          class Aro < Formula
-            desc "ARO programming language - Natural language DSL for business logic"
-            homepage "https://github.com/KrisSimon/aro"
-            url "https://github.com/KrisSimon/aro/releases/download/${{ github.ref_name }}/aro-macos-arm64.tar.gz"
-            sha256 "$SHA256"
-            version "$VERSION"
-            license "MIT"
+class Aro < Formula
+  desc "ARO programming language - Natural language DSL for business logic"
+  homepage "https://github.com/KrisSimon/aro"
+  url "https://github.com/KrisSimon/aro/releases/download/${{ github.ref_name }}/aro-macos-arm64.tar.gz"
+  sha256 "$SHA256"
+  version "$VERSION"
+  license "MIT"
 
-            # Only support macOS for now (ARM64 binary)
-            depends_on :macos
-            depends_on arch: :arm64
+  # Only support macOS for now (ARM64 binary)
+  depends_on :macos
+  depends_on arch: :arm64
 
-            def install
-              bin.install "aro"
-            end
+  def install
+    bin.install "aro"
+  end
 
-            test do
-              assert_match version.to_s, shell_output("#{bin}/aro --version")
-            end
-          end
-          EOF
+  test do
+    assert_match version.to_s, shell_output("\#{bin}/aro --version")
+  end
+end
+EOF
 
           # Configure git
           git config user.name "github-actions[bot]"
