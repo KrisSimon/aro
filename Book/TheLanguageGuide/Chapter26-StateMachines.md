@@ -91,10 +91,12 @@ This creates a clear contract: orders have a status field that must be one of th
 
   <!-- Yes branch -->
   <line x1="90" y1="115" x2="50" y2="130" stroke="#22c55e" stroke-width="1.5"/>
+  <polygon points="50,130 56,124 52,132" fill="#22c55e"/>
   <text x="55" y="125" font-family="sans-serif" font-size="7" fill="#22c55e">match</text>
 
   <!-- No branch -->
   <line x1="90" y1="115" x2="130" y2="130" stroke="#ef4444" stroke-width="1.5"/>
+  <polygon points="130,130 124,124 128,132" fill="#ef4444"/>
   <text x="120" y="125" font-family="sans-serif" font-size="7" fill="#ef4444">no match</text>
 
   <!-- Success: Update -->
@@ -201,7 +203,7 @@ Consider what this means for debugging. When a user reports "I can't place my or
   <line x1="35" y1="40" x2="15" y2="40" stroke="#ef4444" stroke-width="1" stroke-dasharray="3,2"/>
   <line x1="15" y1="40" x2="15" y2="248" stroke="#ef4444" stroke-width="1" stroke-dasharray="3,2"/>
   <line x1="15" y1="248" x2="35" y2="248" stroke="#ef4444" stroke-width="1" stroke-dasharray="3,2"/>
-  <polygon points="35,248 29,244 29,252" fill="#ef4444"/>
+  <polygon points="35,248 30,245 30,251" fill="#ef4444"/>
 
   <!-- Cancelled -->
   <rect x="35" y="236" width="70" height="24" rx="12" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>
