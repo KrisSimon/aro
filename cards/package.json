@@ -4,10 +4,13 @@
   "description": "Generate promotional cards for ARO language features",
   "type": "module",
   "scripts": {
-    "generate": "node generate.js"
+    "generate": "node generate.js",
+    "post": "node post-to-mastodon.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
-    "puppeteer": "^23.0.0"
+    "puppeteer": "^23.0.0",
+    "node-fetch": "^3.3.2",
+    "form-data": "^4.0.1"
   }
 }

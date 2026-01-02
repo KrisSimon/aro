@@ -24,6 +24,9 @@ on:
       - 'cards/**'
       - '.github/workflows/cards.yml'
   workflow_dispatch:
+  schedule:
+    # Run Monday-Friday at 9:00 AM UTC
+    - cron: '0 9 * * 1-5'
 
 concurrency:
   group: cards-${{ github.ref }}
@@ -92,3 +95,34 @@ jobs:
           echo '${{ steps.meta.outputs.tags }}' | tr ',' '\n' | while read tag; do
             echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
           done
+
+  # ===========================================================================
+  # Post Card to Mastodon (scheduled daily Monday-Friday)
+  # ===========================================================================
+  post:
+    name: Post Card to Mastodon
+    runs-on: ubuntu-latest
+    # Only run on schedule or manual trigger, not on code changes
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd cards
+          npm install
+
+      - name: Post card to Mastodon
+        env:
+          MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
+          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+          START_DATE: '2026-01-01'
+        run: |
+          cd cards
+          node post-to-mastodon.js
