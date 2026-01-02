@@ -103,6 +103,11 @@ class AROCContextHandle {
     init(runtime: AROCRuntimeHandle, existingContext: RuntimeContext) {
         self.runtime = runtime
         self.context = existingContext
+        #if !os(Windows)
+        self.fileSystemService = nil
+        self.socketServer = nil
+        self.httpServer = nil
+        #endif
     }
 }
 
