@@ -1,4 +1,4 @@
-# Chapter 31: HTTP Client
+# Chapter 32: HTTP Client
 
 ARO provides HTTP client capabilities for making requests to external services and APIs.
 
