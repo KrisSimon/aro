@@ -1,0 +1,55 @@
+# =============================================================================
+# ARO Programming Language - Release Announcement
+# =============================================================================
+# Posts release announcements to Mastodon when tags are created
+# =============================================================================
+
+name: Release Announcement
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'      # Match v0.1.0, v1.0.0, etc.
+      - '[0-9]*.*.*'  # Match 0.1.0-alpha.2, 1.0.0-rc.1, etc.
+
+jobs:
+  announce:
+    name: Post to Mastodon
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd cards
+          npm install
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}  # Remove leading 'v' if present
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Post release announcement
+        env:
+          MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
+          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+        run: |
+          cd cards
+          node post-release-to-mastodon.js "${{ steps.version.outputs.tag }}"
+
+      - name: Summary
+        run: |
+          echo "### Release Announcement Posted" >> $GITHUB_STEP_SUMMARY
+          echo "Version: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Tag: ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "Posted to: https://social.uitsmijter.io/@aro" >> $GITHUB_STEP_SUMMARY
