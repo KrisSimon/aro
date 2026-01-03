@@ -7,27 +7,27 @@
     <Log> "" to the <console>.
 
     (* First call - increment counter *)
-    <Call> the <result1> from the <counter: increment> with {}.
-    <Extract> the <count1> from the <result1: count>.
+    <Call> the <first-increment-response> from the <counter: increment> with {}.
+    <Extract> the <count-after-first-increment> from the <first-increment-response: count>.
     <Log> "Step 1: Increment counter" to the <console>.
     <Log> "Current count:" to the <console>.
-    <Log> <count1> to the <console>.
+    <Log> <count-after-first-increment> to the <console>.
     <Log> "" to the <console>.
 
     (* Second call - increment again (state persists!) *)
-    <Call> the <result2> from the <counter: increment> with {}.
-    <Extract> the <count2> from the <result2: count>.
+    <Call> the <second-increment-response> from the <counter: increment> with {}.
+    <Extract> the <count-after-second-increment> from the <second-increment-response: count>.
     <Log> "Step 2: Increment counter again" to the <console>.
     <Log> "Current count:" to the <console>.
-    <Log> <count2> to the <console>.
+    <Log> <count-after-second-increment> to the <console>.
     <Log> "" to the <console>.
 
     (* Third call - get current count *)
-    <Call> the <result3> from the <counter: get> with {}.
-    <Extract> the <count3> from the <result3: count>.
+    <Call> the <current-count-response> from the <counter: get> with {}.
+    <Extract> the <final-count> from the <current-count-response: count>.
     <Log> "Step 3: Get current count" to the <console>.
     <Log> "Current count:" to the <console>.
-    <Log> <count3> to the <console>.
+    <Log> <final-count> to the <console>.
     <Log> "" to the <console>.
 
     <Log> "State persisted across calls: 0 -> 1 -> 2" to the <console>.

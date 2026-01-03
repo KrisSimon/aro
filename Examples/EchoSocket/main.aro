@@ -22,11 +22,11 @@
 }
 
 (Handle Data Received: Socket Event Handler) {
-    <Extract> the <data> from the <packet: buffer>.
+    <Extract> the <received-data> from the <packet: buffer>.
     <Extract> the <client> from the <packet: connection>.
 
     (* Echo back the received data *)
-    <Send> the <data> to the <client>.
+    <Send> the <received-data> to the <client>.
 
     <Log> "Echoed data back to client" to the <console>.
 

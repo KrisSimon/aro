@@ -15,8 +15,8 @@
     <Log> <words> to the <console>.
 
     (* Split by multiple delimiters *)
-    <Create> the <data> with "one;two,three four".
-    <Split> the <parts> from the <data> by /[;,\s]+/.
+    <Create> the <mixed-delimiters> with "one;two,three four".
+    <Split> the <parts> from the <mixed-delimiters> by /[;,\s]+/.
     <Log> "Parts:" to the <console>.
     <Log> <parts> to the <console>.
 
