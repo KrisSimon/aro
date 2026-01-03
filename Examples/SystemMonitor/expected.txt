@@ -1,0 +1,8 @@
+# Generated: Sat Jan  3 09:14:49 2026
+# Type: http
+# Command: aro run ./Examples/SystemMonitor
+---
+GET /disk => ERROR: 404 Not Found
+GET /exec => ERROR: 404 Not Found
+GET /list => ERROR: 404 Not Found
+GET /processes => ERROR: 404 Not Found

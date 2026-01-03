@@ -1,0 +1,9 @@
+# Generated: Sat Jan  3 09:14:50 2026
+# Type: http
+# Command: aro run ./Examples/UserService
+---
+GET /users => {"users":[{"id":"A3BF7166-88DF-4CE6-A639-DBD454E0C2C0","message":"test"},{"id":"9705EEA9-DAD1-4CB5-B450-2DFB6006A6D1","message":"test"},{"id":"52A6D516-2522-49F2-8999-67A30E2F3979","message":"test"}]}
+POST /users => {"message":"test"}
+DELETE /users/{id} => ERROR:
+GET /users/{id} => {"data":[]}
+PUT /users/{id} => ERROR:

@@ -1,0 +1,66 @@
+# Generated: Sat Jan  3 09:30:37 2026
+# Type: console
+# Command: aro run ./Examples/DataPipeline
+---
+[Application] HTTP request handler configured with 0 routes
+[Application-Start] === Test 1: Simple Array Reduce ===
+[Application-Start] Numbers:
+[Application-Start] [1, 2, 3, 4, 5]
+[Application-Start] Count:
+[Application-Start] 5
+[Application-Start] Sum:
+[Application-Start] 15.00
+[Application-Start] Average:
+[Application-Start] 3.00
+[Application-Start] Min:
+[Application-Start] 1.00
+[Application-Start] Max:
+[Application-Start] 5.00
+[Application-Start] === Test 2: Object Array with Filter ===
+[Application-Start] All Orders:
+[Application-Start] [amount: 100
+id: 1
+status: active, amount: 250
+id: 2
+status: pending, amount: 500
+id: 3
+status: active, amount: 75
+id: 4
+status: cancelled, amount: 300
+id: 5
+status: active]
+[Application-Start] Active Orders:
+[Application-Start] [amount: 100
+id: 1
+status: active, amount: 500
+id: 3
+status: active, amount: 300
+id: 5
+status: active]
+[Application-Start] Active Orders Total:
+[Application-Start] 900.00
+[Application-Start] Active Orders Count:
+[Application-Start] 3
+[Application-Start] Active Orders Average:
+[Application-Start] 300.00
+[Application-Start] === Test 3: Map Operation ===
+[Application-Start] Mapped Active Orders (pass-through):
+[Application-Start] [amount: 100
+id: 1
+status: active, amount: 500
+id: 3
+status: active, amount: 300
+id: 5
+status: active]
+[Application-Start] === Test 4: Numeric Filter ===
+[Application-Start] High Value Orders (amount > 200):
+[Application-Start] [amount: 250
+id: 2
+status: pending, amount: 500
+id: 3
+status: active, amount: 300
+id: 5
+status: active]
+[Application-Start] High Value Total:
+[Application-Start] 1050.00
+[OK] pipeline-test

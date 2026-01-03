@@ -1,0 +1,11 @@
+# Generated: Sat Jan  3 09:14:49 2026
+# Type: console
+# Command: aro run ./Examples/Split
+---
+[Application-Start] Fruits:
+[Application-Start] [apple, banana, cherry, date]
+[Application-Start] Words:
+[Application-Start] [Hello, World, ARO]
+[Application-Start] Parts:
+[Application-Start] [one, two, three, four]
+[OK] demo

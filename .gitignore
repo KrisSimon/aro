@@ -56,3 +56,6 @@
 /Examples/CustomPlugin/.build
 /Examples/CustomPlugin/.aro-cache
 homebrew-aro/
+/output/users.yaml
+/output/config.env
+/Examples/ZipService/content/archive.zip

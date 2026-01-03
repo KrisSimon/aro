@@ -1,0 +1,9 @@
+# Generated: Sat Jan  3 09:13:43 2026
+# Type: console
+# Command: aro run ./Examples/DirectoryReplicatorEvents
+---
+[Application-Start] Scanning template directory...
+Runtime error: Runtime Error: Cannot list the all-entries: recursively from the directory: template-path.
+  Feature: Application-Start
+  Business Activity: Directory Replicator Events
+  Statement: <List> the <all-entries: recursively> from the <directory: template-path>.

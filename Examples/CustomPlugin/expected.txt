@@ -1,0 +1,9 @@
+# Generated: Sat Jan  3 09:15:31 2026
+# Type: console
+# Command: aro run ./Examples/CustomPlugin
+---
+[PluginLoader] Registered plugin service: greeting
+[Application-Start] Testing custom greeting plugin...
+[Application-Start] result: Hello, ARO Developer!
+[Application-Start] result: Goodbye, ARO Developer! See you next time.
+[OK] startup

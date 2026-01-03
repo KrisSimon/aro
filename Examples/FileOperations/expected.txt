@@ -1,0 +1,14 @@
+# Generated: Sat Jan  3 09:13:57 2026
+# Type: console
+# Command: aro run ./Examples/FileOperations
+---
+
+Compilation errors:
+  error [34:19]: Cannot rebind variable 'append-line' - variables are immutable
+  hint: Variable 'append-line' was already defined earlier in this feature set
+  hint: Create a new variable with a different name instead
+  hint: Example: <Append> the <append-line-updated> to the <file>
+  error [60:17]: Cannot rebind variable 'file' - variables are immutable
+  hint: Variable 'file' was already defined earlier in this feature set
+  hint: Create a new variable with a different name instead
+  hint: Example: <Move> the <file-updated> to the <destination>

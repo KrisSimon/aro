@@ -1,0 +1,13 @@
+# Generated: Sat Jan  3 09:14:51 2026
+# Type: console
+# Command: aro run ./Examples/ZipService
+---
+[PluginLoader] Building package plugin: ZipPlugin
+[PluginLoader] Registered plugin service: zip
+[PluginLoader] Loaded package plugin: ZipPlugin
+[Application-Start] Testing zip plugin...
+[Application-Start] Zip result:
+[Application-Start] filesCompressed: 2
+output: Examples/ZipService/content/archive.zip
+success: true
+[OK] startup

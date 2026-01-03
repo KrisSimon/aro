@@ -1,0 +1,7 @@
+# Generated: Sat Jan  3 09:30:42 2026
+# Type: http
+# Command: aro run ./Examples/HTTPServer
+---
+POST /echo => ERROR: 404 Not Found
+GET /health => ERROR: 404 Not Found
+GET /welcome => ERROR: 404 Not Found
