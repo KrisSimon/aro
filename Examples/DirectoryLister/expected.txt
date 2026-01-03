@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 12:27:22 2026
+# Generated: Sat Jan  3 12:40:12 2026
 # Type: console
 # Command: aro run ./Examples/DirectoryLister
 ---
@@ -10,7 +10,7 @@
   listing.error: false
   listing.exitCode: 0
   listing.message: Command executed successfully
-  listing.output: total 360
+  listing.output: total __TOTAL__
 drwxr-xr-x  43 kris  staff   1376 __DATE__ .
 drwxr-xr-x  70 kris  staff   2240 __DATE__ ..
 -rw-r--r--@  1 kris  staff   6148 __DATE__ .DS_Store
@@ -53,4 +53,4 @@ drwxr-xr-x   6 kris  staff    192 __DATE__ node_modules
 drwxr-xr-x  14 kris  staff    448 __DATE__ output
 -rw-r--r--   1 kris  staff  10193 __DATE__ package-lock.json
 -rw-r--r--   1 kris  staff     71 __DATE__ package.json
--rwxr-xr-x   1 kris  staff  32757 __DATE__ test-examples.pl
+-rwxr-xr-x   1 kris  staff  33851 __DATE__ test-examples.pl

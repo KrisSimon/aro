@@ -5,10 +5,10 @@
     <Log> the <startup: message> for the <console> with "Starting User Service...".
 
     (* Start HTTP server from OpenAPI contract *)
-    <Start> the <http-server> with <contract>.
+    <Start> the <http-server> with {}.
 
-    (* Start file monitor for the user files directory *)
-    <Start> the <file-monitor> with { directory: "./data/users" }.
+    (* TODO: File monitor not yet fully implemented *)
+    (* <Start> the <file-monitor> with { directory: "./data/users" }. *)
 
     <Log> the <ready: message> for the <console> with "User Service ready on port 8080".
 

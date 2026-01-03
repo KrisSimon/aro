@@ -1,4 +1,31 @@
-# Generated: Sat Jan  3 09:14:30 2026
+# Generated: Sat Jan  3 12:30:47 2026
 # Type: console
 # Command: aro run ./Examples/HTTPClient
 ---
+[Application-Start] HTTP Client Demo
+[Application-Start] Fetching weather data from Open-Meteo API...
+[Application-Start] Weather data received:
+[Application-Start] current_weather: interval: 900
+is_day: 1
+temperature: 0.40
+time: 2026-01-03T11:30
+weathercode: 73
+winddirection: 241
+windspeed: 16.10
+current_weather_units: interval: seconds
+is_day:
+temperature: °C
+time: iso8601
+weathercode: wmo code
+winddirection: °
+windspeed: km/h
+elevation: 38
+generationtime_ms: __TIME__
+latitude: 52.52
+longitude: 13.42
+timezone: GMT
+timezone_abbreviation: GMT
+utc_offset_seconds: 0
+[Application-Start] Making request with custom timeout...
+[Application-Start] Request completed with custom timeout
+[OK] startup

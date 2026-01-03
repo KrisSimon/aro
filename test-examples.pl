@@ -365,6 +365,9 @@ sub normalize_output {
     # Matches: "Jan  3 12:26" or "Dec 31  2025" in ls output
     $output =~ s/^([\-dlrwxs@+]+\s+\d+\s+\w+\s+\w+\s+\d+\s+)\w+\s+\d+\s+[\d:]+/$1__DATE__/gm;
 
+    # Normalize ls -la total blocks count
+    $output =~ s/listing\.output: total \d+/listing.output: total __TOTAL__/g;
+
     # Normalize API response times (generationtime_ms from weather API)
     $output =~ s/generationtime_ms: \d+\.\d+/generationtime_ms: __TIME__/g;
 
@@ -562,20 +565,37 @@ sub run_http_example_internal {
 
                 say "  Testing $method $path" if $options{verbose};
 
+                # Substitute path parameters with test values
+                my $test_url = $url;
+                $test_url =~ s/\{id\}/123/g;
+                $test_url =~ s/\{(\w+)\}/test-$1/g;
+
                 my $response;
                 if (uc($method) eq 'GET') {
-                    $response = $http->get($url);
+                    $response = $http->get($test_url);
                 } elsif (uc($method) eq 'POST') {
-                    $response = $http->post($url, {
+                    $response = $http->post($test_url, {
                         headers => { 'Content-Type' => 'application/json' },
                         content => '{"message":"test"}',
                     });
+                } elsif (uc($method) eq 'PUT') {
+                    $response = $http->put($test_url, {
+                        headers => { 'Content-Type' => 'application/json' },
+                        content => '{"message":"test"}',
+                    });
+                } elsif (uc($method) eq 'DELETE') {
+                    $response = $http->delete($test_url);
+                } else {
+                    # Unsupported method, skip
+                    next;
                 }
 
-                if ($response->{success}) {
+                if ($response && $response->{success}) {
                     push @output, sprintf("%s %s => %s", uc($method), $path, $response->{content});
-                } else {
+                } elsif ($response) {
                     push @output, sprintf("%s %s => ERROR: %s %s", uc($method), $path, $response->{status}, $response->{reason});
+                } else {
+                    push @output, sprintf("%s %s => ERROR: No response", uc($method), $path);
                 }
             }
         }

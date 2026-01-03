@@ -1,0 +1,3 @@
+# ParallelForEach demonstrates concurrent iteration with non-deterministic order
+# Parallel iteration executes in TaskGroup with unpredictable completion sequence
+occurrence-check: true
