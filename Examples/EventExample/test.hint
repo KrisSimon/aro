@@ -1,0 +1,3 @@
+# EventExample has concurrent event handlers with non-deterministic order
+# Use occurrence-based validation instead of exact output matching
+occurrence-check: true

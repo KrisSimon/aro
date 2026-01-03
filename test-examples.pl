@@ -163,6 +163,7 @@ sub read_test_hint {
         skip => undef,
         'pre-script' => undef,
         'test-script' => undef,
+        'occurrence-check' => undef,
     );
 
     # Return empty hints if file doesn't exist (backward compatible)
@@ -374,6 +375,32 @@ sub normalize_output {
     $output =~ s/\b[a-f0-9]{32,64}\b/__HASH__/g if $type && $type eq 'hash';
 
     return $output;
+}
+
+# Check if all expected lines occur in output (order-independent)
+sub check_output_occurrences {
+    my ($actual, $expected) = @_;
+
+    # Split into lines
+    my @expected_lines = split /\n/, $expected;
+    my @missing = ();
+
+    # Check each expected line appears in actual output
+    for my $expected_line (@expected_lines) {
+        # Skip empty lines
+        next if $expected_line =~ /^\s*$/;
+
+        # Escape regex metacharacters in expected line
+        my $pattern = quotemeta($expected_line);
+
+        # Check if line appears anywhere in actual output
+        unless ($actual =~ /$pattern/m) {
+            push @missing, $expected_line;
+        }
+    }
+
+    # If no missing lines, test passes
+    return (scalar(@missing) == 0, \@missing);
 }
 
 # Run console example (public interface)
@@ -835,26 +862,60 @@ sub run_test {
     $expected =~ s/^#.*?\n---\n//s;
     $expected = normalize_output($expected, $type);
 
-    if ($output eq $expected) {
-        return {
-            name => $example_name,
-            type => $type,
-            status => 'PASS',
-            message => '',
-            duration => $duration,
-        };
-    } else {
-        my $diff = '';
-        if ($options{verbose}) {
-            $diff = "\nExpected:\n$expected\n\nActual:\n$output\n";
+    # Choose validation method based on occurrence-check directive
+    if (defined $hints->{'occurrence-check'} && $hints->{'occurrence-check'} eq 'true') {
+        # Use occurrence-based validation (order-independent)
+        my ($all_found, $missing_ref) = check_output_occurrences($output, $expected);
+
+        if ($all_found) {
+            say "  All expected output lines found (order-independent)" if $options{verbose};
+            return {
+                name => $example_name,
+                type => $type,
+                status => 'PASS',
+                message => '',
+                duration => $duration,
+            };
+        } else {
+            my @missing = @$missing_ref;
+            my $diff = '';
+            if ($options{verbose}) {
+                $diff = "\nExpected:\n$expected\n\nActual:\n$output\n";
+            }
+            return {
+                name => $example_name,
+                type => $type,
+                status => 'FAIL',
+                message => "Missing " . scalar(@missing) . " expected line(s)$diff",
+                duration => $duration,
+                expected => $expected,
+                actual => $output,
+                diff => "Missing lines:\n" . join("\n", map { "  - $_" } @missing),
+            };
         }
-        return {
-            name => $example_name,
-            type => $type,
-            status => 'FAIL',
-            message => "Output mismatch$diff",
-            duration => $duration,
-        };
+    } else {
+        # Use exact string comparison (current behavior)
+        if ($output eq $expected) {
+            return {
+                name => $example_name,
+                type => $type,
+                status => 'PASS',
+                message => '',
+                duration => $duration,
+            };
+        } else {
+            my $diff = '';
+            if ($options{verbose}) {
+                $diff = "\nExpected:\n$expected\n\nActual:\n$output\n";
+            }
+            return {
+                name => $example_name,
+                type => $type,
+                status => 'FAIL',
+                message => "Output mismatch$diff",
+                duration => $duration,
+            };
+        }
     }
 }
 
