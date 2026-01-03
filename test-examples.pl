@@ -156,9 +156,22 @@ sub detect_example_type {
 
     my $dir = File::Spec->catdir($examples_dir, $example_name);
 
-    # Check for OpenAPI contract
+    # Check for OpenAPI contract with non-empty paths
     if (-f File::Spec->catfile($dir, 'openapi.yaml')) {
-        return 'http';
+        # Only treat as HTTP if the spec has actual paths defined
+        if ($has_yaml) {
+            my $has_paths = 0;
+            eval {
+                my $spec = YAML::XS::LoadFile(File::Spec->catfile($dir, 'openapi.yaml'));
+                $has_paths = 1 if $spec->{paths} && keys %{$spec->{paths}} > 0;
+            };
+            # Return 'http' if we found actual paths
+            return 'http' if $has_paths;
+            # Otherwise fall through to console detection
+        } else {
+            # If YAML::XS not available, assume HTTP (conservative)
+            return 'http';
+        }
     }
 
     # Check ARO source for specific patterns
@@ -208,7 +221,7 @@ sub run_console_example {
         # Use IPC::Run for better control
         my ($in, $out, $err) = ('', '', '');
         my $handle = eval {
-            IPC::Run::start(['aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout($options{timeout}));
+            IPC::Run::start(['.build/release/aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout($options{timeout}));
         };
 
         if ($@) {
@@ -230,7 +243,7 @@ sub run_console_example {
         return ($out, undef);
     } else {
         # Fallback to system()
-        my $output = `aro run $dir 2>&1`;
+        my $output = `.build/release/aro run $dir 2>&1`;
         my $exit_code = $? >> 8;
 
         if ($exit_code != 0) {
@@ -272,7 +285,7 @@ sub run_http_example {
     # Start server in background
     my ($in, $out, $err) = ('', '', '');
     my $handle = eval {
-        IPC::Run::start(['aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout(30));
+        IPC::Run::start(['.build/release/aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout(30));
     };
 
     if ($@) {
@@ -361,7 +374,7 @@ sub run_socket_example {
     # Start server in background
     my ($in, $out, $err) = ('', '', '');
     my $handle = eval {
-        IPC::Run::start(['aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout(30));
+        IPC::Run::start(['.build/release/aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout(30));
     };
 
     if ($@) {
@@ -437,7 +450,7 @@ sub run_file_watcher_example {
     # Start watcher in background
     my ($in, $out, $err) = ('', '', '');
     my $handle = eval {
-        IPC::Run::start(['aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout(30));
+        IPC::Run::start(['.build/release/aro', 'run', $dir], \$in, \$out, \$err, IPC::Run::timeout(30));
     };
 
     if ($@) {
