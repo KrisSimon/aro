@@ -82,7 +82,7 @@ Actions are classified by their data flow direction:
                     Start
                     Stop
                     Listen
-                    Wait
+                    Keepalive
 ```
 
 #### 2.1 REQUEST Actions (External to Internal)
@@ -163,7 +163,7 @@ SERVER actions manage long-running services and application lifecycle.
 | **Route** | route, dispatch, forward | through, via, to | Route requests |
 | **Connect** | connect | to, with | Connect to remote servers |
 | **Close** | close, disconnect, terminate | with, from | Close connections |
-| **Wait** | wait, keepalive, block | for | Keep application alive for events |
+| **Keepalive** | wait, keepalive, block | for | Keep application alive for events |
 | **Make** | make, touch, mkdir, createdirectory | to, for, at | Create files/directories |
 | **Copy** | copy | to | Copy files/directories |
 | **Move** | move, rename | to | Move/rename files |
@@ -643,7 +643,7 @@ Actions must be `Sendable` and thread-safe. Do not store mutable state in action
 | 31 | Route | own | route, dispatch, forward | through, via, to |
 | 32 | Connect | own | connect | to, with |
 | 33 | Close | own | close, disconnect, terminate | with, from |
-| 34 | Wait | own | wait, keepalive, block | for |
+| 34 | Keepalive | own | wait, keepalive, block | for |
 | 35 | Make | own | make, touch, mkdir, createdirectory | to, for, at |
 | 36 | Copy | own | copy | to |
 | 37 | Move | own | move, rename | to |
@@ -706,7 +706,7 @@ preposition = "from" | "for" | "into" | "to" | "via"
 (Application-Start: My Server) {
     <Log> "Starting server..." to the <console>.
     <Start> the <http-server> with <contract>.
-    <Wait> for <shutdown-signal>.
+    <Keepalive> the <application> for the <events>.
     <Return> an <OK: status> for the <startup>.
 }
 ```
