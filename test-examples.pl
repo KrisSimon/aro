@@ -669,12 +669,53 @@ sub run_http_example_internal {
         return (undef, "Failed to start server: $@");
     }
 
-    # Register cleanup
+    # Register cleanup with graceful shutdown
     my $cleanup = sub {
         eval {
-            kill 'TERM', $handle->pid if $handle->pumpable;
-            sleep 0.5;
-            IPC::Run::kill_kill($handle) if $handle->pumpable;
+            say "  [Cleanup] Starting cleanup..." if $options{verbose};
+
+            # Check if handle has running processes
+            unless ($handle->pumpable()) {
+                say "  [Cleanup] No running processes to clean up" if $options{verbose};
+                return 1;
+            }
+
+            say "  [Cleanup] Sending TERM signal for graceful shutdown" if $options{verbose};
+
+            # Send TERM signal for graceful shutdown
+            eval { $handle->signal('TERM'); };
+            if ($@) {
+                say "  [Cleanup] Warning: Failed to send TERM: $@" if $options{verbose};
+            }
+
+            # Wait up to 3 seconds for graceful shutdown
+            my $max_wait = 3.0;
+            my $waited = 0;
+            while ($waited < $max_wait && $handle->pumpable()) {
+                select(undef, undef, undef, 0.1);  # Sleep 0.1 seconds
+                $waited += 0.1;
+
+                # Pump to process any pending I/O and check status
+                eval { $handle->pump_nb(); };
+            }
+
+            # Check if process finished gracefully
+            if (!$handle->pumpable()) {
+                say "  [Cleanup] Process shut down gracefully" if $options{verbose};
+                return 1;
+            }
+
+            # If still running after 3 seconds, force kill
+            say "  [Cleanup] Warning: Process did not shutdown gracefully, forcing kill" if $options{verbose};
+            eval { $handle->kill_kill(); };
+            if ($@) {
+                say "  [Cleanup] Warning: kill_kill failed: $@" if $options{verbose};
+            }
+
+            return 1;
+        } or do {
+            my $error = $@ || "unknown error";
+            say "  [Cleanup] Error during cleanup: $error" if $options{verbose};
         };
     };
     push @cleanup_handlers, $cleanup;
@@ -837,12 +878,53 @@ sub run_socket_example_internal {
         return (undef, "Failed to start socket server: $@");
     }
 
-    # Register cleanup
+    # Register cleanup with graceful shutdown
     my $cleanup = sub {
         eval {
-            kill 'TERM', $handle->pid if $handle->pumpable;
-            sleep 0.5;
-            IPC::Run::kill_kill($handle) if $handle->pumpable;
+            say "  [Cleanup] Starting cleanup..." if $options{verbose};
+
+            # Check if handle has running processes
+            unless ($handle->pumpable()) {
+                say "  [Cleanup] No running processes to clean up" if $options{verbose};
+                return 1;
+            }
+
+            say "  [Cleanup] Sending TERM signal for graceful shutdown" if $options{verbose};
+
+            # Send TERM signal for graceful shutdown
+            eval { $handle->signal('TERM'); };
+            if ($@) {
+                say "  [Cleanup] Warning: Failed to send TERM: $@" if $options{verbose};
+            }
+
+            # Wait up to 3 seconds for graceful shutdown
+            my $max_wait = 3.0;
+            my $waited = 0;
+            while ($waited < $max_wait && $handle->pumpable()) {
+                select(undef, undef, undef, 0.1);  # Sleep 0.1 seconds
+                $waited += 0.1;
+
+                # Pump to process any pending I/O and check status
+                eval { $handle->pump_nb(); };
+            }
+
+            # Check if process finished gracefully
+            if (!$handle->pumpable()) {
+                say "  [Cleanup] Process shut down gracefully" if $options{verbose};
+                return 1;
+            }
+
+            # If still running after 3 seconds, force kill
+            say "  [Cleanup] Warning: Process did not shutdown gracefully, forcing kill" if $options{verbose};
+            eval { $handle->kill_kill(); };
+            if ($@) {
+                say "  [Cleanup] Warning: kill_kill failed: $@" if $options{verbose};
+            }
+
+            return 1;
+        } or do {
+            my $error = $@ || "unknown error";
+            say "  [Cleanup] Error during cleanup: $error" if $options{verbose};
         };
     };
     push @cleanup_handlers, $cleanup;
