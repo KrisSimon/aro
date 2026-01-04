@@ -8,7 +8,6 @@ Complete reference of all 50 ARO actions organized by category.
 | **Receive**   | Communication     | REQUEST           | Accepts incoming data or message from external source.<br>`<Receive> the <message> from the <event>.` |
 | **Request**   | Communication     | REQUEST           | Initiates a query or ask for data or service.<br>`<Request> the <data> from the <api-url>.` |
 | **Listen**    | Communication     | OWN               | Waits for incoming events or data.<br>`<Listen> on port 9000 as <socket-server>.` |
-| **Route**     | Communication     | OWN               | Directs data or calls to a destination.<br>`<Route> the <handler> for "/api/users".` |
 | **Connect**   | Communication     | OWN               | Establishes a link between endpoints.<br>`<Connect> to <host: "localhost"> on port 5432 as <db>.` |
 | **Close**     | Communication     | OWN               | Terminates a connection or handle.<br>`<Close> the <database-connection>.` |
 | **Keepalive** | Communication     | OWN               | Maintains an active connection.<br>`<Keepalive> the <application> for the <events>.` |
@@ -57,13 +56,13 @@ Complete reference of all 50 ARO actions organized by category.
 ## Summary by Semantic Role
 
 - **REQUEST** (8 actions): Extract, Retrieve, Receive, Request, Read, List, Stat, Exists
-- **OWN** (32 actions): Compute, Validate, Compare, Transform, Create, Update, Filter, Sort, Split, Merge, Copy, Move, Map, Reduce, Accept, Given, When, Then, Assert, Start, Stop, Listen, Route, Connect, Close, Keepalive, Make, Execute, Call
+- **OWN** (31 actions): Compute, Validate, Compare, Transform, Create, Update, Filter, Sort, Split, Merge, Copy, Move, Map, Reduce, Accept, Given, When, Then, Assert, Start, Stop, Listen, Connect, Close, Keepalive, Make, Execute, Call
 - **RESPONSE** (8 actions): Return, Throw, Send, Log, Write, Append, Notify, Broadcast
 - **EXPORT** (3 actions): Publish, Store, Emit, Delete
 
 ## Summary by Category
 
-- **Communication** (12): Send, Receive, Request, Listen, Route, Connect, Close, Keepalive, Notify, Broadcast, Publish, Emit
+- **Communication** (11): Send, Receive, Request, Listen, Connect, Close, Keepalive, Notify, Broadcast, Publish, Emit
 - **Construction** (1): Make
 - **Control** (3): Execute, Call, Return
 - **Control/Spec** (3): Given, When, Then

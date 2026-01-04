@@ -47,7 +47,6 @@ Complete reference for all built-in actions in ARO.
 | **Connect** | SERVICE | Connect to service | `<Connect> to <host: "db"> on port 5432.` |
 | **Close** | SERVICE | Close connection | `<Close> the <connection>.` |
 | **Broadcast** | SERVICE | Send to all connections | `<Broadcast> the <msg> to the <server>.` |
-| **Route** | SERVICE | Define HTTP route | `<Route> the <handler> for "/api/users".` |
 | **Keepalive** | SERVICE | Keep app running | `<Keepalive> the <app> for the <events>.` |
 | **Call** | SERVICE | Call external API | `<Call> the <result> via <API: POST /users>.` |
 | **Accept** | STATE | Accept state transition | `<Accept> the <order: placed>.` |
@@ -1053,7 +1052,6 @@ The `Keepalive` action blocks execution until a shutdown signal is received (SIG
 | Listen | SERVICE | on, as |
 | Connect | SERVICE | to, on, as |
 | Close | SERVICE | - |
-| Route | SERVICE | for |
 | Call | SERVICE | via, with |
 | Broadcast | SERVICE | to, with |
 | Keepalive | SERVICE | for |
