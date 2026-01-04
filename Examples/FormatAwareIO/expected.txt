@@ -1,6 +1,8 @@
-# Generated: Sat Jan  3 12:30:46 2026
+# Generated: Sun Jan  4 12:20:09 2026
 # Type: console
 # Command: aro run ./Examples/FormatAwareIO
+# NOTE: This example uses test-script for verification
+# This expected.txt is for reference only, not used in testing
 ---
 [Application-Start] === Writing data to multiple formats ===
 [Application-Start] Wrote users.json

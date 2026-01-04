@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 12:31:03 2026
+# Generated: Sun Jan  4 12:20:26 2026
 # Type: console
 # Command: aro run ./Examples/ParallelForEach
 ---
@@ -21,8 +21,8 @@
 [Application-Start] 6
 [Application-Start] 2
 [Application-Start] 7
+[Application-Start] 8
 [Application-Start] 9
 [Application-Start] 10
-[Application-Start] 8
 [Application-Start] === Done ===
 [OK] demo

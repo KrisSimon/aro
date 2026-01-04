@@ -62,4 +62,5 @@ homebrew-aro/
 /Examples/SQLiteExample/plugins/SQLitePlugin/.build
 /Examples/FileOperations/demo-output
 /Examples/ExternalService/plugins/CounterPlugin/.build
+**/.build/
 /data
