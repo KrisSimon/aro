@@ -1,4 +1,4 @@
-# Generated: Sun Jan  4 01:29:16 2026
+# Generated: Sun Jan  4 12:19:53 2026
 # Type: console
 # Command: aro run ./Examples/Expressions
 ---
@@ -8,5 +8,3 @@
 [Application-Start] 108.00
 [Application-Start] John Doe
 [OK] application
-[EventLoopGroupManager] atexit handler called - shutting down event loops
-[EventLoopGroupManager] Shutdown complete

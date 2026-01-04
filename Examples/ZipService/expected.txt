@@ -1,15 +1,11 @@
-# Generated: Sun Jan  4 01:29:44 2026
+# Generated: Sun Jan  4 12:20:50 2026
 # Type: console
 # Command: aro run ./Examples/ZipService
 ---
 [PluginLoader] Building package plugin: ZipPlugin
-[PluginLoader] Registered plugin service: zip
-[PluginLoader] Loaded package plugin: ZipPlugin
+[PluginLoader] Warning: Failed to load package plugin ZipPlugin: Failed to load plugin 'ZipPlugin': dlopen(./Examples/ZipService/plugins/ZipPlugin/.build/release/libZipPlugin.dylib, 0x0006): tried: './Examples/ZipService/plugins/ZipPlugin/.build/release/libZipPlugin.dylib' (code signature in <559E66E2-1A16-3754-A8EE-3C99A3ED97AC> './Examples/ZipService/plugins/ZipPlugin/.build/arm64-apple-macosx/release/libZipPlugin.dylib' not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs), '/System/Volumes/Preboot/Cryptexes/OS./Examples/ZipService/plugins/ZipPlugin/.build/release/libZipPlugin.dylib' (no such file), './Examples/ZipService/plugins/ZipPlugin/.build/release/libZipPlugin.dylib' (code signature in <559E66E2-1A16-3754-A8EE-3C99A3ED97AC> './Examples/ZipService/plugins/ZipPlugin/.build/arm64-apple-macosx/release/libZipPlugin.dylib' not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs), './Examples/ZipService/plugins/ZipPlugin/.build/arm64-apple-macosx/release/libZipPlugin.dylib' (code signature in <559E66E2-1A16-3754-A8EE-3C99A3ED97AC> './Examples/ZipService/plugins/ZipPlugin/.build/arm64-apple-macosx/release/libZipPlugin.dylib' not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs), '/System/Volumes/Preboot/Cryptexes/OS./Examples/ZipService/plugins/ZipPlugin/.build/arm64-apple-macosx/release/libZipPlugin.dylib' (no such file), './Examples/ZipService/plugins/ZipPlugin/.build/arm64-apple-macosx/release/libZipPlugin.dylib' (code signature in <559E66E2-1A16-3754-A8EE-3C99A3ED97AC> './Examples/ZipService/plugins/ZipPlugin/.build/arm64-apple-macosx/release/libZipPlugin.dylib' not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs)
 [Application-Start] Testing zip plugin...
-[Application-Start] Zip result:
-[Application-Start] filesCompressed: 2
-output: Examples/ZipService/content/archive.zip
-success: true
-[OK] startup
-[EventLoopGroupManager] atexit handler called - shutting down event loops
-[EventLoopGroupManager] Shutdown complete
+Runtime error: Runtime Error: Cannot call the result from the zip: compress.
+  Feature: Application-Start
+  Business Activity: Zip Service Demo
+  Statement: <Call> the <result> from the <zip: compress>.

@@ -1,4 +1,4 @@
-# Generated: Sun Jan  4 01:29:09 2026
+# Generated: Sun Jan  4 12:19:45 2026
 # Type: console
 # Command: aro run ./Examples/Computations
 ---
@@ -31,5 +31,3 @@
 [Application-Start] 4
 [Application-Start] === Demo Complete ===
 [OK] demo
-[EventLoopGroupManager] atexit handler called - shutting down event loops
-[EventLoopGroupManager] Shutdown complete

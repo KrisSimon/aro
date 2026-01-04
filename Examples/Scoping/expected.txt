@@ -1,4 +1,4 @@
-# Generated: Sun Jan  4 01:29:40 2026
+# Generated: Sun Jan  4 12:20:38 2026
 # Type: console
 # Command: aro run ./Examples/Scoping
 ---
@@ -9,5 +9,3 @@
 [Application-Start] Scoping Demo
 [Application-Start] 1.0
 [OK] startup
-[EventLoopGroupManager] atexit handler called - shutting down event loops
-[EventLoopGroupManager] Shutdown complete

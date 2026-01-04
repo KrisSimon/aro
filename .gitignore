@@ -61,6 +61,6 @@ homebrew-aro/
 /Examples/ZipService/content/archive.zip
 /Examples/SQLiteExample/plugins/SQLitePlugin/.build
 /Examples/FileOperations/demo-output
-**/.build/
 /Examples/ExternalService/plugins/CounterPlugin/.build
+**/.build/
 /data

@@ -1,6 +1,8 @@
-# Generated: Sun Jan  4 01:29:30 2026
+# Generated: Sun Jan  4 12:20:09 2026
 # Type: console
 # Command: aro run ./Examples/FormatAwareIO
+# NOTE: This example uses test-script for verification
+# This expected.txt is for reference only, not used in testing
 ---
 [Application-Start] === Writing data to multiple formats ===
 [Application-Start] Wrote users.json
@@ -55,5 +57,3 @@ DATABASE_PORT: 5432
 [Application-Start]
 [Application-Start] === Format-Aware I/O demo complete! ===
 [OK] demo
-[EventLoopGroupManager] atexit handler called - shutting down event loops
-[EventLoopGroupManager] Shutdown complete
