@@ -1,4 +1,4 @@
-# Generated: Sun Jan  4 01:15:06 2026
+# Generated: Sun Jan  4 01:29:13 2026
 # Type: console
 # Command: aro run ./Examples/DirectoryLister
 ---
@@ -54,6 +54,6 @@ drwxr-xr-x   6 kris  staff    192 __DATE__ node_modules
 drwxr-xr-x  14 kris  staff    448 __DATE__ output
 -rw-r--r--   1 kris  staff  10193 __DATE__ package-lock.json
 -rw-r--r--   1 kris  staff     71 __DATE__ package.json
--rwxr-xr-x   1 kris  staff  48043 __DATE__ test-examples.pl
+-rwxr-xr-x   1 kris  staff  48297 __DATE__ test-examples.pl
 [EventLoopGroupManager] atexit handler called - shutting down event loops
 [EventLoopGroupManager] Shutdown complete
