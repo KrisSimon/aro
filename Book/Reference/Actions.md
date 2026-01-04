@@ -25,7 +25,6 @@ Complete reference of all 50 ARO actions organized by category.
 | **Then**      | Control/Spec      | OWN               | Denotes expected result after condition.<br>`<Then> the <result> with <expected>.` |
 | **Extract**   | Data Access       | REQUEST           | Pulls a subset or component from a larger data structure.<br>`<Extract> the <user-id> from the <request: parameters>.` |
 | **Retrieve**  | Data Access       | REQUEST           | Gets existing data by key or identifier.<br>`<Retrieve> the <user> from the <user-repository> where id = <id>.` |
-| **Fetch**     | Data Access       | REQUEST           | Requests data from a remote or deferred resource.<br>`<Fetch> the <data> from "https://api.example.com/users".` |
 | **List**      | Enumeration       | REQUEST           | Enumerates items in a collection or directory.<br>`<List> the <files> from the <directory: "./src">.` |
 | **Filter**    | Enumeration       | OWN               | Selects items matching criteria.<br>`<Filter> the <active> from the <users> where status = "active".` |
 | **Sort**      | Enumeration       | OWN               | Orders items in a sequence.<br>`<Sort> the <users> by <name>.` |
@@ -57,7 +56,7 @@ Complete reference of all 50 ARO actions organized by category.
 
 ## Summary by Semantic Role
 
-- **REQUEST** (9 actions): Extract, Retrieve, Receive, Fetch, Request, Read, List, Stat, Exists
+- **REQUEST** (8 actions): Extract, Retrieve, Receive, Request, Read, List, Stat, Exists
 - **OWN** (32 actions): Compute, Validate, Compare, Transform, Create, Update, Filter, Sort, Split, Merge, Copy, Move, Map, Reduce, Accept, Given, When, Then, Assert, Start, Stop, Listen, Route, Connect, Close, Keepalive, Make, Execute, Call
 - **RESPONSE** (8 actions): Return, Throw, Send, Log, Write, Append, Notify, Broadcast
 - **EXPORT** (3 actions): Publish, Store, Emit, Delete
@@ -68,7 +67,7 @@ Complete reference of all 50 ARO actions organized by category.
 - **Construction** (1): Make
 - **Control** (3): Execute, Call, Return
 - **Control/Spec** (3): Given, When, Then
-- **Data Access** (3): Extract, Retrieve, Fetch
+- **Data Access** (2): Extract, Retrieve
 - **Enumeration** (3): List, Filter, Sort
 - **Error Handling** (1): Throw
 - **Execution Control** (2): Start, Stop
