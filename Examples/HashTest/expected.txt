@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:20 2026
+# Generated: Sun Jan  4 01:07:36 2026
 # Type: console
 # Command: aro run ./Examples/HashTest
 ---
@@ -9,3 +9,5 @@
 [Application-Start] Second hash of 'hello' (should match):
 [Application-Start] 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
 [OK] test
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

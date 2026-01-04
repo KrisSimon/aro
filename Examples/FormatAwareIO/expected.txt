@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:18 2026
+# Generated: Sun Jan  4 01:07:34 2026
 # Type: console
 # Command: aro run ./Examples/FormatAwareIO
 ---
@@ -55,3 +55,5 @@ DATABASE_PORT: 5432
 [Application-Start]
 [Application-Start] === Format-Aware I/O demo complete! ===
 [OK] demo
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

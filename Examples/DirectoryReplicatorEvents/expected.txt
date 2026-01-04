@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:03 2026
+# Generated: Sun Jan  4 01:07:19 2026
 # Type: console
 # Command: aro run ./Examples/DirectoryReplicatorEvents
 # NOTE: This example uses test-script for verification
@@ -15,3 +15,5 @@
 [Audit Directory Changes] [AUDIT] directory-repository: created
 [Process Directory Entry] Created: baz
 [OK] replication
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

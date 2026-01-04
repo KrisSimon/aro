@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:22:59 2026
+# Generated: Sun Jan  4 01:07:15 2026
 # Type: console
 # Command: aro run ./Examples/ContextAware
 ---
@@ -30,3 +30,5 @@ total: 249.99
   user.name: Alice Smith
   user.role: admin
   user.score: 98.50
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

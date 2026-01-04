@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:28 2026
+# Generated: Sun Jan  4 01:08:08 2026
 # Type: console
 # Command: aro run ./Examples/Split
 ---
@@ -9,3 +9,5 @@
 [Application-Start] Parts:
 [Application-Start] [one, two, three, four]
 [OK] demo
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:00 2026
+# Generated: Sun Jan  4 01:07:16 2026
 # Type: console
 # Command: aro run ./Examples/CustomPlugin
 ---
@@ -7,3 +7,5 @@
 [Application-Start] result: Hello, ARO Developer!
 [Application-Start] result: Goodbye, ARO Developer! See you next time.
 [OK] startup
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

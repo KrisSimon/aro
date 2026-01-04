@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:30 2026
+# Generated: Sun Jan  4 01:08:10 2026
 # Type: console
 # Command: aro run ./Examples/ZipService
 ---
@@ -11,3 +11,5 @@
 output: Examples/ZipService/content/archive.zip
 success: true
 [OK] startup
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

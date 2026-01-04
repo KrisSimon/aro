@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:22 2026
+# Generated: Sun Jan  4 01:07:38 2026
 # Type: console
 # Command: aro run ./Examples/Iteration
 ---
@@ -37,3 +37,5 @@ score: 91
 [Application-Start] Charlie
 [Application-Start] Diana
 [OK] demo
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

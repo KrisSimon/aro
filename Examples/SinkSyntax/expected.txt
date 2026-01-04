@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:28 2026
+# Generated: Sun Jan  4 01:08:07 2026
 # Type: console
 # Command: aro run ./Examples/SinkSyntax
 ---
@@ -9,3 +9,5 @@
 name: Alice
 [Application-Start] Standard syntax still works
 [OK] startup
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

@@ -1,10 +1,4 @@
-# Generated: Sat Jan  3 23:23:18 2026
+# Generated: Sun Jan  4 01:07:34 2026
 # Type: file
 # Command: aro run ./Examples/FileWatcher
 ---
-[Application-Start] Starting file watcher
-[Application-Start] Watching for file changes... Press Ctrl+C to stop.
-[Handle File Created] file-created: message
-[Handle File Modified] file-modified: message
-[Handle File Deleted] file-deleted: message
-[OK] startup

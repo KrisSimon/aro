@@ -417,6 +417,9 @@ sub expected_to_pattern {
     # __HASH__ - matches hash values (32-64 hex chars) - already used in HashTest
     $pattern =~ s/__HASH__/[a-f0-9]{32,64}/g;
 
+    # __TOTAL__ - matches total blocks count in ls output
+    $pattern =~ s/__TOTAL__/\\d+/g;
+
     return $pattern;
 }
 
@@ -1143,9 +1146,6 @@ sub run_test {
         }
     }
 
-    # Normalize output
-    $output = normalize_output($output, $type);
-
     # Compare with expected output
     my $expected_file = File::Spec->catfile($examples_dir, $example_name, 'expected.txt');
 
@@ -1166,12 +1166,23 @@ sub run_test {
 
     # Strip metadata header
     $expected =~ s/^#.*?\n---\n//s;
-    $expected = normalize_output($expected, $type);
+
+    # Trim whitespace from both (without other normalization for pattern matching)
+    my $output_for_comparison = $output;
+    my $expected_for_comparison = $expected;
+    $output_for_comparison =~ s/^\s+|\s+$//g;
+    $output_for_comparison =~ s/ +$//gm;  # Remove trailing spaces from lines
+    $expected_for_comparison =~ s/^\s+|\s+$//g;
+    $expected_for_comparison =~ s/ +$//gm;
 
     # Choose validation method based on occurrence-check directive
     if (defined $hints->{'occurrence-check'} && $hints->{'occurrence-check'} eq 'true') {
         # Use occurrence-based validation (order-independent)
-        my ($all_found, $missing_ref) = check_output_occurrences($output, $expected);
+        # For occurrence check, we need normalized output
+        my $output_normalized = normalize_output($output, $type);
+        my $expected_normalized = normalize_output($expected, $type);
+
+        my ($all_found, $missing_ref) = check_output_occurrences($output_normalized, $expected_normalized);
 
         if ($all_found) {
             say "  All expected output lines found (order-independent)" if $options{verbose};
@@ -1186,7 +1197,7 @@ sub run_test {
             my @missing = @$missing_ref;
             my $diff = '';
             if ($options{verbose}) {
-                $diff = "\nExpected:\n$expected\n\nActual:\n$output\n";
+                $diff = "\nExpected:\n$expected_normalized\n\nActual:\n$output_normalized\n";
             }
             return {
                 name => $example_name,
@@ -1194,14 +1205,15 @@ sub run_test {
                 status => 'FAIL',
                 message => "Missing " . scalar(@missing) . " expected line(s)$diff",
                 duration => $duration,
-                expected => $expected,
-                actual => $output,
+                expected => $expected_normalized,
+                actual => $output_normalized,
                 diff => "Missing lines:\n" . join("\n", map { "  - $_" } @missing),
             };
         }
     } else {
         # Use pattern matching for comparison (supports __ID__, __UUID__, etc.)
-        if (matches_pattern($output, $expected)) {
+        # Do NOT normalize - pattern matching compares real values against placeholders
+        if (matches_pattern($output_for_comparison, $expected_for_comparison)) {
             return {
                 name => $example_name,
                 type => $type,
@@ -1212,7 +1224,7 @@ sub run_test {
         } else {
             my $diff = '';
             if ($options{verbose}) {
-                $diff = "\nExpected:\n$expected\n\nActual:\n$output\n";
+                $diff = "\nExpected:\n$expected_for_comparison\n\nActual:\n$output_for_comparison\n";
             }
             return {
                 name => $example_name,
@@ -1220,8 +1232,8 @@ sub run_test {
                 status => 'FAIL',
                 message => "Output mismatch$diff",
                 duration => $duration,
-                expected => $expected,
-                actual => $output,
+                expected => $expected_for_comparison,
+                actual => $output_for_comparison,
                 expected_file => $expected_file,
             };
         }

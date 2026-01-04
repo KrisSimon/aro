@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:23:22 2026
+# Generated: Sun Jan  4 01:07:39 2026
 # Type: console
 # Command: aro run ./Examples/ListTest
 ---
@@ -7,3 +7,5 @@ Runtime error: Runtime Error: Cannot list the entries from the directory: path.
   Feature: Application-Start
   Business Activity: List Test
   Statement: <List> the <entries> from the <directory: path>.
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete

@@ -1,4 +1,4 @@
-# Generated: Sat Jan  3 23:22:59 2026
+# Generated: Sun Jan  4 01:07:14 2026
 # Type: console
 # Command: aro run ./Examples/ConfigurableTimeout
 ---
@@ -6,3 +6,5 @@
 [Application-Start] Timeout value:
 [Application-Start] 10
 [OK] startup
+[EventLoopGroupManager] atexit handler called - shutting down event loops
+[EventLoopGroupManager] Shutdown complete
