@@ -1,4 +1,4 @@
-# Generated: Sun Jan  4 01:29:10 2026
+# Generated: Sun Jan  4 12:19:46 2026
 # Type: console
 # Command: aro run ./Examples/Conditionals
 ---
@@ -6,5 +6,3 @@
 [Application-Start] Handling POST request
 [Application-Start] Request successful
 [OK] demo
-[EventLoopGroupManager] atexit handler called - shutting down event loops
-[EventLoopGroupManager] Shutdown complete

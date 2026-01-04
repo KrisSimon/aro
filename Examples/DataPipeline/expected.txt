@@ -1,4 +1,4 @@
-# Generated: Sun Jan  4 01:29:12 2026
+# Generated: Sun Jan  4 12:19:49 2026
 # Type: console
 # Command: aro run ./Examples/DataPipeline
 ---
@@ -64,5 +64,3 @@ status: active]
 [Application-Start] High Value Total:
 [Application-Start] 1050.00
 [OK] pipeline-test
-[EventLoopGroupManager] atexit handler called - shutting down event loops
-[EventLoopGroupManager] Shutdown complete
